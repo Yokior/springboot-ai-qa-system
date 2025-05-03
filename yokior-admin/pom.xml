@@ -61,6 +61,12 @@
             <artifactId>yokior-generator</artifactId>
         </dependency>
 
+        <!-- 知识库模块-->
+        <dependency>
+            <groupId>com.yokior</groupId>
+            <artifactId>yokior-team</artifactId>
+        </dependency>
+
     </dependencies>
 
     <build>
