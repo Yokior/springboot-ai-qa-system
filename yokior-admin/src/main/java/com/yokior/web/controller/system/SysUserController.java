@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 import com.yokior.common.annotation.Log;
@@ -252,5 +253,16 @@ public class SysUserController extends BaseController
     public AjaxResult deptTree(SysDept dept)
     {
         return success(deptService.selectDeptTreeList(dept));
+    }
+
+    /**
+     * 根据关键词搜索用户（用于下拉选择）
+     */
+    @PreAuthorize("@ss.hasPermi('system:user:list')")
+    @GetMapping("/search-select")
+    public AjaxResult searchUsersForSelect(@RequestParam(value = "keyword", required = false, defaultValue = "") String keyword) 
+    {
+        List<SysUser> list = userService.searchUsersForSelect(keyword);
+        return AjaxResult.success(list);
     }
 }

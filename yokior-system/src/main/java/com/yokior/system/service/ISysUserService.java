@@ -203,4 +203,12 @@ public interface ISysUserService
      * @return 结果
      */
     public String importUser(List<SysUser> userList, Boolean isUpdateSupport, String operName);
+
+    /**
+     * 根据关键词搜索用户列表（用于下拉选择）
+     * 
+     * @param keyword 用户名或昵称关键词
+     * @return 用户列表（只包含基础信息，如 userId, userName, nickName）
+     */
+    public List<SysUser> searchUsersForSelect(String keyword);
 }

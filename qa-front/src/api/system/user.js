@@ -134,3 +134,12 @@ export function deptTreeSelect() {
     method: 'get'
   })
 }
+
+// 根据关键词搜索用户（用于下拉选择）
+export function searchUserSelect(keyword) {
+  return request({
+    url: '/system/user/search-select',
+    method: 'get',
+    params: { keyword } 
+  })
+}

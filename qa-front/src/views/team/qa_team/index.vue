@@ -52,12 +52,8 @@
             <el-table-column label="团队名称" align="center" prop="name" />
             <el-table-column label="团队描述" align="center" prop="description" width="200">
                 <template slot-scope="scope">
-                    <el-tooltip 
-                        v-if="scope.row.description && scope.row.description.length > 20" 
-                        :content="scope.row.description" 
-                        placement="top" 
-                        effect="light"
-                    >
+                    <el-tooltip v-if="scope.row.description && scope.row.description.length > 20"
+                        :content="scope.row.description" placement="top" effect="light">
                         <span>{{ scope.row.description.slice(0, 20) }}...</span>
                     </el-tooltip>
                     <span v-else>{{ scope.row.description }}</span>
@@ -85,19 +81,13 @@
 
         <!-- 添加或修改知识库团队对话框 -->
         <el-dialog :title="title" :visible.sync="open" width="500px" append-to-body>
-            <el-form ref="form" :model="form" :rules="rules" label-width="80px">
+            <el-form ref="form" :model="form" :rules="rules" label-width="100px">
                 <el-form-item label="团队名称" prop="name">
                     <el-input v-model="form.name" placeholder="请输入团队名称" />
                 </el-form-item>
                 <el-form-item label="团队描述" prop="description">
-                    <el-input 
-                        v-model="form.description" 
-                        type="textarea" 
-                        placeholder="请输入内容"
-                        maxlength="200"
-                        show-word-limit
-                        :autosize="{ minRows: 3, maxRows: 6 }" 
-                    />
+                    <el-input v-model="form.description" type="textarea" placeholder="请输入内容" maxlength="200"
+                        show-word-limit :autosize="{ minRows: 3, maxRows: 6 }" />
                 </el-form-item>
                 <el-form-item label="团队头像" prop="avatar">
                     <div class="team-avatar-container">
@@ -116,7 +106,12 @@
                     </el-radio-group>
                 </el-form-item>
                 <el-form-item label="团队创建者" prop="ownerUserId">
-                    <el-input v-model="form.ownerUserId" placeholder="请输入团队创建者用户ID" />
+                    <el-select v-model="form.ownerUserId" filterable remote reserve-keyword placeholder="请输入创建者用户名或昵称搜索"
+                        :remote-method="remoteSearchUsers" :loading="userSearchLoading" style="width: 100%;">
+                        <el-option v-for="item in userOptions" :key="item.userId"
+                            :label="item.nickName + ' (' + item.userName + ')'" :value="item.userId">
+                        </el-option>
+                    </el-select>
                 </el-form-item>
                 <el-form-item label="备注" prop="remark">
                     <el-input v-model="form.remark" type="textarea" placeholder="请输入内容" />
@@ -133,6 +128,7 @@
 <script>
 import { listQa_team, getQa_team, delQa_team, addQa_team, updateQa_team } from "@/api/team/qa_team"
 import TeamAvatar from "./teamAvatar"
+import { getUser, searchUserSelect } from "@/api/system/user"; // 引入新的 API 函数
 
 export default {
     name: "Qa_team",
@@ -186,7 +182,11 @@ export default {
                 status: [
                     { required: true, message: "团队状态不能为空", trigger: "change" }
                 ],
-            }
+            },
+            // 用户搜索加载状态
+            userSearchLoading: false,
+            // 用户下拉选项
+            userOptions: [],
         }
     },
     created() {
@@ -278,6 +278,16 @@ export default {
                 this.form = response.data
                 this.open = true
                 this.title = "修改知识库团队"
+
+                // 回显创建者信息
+                if (this.form.ownerUserId) {
+                    this.userOptions = [] // 清空旧选项
+                    getUser(this.form.ownerUserId).then(userResponse => {
+                        if (userResponse && userResponse.data) {
+                            this.userOptions.push(userResponse.data);
+                        }
+                    });
+                }
             })
         },
         /** 提交按钮 */
@@ -352,6 +362,27 @@ export default {
             this.download('team/qa_team/export', {
                 ...this.queryParams
             }, `qa_team_${new Date().getTime()}.xlsx`)
+        },
+        // 远程搜索用户方法 (修改后)
+        remoteSearchUsers(query) {
+            if (query !== '') {
+                this.userSearchLoading = true;
+                // 调用新的搜索接口
+                searchUserSelect(query).then(response => {
+                    this.userSearchLoading = false;
+                    if (response && response.data) {
+                         // 若依返回数据通常在 data 字段
+                        this.userOptions = response.data;
+                    } else {
+                        this.userOptions = [];
+                    }
+                }).catch(() => {
+                    this.userSearchLoading = false;
+                    this.userOptions = []; // 出错时清空
+                });
+            } else {
+                this.userOptions = [];
+            }
         }
     }
 }

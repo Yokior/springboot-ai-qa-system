@@ -547,4 +547,19 @@ public class SysUserServiceImpl implements ISysUserService
         }
         return successMsg.toString();
     }
+
+    /**
+     * 根据关键词搜索用户列表（用于下拉选择）
+     * 
+     * @param keyword 用户名或昵称关键词
+     * @return 用户列表（只包含基础信息）
+     */
+    @Override
+    public List<SysUser> searchUsersForSelect(String keyword)
+    {
+        if (StringUtils.isBlank(keyword)) {
+            return new ArrayList<>();
+        }
+        return userMapper.searchUsersForSelect(keyword);
+    }
 }

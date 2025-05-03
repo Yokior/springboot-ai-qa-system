@@ -124,4 +124,12 @@ public interface SysUserMapper
      * @return 结果
      */
     public SysUser checkEmailUnique(String email);
+
+    /**
+     * 根据关键词搜索用户列表（用于下拉选择）
+     *
+     * @param keyword 用户名或昵称关键词
+     * @return 用户列表
+     */
+    public List<SysUser> searchUsersForSelect(@Param("keyword") String keyword);
 }
