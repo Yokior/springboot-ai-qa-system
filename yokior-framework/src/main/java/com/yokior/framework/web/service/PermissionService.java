@@ -9,6 +9,7 @@ import com.yokior.common.core.domain.model.LoginUser;
 import com.yokior.common.utils.SecurityUtils;
 import com.yokior.common.utils.StringUtils;
 import com.yokior.framework.security.context.PermissionContextHolder;
+import org.springframework.beans.factory.annotation.Value;
 
 /**
  * yokior首创 自定义权限实现，ss取自SpringSecurity首字母
@@ -18,6 +19,9 @@ import com.yokior.framework.security.context.PermissionContextHolder;
 @Service("ss")
 public class PermissionService
 {
+    @Value("${yokior.test}")
+    private Boolean test;
+
     /**
      * 验证用户是否具备某权限
      * 
@@ -26,6 +30,11 @@ public class PermissionService
      */
     public boolean hasPermi(String permission)
     {
+        if (test)
+        {
+            return true;
+        }
+
         if (StringUtils.isEmpty(permission))
         {
             return false;

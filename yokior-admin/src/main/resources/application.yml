@@ -12,6 +12,8 @@ yokior:
   addressEnabled: false
   # 验证码类型 math 数字计算 char 字符验证
   captchaType: math
+  # 测试模式
+  test: false
 
 # 开发环境配置
 server:
