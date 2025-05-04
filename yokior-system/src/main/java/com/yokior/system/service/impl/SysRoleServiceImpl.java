@@ -230,6 +230,7 @@ public class SysRoleServiceImpl implements ISysRoleService
     public int insertRole(SysRole role)
     {
         // 新增角色信息
+        role.setDataScope("2"); // 设置默认数据范围为2 自定义
         roleMapper.insertRole(role);
         return insertRoleMenu(role);
     }
