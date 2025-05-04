@@ -87,7 +87,7 @@ export default {
       bottom: 0px;
     }
     .el-scrollbar__wrap {
-      height: 49px;
+      height: 49px; // 这里不需要修改，49px正好
     }
   }
 }

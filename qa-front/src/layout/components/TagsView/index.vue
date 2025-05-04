@@ -234,26 +234,30 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import "~@/assets/styles/element-variables.scss";
+
 .tags-view-container {
-  height: 34px;
+  height: 40px;
   width: 100%;
   background: #fff;
-  border-bottom: 1px solid #d8dce5;
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, .12), 0 0 3px 0 rgba(0, 0, 0, .04);
+  border-bottom: 1px solid #f0f0f0;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
   .tags-view-wrapper {
     .tags-view-item {
       display: inline-block;
       position: relative;
       cursor: pointer;
-      height: 26px;
-      line-height: 26px;
-      border: 1px solid #d8dce5;
+      height: 30px;
+      line-height: 30px;
+      border: 1px solid #e6e6e6;
       color: #495060;
       background: #fff;
-      padding: 0 8px;
-      font-size: 12px;
+      padding: 0 10px;
+      font-size: 13px;
       margin-left: 5px;
-      margin-top: 4px;
+      margin-top: 5px;
+      border-radius: 4px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       &:first-of-type {
         margin-left: 15px;
       }
@@ -261,18 +265,35 @@ export default {
         margin-right: 15px;
       }
       &.active {
-        background-color: #42b983;
+        background-color: $--color-primary;
         color: #fff;
-        border-color: #42b983;
+        border-color: $--color-primary;
         &::before {
           content: '';
           background: #fff;
           display: inline-block;
-          width: 8px;
-          height: 8px;
+          width: 6px;
+          height: 6px;
           border-radius: 50%;
           position: relative;
-          margin-right: 2px;
+          margin-right: 4px;
+          top: -1px;
+        }
+        
+        // 活动标签悬停时保持白色文字
+        &:hover {
+          color: #fff;
+        }
+      }
+      &:hover {
+        color: $--color-primary;
+        border-color: $--color-primary;
+        
+        .el-icon-close {
+          &:hover {
+            background-color: $--color-primary;
+            color: #fff;
+          }
         }
       }
     }
@@ -283,18 +304,25 @@ export default {
     z-index: 3000;
     position: absolute;
     list-style-type: none;
-    padding: 5px 0;
-    border-radius: 4px;
-    font-size: 12px;
+    padding: 8px 0;
+    border-radius: 8px;
+    font-size: 13px;
     font-weight: 400;
     color: #333;
-    box-shadow: 2px 2px 3px 0 rgba(0, 0, 0, .3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
     li {
       margin: 0;
-      padding: 7px 16px;
+      padding: 8px 16px;
       cursor: pointer;
+      display: flex;
+      align-items: center;
+      i {
+        margin-right: 8px;
+        font-size: 14px;
+      }
       &:hover {
-        background: #eee;
+        background: rgba($--color-primary, 0.08);
+        color: $--color-primary;
       }
     }
   }
@@ -302,6 +330,8 @@ export default {
 </style>
 
 <style lang="scss">
+@import "~@/assets/styles/element-variables.scss";
+
 //reset element css of el-icon-close
 .tags-view-wrapper {
   .tags-view-item {
@@ -314,12 +344,12 @@ export default {
       transition: all .3s cubic-bezier(.645, .045, .355, 1);
       transform-origin: 100% 50%;
       &:before {
-        transform: scale(.6);
+        transform: scale(.7);
         display: inline-block;
-        vertical-align: -3px;
+        vertical-align: -2px;
       }
       &:hover {
-        background-color: #b4bccc;
+        background-color: $--color-primary;
         color: #fff;
       }
     }

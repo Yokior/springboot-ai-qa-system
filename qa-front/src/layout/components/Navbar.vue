@@ -28,17 +28,23 @@
       <el-dropdown class="avatar-container right-menu-item hover-effect" trigger="click">
         <div class="avatar-wrapper">
           <img :src="avatar" class="user-avatar">
-          <i class="el-icon-caret-bottom" />
+          <span class="user-name">{{ name }}</span>
+          <i class="el-icon-arrow-down" />
         </div>
-        <el-dropdown-menu slot="dropdown">
+        <el-dropdown-menu slot="dropdown" class="user-dropdown">
           <router-link to="/user/profile">
-            <el-dropdown-item>个人中心</el-dropdown-item>
+            <el-dropdown-item>
+              <i class="el-icon-user-solid"></i>
+              个人中心
+            </el-dropdown-item>
           </router-link>
           <el-dropdown-item @click.native="setting = true">
-            <span>布局设置</span>
+            <i class="el-icon-setting"></i>
+            布局设置
           </el-dropdown-item>
           <el-dropdown-item divided @click.native="logout">
-            <span>退出登录</span>
+            <i class="el-icon-switch-button"></i>
+            退出登录
           </el-dropdown-item>
         </el-dropdown-menu>
       </el-dropdown>
@@ -72,7 +78,8 @@ export default {
     ...mapGetters([
       'sidebar',
       'avatar',
-      'device'
+      'device',
+      'name'
     ]),
     setting: {
       get() {
@@ -111,33 +118,39 @@ export default {
 </script>
 
 <style lang="scss" scoped>
+@import "~@/assets/styles/element-variables.scss";
+
 .navbar {
-  height: 50px;
+  height: 60px;
   overflow: hidden;
   position: relative;
   background: #fff;
-  box-shadow: 0 1px 4px rgba(0,21,41,.08);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
 
   .hamburger-container {
-    line-height: 46px;
+    line-height: 60px;
     height: 100%;
     float: left;
+    padding: 0 16px;
     cursor: pointer;
-    transition: background .3s;
+    transition: all .3s;
     -webkit-tap-highlight-color:transparent;
 
     &:hover {
-      background: rgba(0, 0, 0, .025)
+      background: rgba(0, 0, 0, .03)
     }
   }
 
   .breadcrumb-container {
     float: left;
+    padding-left: 16px;
+    line-height: 60px;
   }
 
   .topmenu-container {
     position: absolute;
-    left: 50px;
+    left: 70px;
+    line-height: 60px;
   }
 
   .errLog-container {
@@ -148,7 +161,8 @@ export default {
   .right-menu {
     float: right;
     height: 100%;
-    line-height: 50px;
+    line-height: 60px;
+    margin-right: 16px;
 
     &:focus {
       outline: none;
@@ -156,44 +170,77 @@ export default {
 
     .right-menu-item {
       display: inline-block;
-      padding: 0 8px;
+      padding: 0 12px;
       height: 100%;
       font-size: 18px;
-      color: #5a5e66;
+      color: #303133;
       vertical-align: text-bottom;
 
       &.hover-effect {
         cursor: pointer;
-        transition: background .3s;
+        transition: all .3s;
 
         &:hover {
-          background: rgba(0, 0, 0, .025)
+          background: rgba(0, 0, 0, .03);
+          color: $--color-primary;
         }
       }
     }
 
     .avatar-container {
-      margin-right: 30px;
+      margin-right: 10px;
 
       .avatar-wrapper {
-        margin-top: 5px;
+        display: flex;
+        align-items: center;
         position: relative;
-
+        height: 60px;
+        padding: 0 12px;
+        
         .user-avatar {
           cursor: pointer;
-          width: 40px;
-          height: 40px;
-          border-radius: 10px;
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+        
+        .user-name {
+          margin: 0 8px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #303133;
         }
 
-        .el-icon-caret-bottom {
+        .el-icon-arrow-down {
           cursor: pointer;
-          position: absolute;
-          right: -20px;
-          top: 25px;
           font-size: 12px;
+          color: #909399;
+          transition: all .3s;
+        }
+        
+        &:hover {
+          background: rgba(0, 0, 0, .03);
+          
+          .el-icon-arrow-down {
+            color: $--color-primary;
+            transform: rotate(180deg);
+          }
         }
       }
+    }
+  }
+}
+
+.user-dropdown {
+  .el-dropdown-item {
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    
+    i {
+      margin-right: 8px;
+      font-size: 16px;
     }
   }
 }

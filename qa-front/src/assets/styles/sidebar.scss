@@ -1,8 +1,11 @@
+@import './variables.scss';
+@import './element-variables.scss';
+
 #app {
 
   .main-container {
     height: 100%;
-    transition: margin-left .28s;
+    transition: margin-left .35s cubic-bezier(0.4, 0, 0.2, 1);
     margin-left: $base-sidebar-width;
     position: relative;
   }
@@ -12,8 +15,7 @@
   }
 
   .sidebar-container {
-    -webkit-transition: width .28s;
-    transition: width 0.28s;
+    transition: width .35s cubic-bezier(0.4, 0, 0.2, 1);
     width: $base-sidebar-width !important;
     background-color: $base-menu-background;
     height: 100%;
@@ -24,8 +26,7 @@
     left: 0;
     z-index: 1001;
     overflow: hidden;
-    -webkit-box-shadow: 2px 0 6px rgba(0,21,41,.35);
-    box-shadow: 0px 0px 8px 0px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
 
     // reset element-ui css
     .horizontal-collapse-transition {
@@ -46,7 +47,7 @@
 
     &.has-logo {
       .el-scrollbar {
-        height: calc(100% - 50px);
+        height: calc(100% - 64px);
       }
     }
 
@@ -68,19 +69,28 @@
       border: none;
       height: 100%;
       width: 100% !important;
+      background-color: transparent;
     }
 
     .el-menu-item, .el-submenu__title {
       overflow: hidden !important;
       text-overflow: ellipsis !important;
       white-space: nowrap !important;
+      height: 50px;
+      line-height: 50px;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 6px;
+      margin: 4px 10px;
+      padding: 0 16px !important;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     // menu hover
     .submenu-title-noDropdown,
     .el-submenu__title {
       &:hover {
-        background-color: rgba(0, 0, 0, 0.06) !important;
+        background-color: rgba(255, 255, 255, 0.08) !important;
       }
     }
 
@@ -91,29 +101,49 @@
     & .nest-menu .el-submenu>.el-submenu__title,
     & .el-submenu .el-menu-item {
       min-width: $base-sidebar-width !important;
+      background-color: transparent;
 
       &:hover {
-        background-color: rgba(0, 0, 0, 0.06) !important;
+        background-color: rgba(255, 255, 255, 0.08) !important;
       }
     }
 
     & .theme-dark .nest-menu .el-submenu>.el-submenu__title,
     & .theme-dark .el-submenu .el-menu-item {
-      background-color: $base-sub-menu-background !important;
+      background-color: transparent !important;
 
       &:hover {
-        background-color: $base-sub-menu-hover !important;
+        background-color: rgba(255, 255, 255, 0.08) !important;
+      }
+    }
+    
+    .el-menu-item.is-active {
+      background-color: $base-sub-menu-hover !important;
+      color: #ffffff !important;
+      font-weight: 600 !important;
+      position: relative;
+      
+      &:before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4px;
+        height: 20px;
+        background: $--color-primary;
+        border-radius: 0 4px 4px 0;
       }
     }
   }
 
   .hideSidebar {
     .sidebar-container {
-      width: 54px !important;
+      width: 64px !important;
     }
 
     .main-container {
-      margin-left: 54px;
+      margin-left: 64px;
     }
 
     .submenu-title-noDropdown {
@@ -168,7 +198,7 @@
     }
 
     .sidebar-container {
-      transition: transform .28s;
+      transition: transform .3s cubic-bezier(0.4, 0, 0.2, 1);
       width: $base-sidebar-width !important;
     }
 
@@ -202,7 +232,7 @@
   .el-menu-item {
     &:hover {
       // you can use $subMenuHover
-      background-color: rgba(0, 0, 0, 0.06) !important;
+      background-color: rgba(255, 255, 255, 0.08) !important;
     }
   }
 
@@ -210,9 +240,13 @@
   >.el-menu--popup {
     max-height: 100vh;
     overflow-y: auto;
+    padding: 6px 0;
+    border-radius: 8px;
+    background-color: $base-menu-background;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 
     &::-webkit-scrollbar-track-piece {
-      background: #d3dce6;
+      background: transparent;
     }
 
     &::-webkit-scrollbar {
@@ -220,8 +254,24 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: #99a9bf;
+      background: rgba(255, 255, 255, 0.3);
       border-radius: 20px;
+    }
+    
+    .el-menu-item {
+      height: 44px;
+      line-height: 44px;
+      font-size: 14px;
+      font-weight: 500;
+      border-radius: 6px;
+      margin: 4px 6px;
+      padding: 0 16px !important;
+      
+      &.is-active {
+        background-color: $base-sub-menu-hover !important;
+        color: #ffffff !important;
+        font-weight: 600 !important;
+      }
     }
   }
 }

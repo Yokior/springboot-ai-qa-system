@@ -1,8 +1,14 @@
-// cover some element-ui styles
+// 自定义 Element UI 样式，现代化高级UI
+@import "./element-variables.scss";
 
 .el-breadcrumb__inner,
 .el-breadcrumb__inner a {
-  font-weight: 400 !important;
+  font-weight: 500 !important;
+  color: #606266;
+  
+  &:hover {
+    color: $--color-primary !important;
+  }
 }
 
 .el-upload {
@@ -17,21 +23,23 @@
 
 .cell {
   .el-tag {
-    margin-right: 0px;
+    margin-right: 4px;
+    border-radius: 4px;
   }
 }
 
 .small-padding {
   .cell {
-    padding-left: 5px;
-    padding-right: 5px;
+    padding-left: 8px;
+    padding-right: 8px;
   }
 }
 
 .fixed-width {
   .el-button--mini {
-    padding: 7px 10px;
-    width: 60px;
+    padding: 7px 12px;
+    width: 64px;
+    border-radius: 6px;
   }
 }
 
@@ -46,15 +54,43 @@
   }
 }
 
-// to fixed https://github.com/ElemeFE/element/issues/2461
+// 对话框样式优化
 .el-dialog {
   transform: none;
   left: 0;
   position: relative;
   margin: 0 auto;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  
+  .el-dialog__header {
+    padding: 20px 24px;
+    border-bottom: 1px solid #f0f0f0;
+    
+    .el-dialog__title {
+      font-weight: 600;
+      font-size: 16px;
+      color: #303133;
+    }
+    
+    .el-dialog__headerbtn {
+      top: 20px;
+      right: 20px;
+    }
+  }
+  
+  .el-dialog__body {
+    padding: 24px;
+  }
+  
+  .el-dialog__footer {
+    padding: 16px 24px;
+    border-top: 1px solid #f0f0f0;
+  }
 }
 
-// refine element ui upload
+// 上传组件样式优化
 .upload-container {
   .el-upload {
     width: 100%;
@@ -62,27 +98,105 @@
     .el-upload-dragger {
       width: 100%;
       height: 200px;
+      border: 2px dashed #e4e7ed;
+      border-radius: 8px;
+      transition: all 0.3s;
+      
+      &:hover {
+        border-color: $--color-primary;
+      }
+      
+      .el-icon-upload {
+        margin-bottom: 16px;
+        color: #909399;
+      }
     }
   }
 }
 
-// dropdown
+// 下拉菜单样式优化
 .el-dropdown-menu {
+  padding: 8px 0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  
+  .el-dropdown-menu__item {
+    padding: 8px 16px;
+    line-height: 1.5;
+    font-size: 14px;
+    
+    &:hover {
+      background-color: rgba($--color-primary, 0.08);
+      color: $--color-primary;
+    }
+    
+    &.is-disabled {
+      opacity: 0.6;
+    }
+  }
+  
   a {
-    display: block
+    display: block;
   }
 }
 
-// fix date-picker ui bug in filter-item
+// 修复日期选择器在过滤项中的UI bug
 .el-range-editor.el-input__inner {
   display: inline-flex !important;
+  border-radius: 6px;
 }
 
-// to fix el-date-picker css style
+// 修复日期选择器的CSS样式
 .el-range-separator {
   box-sizing: content-box;
 }
 
+// 表格样式优化
+.el-table {
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  
+  th.el-table__cell {
+    background-color: #f5f7fa;
+    font-weight: 600;
+    color: #303133;
+    padding: 12px 0;
+  }
+  
+  td.el-table__cell {
+    padding: 12px 0;
+  }
+  
+  .el-button {
+    padding: 6px 12px;
+    border-radius: 6px;
+  }
+}
+
+// 表单样式优化
+.el-form {
+  .el-form-item__label {
+    font-weight: 500;
+  }
+  
+  .el-input__inner, 
+  .el-textarea__inner {
+    border-radius: 6px;
+    
+    &:focus {
+      border-color: $--color-primary;
+      box-shadow: 0 0 0 2px rgba($--color-primary, 0.2);
+    }
+  }
+  
+  .el-select .el-input.is-focus .el-input__inner {
+    border-color: $--color-primary;
+    box-shadow: 0 0 0 2px rgba($--color-primary, 0.2);
+  }
+}
+
+// 修复菜单折叠时的图标显示
 .el-menu--collapse
   > div
   > .el-submenu
