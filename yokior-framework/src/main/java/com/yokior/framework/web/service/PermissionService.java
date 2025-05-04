@@ -12,7 +12,7 @@ import com.yokior.framework.security.context.PermissionContextHolder;
 import org.springframework.beans.factory.annotation.Value;
 
 /**
- * yokior首创 自定义权限实现，ss取自SpringSecurity首字母
+ * 自定义权限实现，ss取自SpringSecurity首字母
  * 
  * @author yokior
  */
