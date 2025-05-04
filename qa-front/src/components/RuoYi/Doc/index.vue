@@ -6,10 +6,10 @@
 
 <script>
 export default {
-  name: 'RuoYiDoc',
+  name: 'YokiorDoc',
   data() {
     return {
-      url: 'http://doc.ruoyi.vip/ruoyi-vue'
+        url: 'https://github.com/Yokior/springboot-ai-qa-system'
     }
   },
   methods: {
