@@ -78,6 +78,8 @@ export default {
       display: flex;
       align-items: center;
       height: 64px;
+      justify-content: center;
+      margin: 0 auto;
     }
 
     & .sidebar-logo {
