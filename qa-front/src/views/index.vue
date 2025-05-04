@@ -797,7 +797,7 @@ export default {
   .chart-row {
     margin-bottom: 20px;
   }
-  
+
   .chart-wrapper {
     margin-bottom: 20px;
   }
