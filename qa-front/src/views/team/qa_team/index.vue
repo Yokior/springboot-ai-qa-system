@@ -1,7 +1,7 @@
 <template>
     <div class="app-container">
         <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch"
-            label-width="68px">
+            label-width="70px">
             <el-form-item label="团队名称" prop="name">
                 <el-input v-model="queryParams.name" placeholder="请输入团队名称" clearable
                     @keyup.enter.native="handleQuery" />
@@ -60,7 +60,14 @@
                 </template>
             </el-table-column>
 
-            <el-table-column label="团队创建者用户ID" align="center" prop="ownerUserId" />
+            <el-table-column label="团队创建者" align="center">
+                <template slot-scope="scope">
+                    <el-tooltip v-if="scope.row.ownerUserInfo" :content="`ID: ${scope.row.ownerUserId}`" placement="top">
+                        <span>{{ scope.row.ownerUserInfo.nickName }} ({{ scope.row.ownerUserInfo.userName }})</span>
+                    </el-tooltip>
+                    <span v-else>{{ scope.row.ownerUserId }}</span>
+                </template>
+            </el-table-column>
             <el-table-column label="团队状态" align="center" prop="status">
                 <template slot-scope="scope">
                     <dict-tag :options="dict.type.sys_normal_disable" :value="scope.row.status" />
@@ -187,6 +194,8 @@ export default {
             userSearchLoading: false,
             // 用户下拉选项
             userOptions: [],
+            // 用户数据缓存
+            userCache: {},
         }
     },
     created() {
@@ -219,6 +228,52 @@ export default {
                 this.qa_teamList = response.rows
                 this.total = response.total
                 this.loading = false
+                
+                // 加载团队创建者信息
+                this.loadTeamOwnerInfo()
+            })
+        },
+        // 加载团队创建者信息
+        loadTeamOwnerInfo() {
+            const userIdsToLoad = []
+            
+            // 收集需要加载的用户ID
+            this.qa_teamList.forEach(team => {
+                if (team.ownerUserId && !team.ownerUserInfo && !this.userCache[team.ownerUserId]) {
+                    userIdsToLoad.push(team.ownerUserId)
+                }
+            })
+            
+            // 如果没有需要加载的用户ID，直接返回
+            if (userIdsToLoad.length === 0) {
+                return
+            }
+            
+            // 为每个需要加载的用户ID发起请求
+            const promises = userIdsToLoad.map(userId => {
+                return getUser(userId).then(response => {
+                    if (response && response.data) {
+                        this.userCache[userId] = response.data
+                    }
+                    return userId
+                }).catch(() => {
+                    // 如果加载失败，设置一个占位信息
+                    this.userCache[userId] = {
+                        userId: userId,
+                        userName: '未知用户',
+                        nickName: '未知'
+                    }
+                    return userId
+                })
+            })
+            
+            // 等待所有请求完成后，更新团队列表中的用户信息
+            Promise.all(promises).then(() => {
+                this.qa_teamList.forEach(team => {
+                    if (team.ownerUserId && this.userCache[team.ownerUserId]) {
+                        this.$set(team, 'ownerUserInfo', this.userCache[team.ownerUserId])
+                    }
+                })
             })
         },
         // 取消按钮
