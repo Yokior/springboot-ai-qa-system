@@ -6,14 +6,14 @@
 	
     <groupId>com.yokior</groupId>
     <artifactId>yokior</artifactId>
-    <version>3.8.9</version>
+    <version>1.0.0</version>
 
     <name>yokior</name>
     <url>http://ai.yokior.top</url>
     <description>智能问答系统</description>
     
     <properties>
-        <yokior.version>3.8.9</yokior.version>
+        <yokior.version>1.0.0</yokior.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <java.version>1.8</java.version>
