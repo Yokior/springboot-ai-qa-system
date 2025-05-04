@@ -308,7 +308,6 @@ export default {
                             
                             // 这是问题所在的部分，需要调整响应处理逻辑
                             try {
-                                // 若依框架通常返回的格式可能是 {code: 200, data: 数据}
                                 // 根据实际返回情况调整，这里尝试几种可能的格式
                                 
                                 // 方式1：如果返回的是 {code: 200, data: {teamId: xxx}}
@@ -371,7 +370,6 @@ export default {
                 searchUserSelect(query).then(response => {
                     this.userSearchLoading = false;
                     if (response && response.data) {
-                         // 若依返回数据通常在 data 字段
                         this.userOptions = response.data;
                     } else {
                         this.userOptions = [];
