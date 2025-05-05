@@ -2,6 +2,7 @@ package com.yokior.team.service;
 
 import java.util.List;
 import com.yokior.team.domain.QaUserTeam;
+import com.yokior.team.domain.vo.QaTeamVo;
 
 /**
  * 我的团队Service接口
@@ -25,7 +26,7 @@ public interface IQaUserTeamService
      * @param qaUserTeam 我的团队
      * @return 我的团队集合
      */
-    public List<QaUserTeam> selectQaUserTeamList(QaUserTeam qaUserTeam);
+    public List<QaTeamVo> selectQaUserTeamList(QaUserTeam qaUserTeam);
 
     /**
      * 新增我的团队

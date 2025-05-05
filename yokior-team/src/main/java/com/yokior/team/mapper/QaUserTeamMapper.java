@@ -2,6 +2,7 @@ package com.yokior.team.mapper;
 
 import java.util.List;
 import com.yokior.team.domain.QaUserTeam;
+import com.yokior.team.domain.vo.QaTeamVo;
 
 /**
  * 我的团队Mapper接口
@@ -25,7 +26,7 @@ public interface QaUserTeamMapper
      * @param qaUserTeam 我的团队
      * @return 我的团队集合
      */
-    public List<QaUserTeam> selectQaUserTeamList(QaUserTeam qaUserTeam);
+    public List<QaTeamVo> selectQaUserTeamList(QaUserTeam qaUserTeam);
 
     /**
      * 新增我的团队

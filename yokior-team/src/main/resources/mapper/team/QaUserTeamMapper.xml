@@ -12,17 +12,36 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="joinTime"    column="join_time"    />
     </resultMap>
 
+    <resultMap type="QaTeamVo" id="QaTeamVoResult">
+        <result property="teamId"    column="team_id"    />
+        <result property="name"    column="name"    />
+        <result property="description"    column="description"    />
+        <result property="avatar"    column="avatar"    />
+        <result property="ownerUserName"    column="owner_name"    />
+        <result property="role"    column="role"    />
+        <result property="joinTime"    column="join_time"    />
+    </resultMap>
+
     <sql id="selectQaUserTeamVo">
         select id, user_id, team_id, role, join_time from qa_user_team
     </sql>
 
-    <select id="selectQaUserTeamList" parameterType="QaUserTeam" resultMap="QaUserTeamResult">
-        <include refid="selectQaUserTeamVo"/>
-        <where>  
-            <if test="userId != null "> and user_id = #{userId}</if>
-            <if test="teamId != null "> and team_id = #{teamId}</if>
-            <if test="joinTime != null "> and join_time = #{joinTime}</if>
-        </where>
+    <select id="selectQaUserTeamList" parameterType="QaUserTeam" resultMap="QaTeamVoResult">
+        SELECT
+            qt.team_id,
+            qt.name,
+            qt.description,
+            qt.avatar,
+            qut.role,
+            su.user_name AS owner_name,
+            qut.join_time
+        FROM
+            qa_team qt
+                INNER JOIN qa_user_team qut ON qt.team_id = qut.team_id
+                INNER JOIN sys_user su ON su.user_id = qt.owner_user_id
+        WHERE
+            qt.status = '0'
+          AND qut.user_id = #{userId}
     </select>
     
     <select id="selectQaUserTeamById" parameterType="Long" resultMap="QaUserTeamResult">

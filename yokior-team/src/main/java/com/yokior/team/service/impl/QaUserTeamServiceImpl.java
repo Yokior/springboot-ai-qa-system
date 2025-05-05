@@ -1,6 +1,8 @@
 package com.yokior.team.service.impl;
 
 import java.util.List;
+
+import com.yokior.team.domain.vo.QaTeamVo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.yokior.team.mapper.QaUserTeamMapper;
@@ -38,7 +40,7 @@ public class QaUserTeamServiceImpl implements IQaUserTeamService
      * @return 我的团队
      */
     @Override
-    public List<QaUserTeam> selectQaUserTeamList(QaUserTeam qaUserTeam)
+    public List<QaTeamVo> selectQaUserTeamList(QaUserTeam qaUserTeam)
     {
         return qaUserTeamMapper.selectQaUserTeamList(qaUserTeam);
     }

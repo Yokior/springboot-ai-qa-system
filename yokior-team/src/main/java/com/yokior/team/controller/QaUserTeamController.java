@@ -2,6 +2,10 @@ package com.yokior.team.controller;
 
 import java.util.List;
 import javax.servlet.http.HttpServletResponse;
+
+import com.yokior.common.exception.ServiceException;
+import com.yokior.common.utils.SecurityUtils;
+import com.yokior.team.domain.vo.QaTeamVo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,7 +27,7 @@ import com.yokior.common.core.page.TableDataInfo;
 
 /**
  * 我的团队Controller
- * 
+ *
  * @author yokior
  * @date 2025-05-04
  */
@@ -39,25 +43,34 @@ public class QaUserTeamController extends BaseController
      */
     @PreAuthorize("@ss.hasPermi('team:my_team:list')")
     @GetMapping("/list")
-    public TableDataInfo list(QaUserTeam qaUserTeam)
+    public TableDataInfo list()
     {
+        QaUserTeam qaUserTeam = new QaUserTeam();
+        qaUserTeam.setUserId(SecurityUtils.getUserId());
+
+        // 检查userId是否为空
+        if (qaUserTeam.getUserId() == null)
+        {
+            throw new ServiceException("userId不能为空");
+        }
+
         startPage();
-        List<QaUserTeam> list = qaUserTeamService.selectQaUserTeamList(qaUserTeam);
+        List<QaTeamVo> list = qaUserTeamService.selectQaUserTeamList(qaUserTeam);
         return getDataTable(list);
     }
 
     /**
      * 导出我的团队列表
      */
-    @PreAuthorize("@ss.hasPermi('team:my_team:export')")
-    @Log(title = "我的团队", businessType = BusinessType.EXPORT)
-    @PostMapping("/export")
-    public void export(HttpServletResponse response, QaUserTeam qaUserTeam)
-    {
-        List<QaUserTeam> list = qaUserTeamService.selectQaUserTeamList(qaUserTeam);
-        ExcelUtil<QaUserTeam> util = new ExcelUtil<QaUserTeam>(QaUserTeam.class);
-        util.exportExcel(response, list, "我的团队数据");
-    }
+//    @PreAuthorize("@ss.hasPermi('team:my_team:export')")
+//    @Log(title = "我的团队", businessType = BusinessType.EXPORT)
+//    @PostMapping("/export")
+//    public void export(HttpServletResponse response, QaUserTeam qaUserTeam)
+//    {
+//        List<QaUserTeam> list = qaUserTeamService.selectQaUserTeamList(qaUserTeam);
+//        ExcelUtil<QaUserTeam> util = new ExcelUtil<QaUserTeam>(QaUserTeam.class);
+//        util.exportExcel(response, list, "我的团队数据");
+//    }
 
     /**
      * 获取我的团队详细信息
@@ -96,7 +109,7 @@ public class QaUserTeamController extends BaseController
      */
     @PreAuthorize("@ss.hasPermi('team:my_team:remove')")
     @Log(title = "我的团队", businessType = BusinessType.DELETE)
-	@DeleteMapping("/{ids}")
+    @DeleteMapping("/{ids}")
     public AjaxResult remove(@PathVariable Long[] ids)
     {
         return toAjax(qaUserTeamService.deleteQaUserTeamByIds(ids));
