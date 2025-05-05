@@ -87,9 +87,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         delete from qa_team where team_id = #{teamId}
     </delete>
 
-    <delete id="deleteQaTeamByTeamIds" parameterType="String">
+    <delete id="deleteQaTeamByTeamIds">
         delete from qa_team where team_id in 
-        <foreach item="teamId" collection="array" open="(" separator="," close=")">
+        <foreach item="teamId" collection="teamIds" open="(" separator="," close=")">
             #{teamId}
         </foreach>
     </delete>

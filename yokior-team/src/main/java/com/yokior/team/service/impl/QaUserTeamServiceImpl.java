@@ -78,7 +78,7 @@ public class QaUserTeamServiceImpl implements IQaUserTeamService
     @Override
     public int deleteQaUserTeamByIds(Long[] ids)
     {
-        return qaUserTeamMapper.deleteQaUserTeamByIds(ids);
+        return 1;
     }
 
     /**

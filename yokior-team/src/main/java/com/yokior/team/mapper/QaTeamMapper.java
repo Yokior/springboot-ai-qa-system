@@ -2,6 +2,7 @@ package com.yokior.team.mapper;
 
 import java.util.List;
 import com.yokior.team.domain.QaTeam;
+import org.apache.ibatis.annotations.Param;
 
 /**
  * 知识库团队Mapper接口
@@ -57,5 +58,5 @@ public interface QaTeamMapper
      * @param teamIds 需要删除的数据主键集合
      * @return 结果
      */
-    public int deleteQaTeamByTeamIds(Long[] teamIds);
+    public int deleteQaTeamByTeamIds(@Param("teamIds") Long[] teamIds);
 }

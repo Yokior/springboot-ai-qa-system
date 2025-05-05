@@ -85,13 +85,13 @@ public class QaUserTeamController extends BaseController
     /**
      * 新增我的团队
      */
-    @PreAuthorize("@ss.hasPermi('team:my_team:add')")
-    @Log(title = "我的团队", businessType = BusinessType.INSERT)
-    @PostMapping
-    public AjaxResult add(@RequestBody QaUserTeam qaUserTeam)
-    {
-        return toAjax(qaUserTeamService.insertQaUserTeam(qaUserTeam));
-    }
+//    @PreAuthorize("@ss.hasPermi('team:my_team:add')")
+//    @Log(title = "我的团队", businessType = BusinessType.INSERT)
+//    @PostMapping
+//    public AjaxResult add(@RequestBody QaUserTeam qaUserTeam)
+//    {
+//        return toAjax(qaUserTeamService.insertQaUserTeam(qaUserTeam));
+//    }
 
     /**
      * 修改我的团队
@@ -107,11 +107,11 @@ public class QaUserTeamController extends BaseController
     /**
      * 删除我的团队
      */
-    @PreAuthorize("@ss.hasPermi('team:my_team:remove')")
-    @Log(title = "我的团队", businessType = BusinessType.DELETE)
-    @DeleteMapping("/{ids}")
-    public AjaxResult remove(@PathVariable Long[] ids)
-    {
-        return toAjax(qaUserTeamService.deleteQaUserTeamByIds(ids));
-    }
+//    @PreAuthorize("@ss.hasPermi('team:my_team:remove')")
+//    @Log(title = "我的团队", businessType = BusinessType.DELETE)
+//    @DeleteMapping("/{ids}")
+//    public AjaxResult remove(@PathVariable Long[] ids)
+//    {
+//        return toAjax(qaUserTeamService.deleteQaUserTeamByIds(ids));
+//    }
 }

@@ -8,6 +8,7 @@ import com.yokior.common.enums.BusinessType;
 import com.yokior.common.utils.poi.ExcelUtil;
 import com.yokior.team.domain.QaTeam;
 import com.yokior.team.service.IQaTeamService;
+import com.yokior.team.service.IQaUserTeamService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -69,6 +70,7 @@ public class QaTeamController extends BaseController
 
     /**
      * 新增知识库团队
+     * 同时添加用户团队关系
      */
     @PreAuthorize("@ss.hasPermi('team:qa_team:add')")
     @Log(title = "知识库团队", businessType = BusinessType.INSERT)

@@ -1,12 +1,17 @@
 package com.yokior.team.service.impl;
 
+import java.util.Date;
 import java.util.List;
 import com.yokior.common.utils.DateUtils;
+import com.yokior.common.utils.SecurityUtils;
+import com.yokior.team.domain.QaUserTeam;
+import com.yokior.team.mapper.QaUserTeamMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.yokior.team.mapper.QaTeamMapper;
 import com.yokior.team.domain.QaTeam;
 import com.yokior.team.service.IQaTeamService;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 知识库团队Service业务层处理
@@ -19,6 +24,9 @@ public class QaTeamServiceImpl implements IQaTeamService
 {
     @Autowired
     private QaTeamMapper qaTeamMapper;
+
+    @Autowired
+    private QaUserTeamMapper qaUserTeamMapper;
 
     /**
      * 查询知识库团队
@@ -45,16 +53,35 @@ public class QaTeamServiceImpl implements IQaTeamService
     }
 
     /**
-     * 新增知识库团队
+     * 新增知识库团队 只有超级管理员可操作
      * 
      * @param qaTeam 知识库团队
      * @return 结果
      */
     @Override
+    @Transactional
     public int insertQaTeam(QaTeam qaTeam)
     {
-        qaTeam.setCreateTime(DateUtils.getNowDate());
-        return qaTeamMapper.insertQaTeam(qaTeam);
+        // 获取当前操作用户
+        Long operatorId = SecurityUtils.getUserId();
+
+        Date nowDate = DateUtils.getNowDate();
+        qaTeam.setCreateTime(nowDate);
+        qaTeam.setCreateBy(operatorId.toString());
+        qaTeam.setUpdateBy(operatorId.toString());
+
+        qaTeamMapper.insertQaTeam(qaTeam);
+
+        // 新增团队成员 身份为creator
+        QaUserTeam qaUserTeam = new QaUserTeam();
+        qaUserTeam.setTeamId(qaTeam.getTeamId());
+        qaUserTeam.setUserId(qaTeam.getOwnerUserId());
+        qaUserTeam.setRole("creator");
+        qaUserTeam.setJoinTime(nowDate);
+
+        qaUserTeamMapper.insertQaUserTeam(qaUserTeam);
+
+        return 1;
     }
 
     /**
@@ -77,9 +104,14 @@ public class QaTeamServiceImpl implements IQaTeamService
      * @return 结果
      */
     @Override
+    @Transactional
     public int deleteQaTeamByTeamIds(Long[] teamIds)
     {
-        return qaTeamMapper.deleteQaTeamByTeamIds(teamIds);
+        qaTeamMapper.deleteQaTeamByTeamIds(teamIds);
+
+        qaUserTeamMapper.deleteQaUserTeamByTeamIds(teamIds);
+
+        return 1;
     }
 
     /**

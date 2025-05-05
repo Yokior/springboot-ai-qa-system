@@ -80,10 +80,10 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         delete from qa_user_team where id = #{id}
     </delete>
 
-    <delete id="deleteQaUserTeamByIds" parameterType="String">
-        delete from qa_user_team where id in 
-        <foreach item="id" collection="array" open="(" separator="," close=")">
-            #{id}
+    <delete id="deleteQaUserTeamByTeamIds">
+        delete from qa_user_team where team_id in
+        <foreach item="teamId" collection="teamIds" open="(" separator="," close=")">
+            #{teamId}
         </foreach>
     </delete>
 </mapper>
