@@ -10,6 +10,7 @@ import com.yokior.common.exception.ServiceException;
 import com.yokior.common.utils.PageUtils;
 import com.yokior.common.utils.SecurityUtils;
 import com.yokior.team.domain.dto.QaUserTeamDto;
+import com.yokior.team.domain.dto.TeamMemberDto;
 import com.yokior.team.domain.vo.QaTeamVo;
 import com.yokior.team.domain.vo.QaUserTeamVo;
 import com.yokior.team.domain.vo.TeamMemberVo;
@@ -38,7 +39,7 @@ public class QaUserTeamServiceImpl implements IQaUserTeamService
      * @return 我的团队
      */
     @Override
-    public TableDataInfo selectQaUserTeamById(Long id)
+    public QaTeamVo selectQaUserTeamById(Long id)
     {
         Long userId = SecurityUtils.getUserId();
 
@@ -53,23 +54,23 @@ public class QaUserTeamServiceImpl implements IQaUserTeamService
         }
 
         // 查询团队成员信息
-        PageUtils.startPage();
-        List<TeamMemberVo> teamMemberVos = qaUserTeamMapper.selectTeamMemberByTeamId(id);
+//        PageUtils.startPage();
+//        List<TeamMemberVo> teamMemberVos = qaUserTeamMapper.selectTeamMemberByTeamId(id);
+//
+//        if (teamMemberVos.isEmpty())
+//        {
+//            throw new ServiceException("团队成员不存在");
+//        }
+//
+//        // 构造参数返回
+//        QaUserTeamVo qaUserTeamVo = QaUserTeamVo.builder()
+//                .teamInfo(qaTeamVo)
+//                .teamMembers(teamMemberVos)
+//                .build();
+//
+//        TableDataInfo tableDataInfo = TableDataInfo.getDataTableFromData(qaUserTeamVo, new PageInfo(teamMemberVos).getTotal());
 
-        if (teamMemberVos.isEmpty())
-        {
-            throw new ServiceException("团队成员不存在");
-        }
-
-        // 构造参数返回
-        QaUserTeamVo qaUserTeamVo = QaUserTeamVo.builder()
-                .teamInfo(qaTeamVo)
-                .teamMembers(teamMemberVos)
-                .build();
-
-        TableDataInfo tableDataInfo = TableDataInfo.getDataTableFromData(qaUserTeamVo, new PageInfo(teamMemberVos).getTotal());
-
-        return tableDataInfo;
+        return qaTeamVo;
     }
 
     /**
@@ -130,5 +131,20 @@ public class QaUserTeamServiceImpl implements IQaUserTeamService
     public int deleteQaUserTeamById(Long id)
     {
         return qaUserTeamMapper.deleteQaUserTeamById(id);
+    }
+
+    /**
+     * 查询团队成员
+     *
+     * @param teamMemberDto 团队成员
+     * @return 团队成员
+     */
+    @Override
+    public List<TeamMemberVo> selectTeamMember(TeamMemberDto teamMemberDto)
+    {
+        PageUtils.startPage();
+        List<TeamMemberVo> teamMemberVoList = qaUserTeamMapper.selectTeamMember(teamMemberDto);
+
+        return teamMemberVoList;
     }
 }

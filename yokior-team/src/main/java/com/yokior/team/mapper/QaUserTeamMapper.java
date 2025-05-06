@@ -3,6 +3,7 @@ package com.yokior.team.mapper;
 import java.util.List;
 import com.yokior.team.domain.QaUserTeam;
 import com.yokior.team.domain.dto.QaUserTeamDto;
+import com.yokior.team.domain.dto.TeamMemberDto;
 import com.yokior.team.domain.vo.QaTeamVo;
 import com.yokior.team.domain.vo.TeamMemberVo;
 import org.apache.ibatis.annotations.Param;
@@ -77,4 +78,11 @@ public interface QaUserTeamMapper
      * @return 结果
      */
     public int deleteQaUserTeamByTeamIds(@Param("teamIds") Long[] ids);
+
+    /**
+     * 根据条件 查询团队成员
+     * @param teamMemberDto
+     * @return
+     */
+    public List<TeamMemberVo> selectTeamMember(@Param("dto") TeamMemberDto teamMemberDto);
 }

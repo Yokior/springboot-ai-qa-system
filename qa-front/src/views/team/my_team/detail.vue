@@ -42,7 +42,7 @@
               </div>
               <div class="stat-item">
                 <i class="el-icon-user-solid"></i> 
-                <span>成员数量: {{ teamMembers.length }}</span>
+                <span>成员数量: {{ total }}</span>
               </div>
             </div>
             <p class="team-description">{{ teamInfo.description || '暂无团队描述' }}</p>
@@ -65,17 +65,43 @@
             <span class="card-title">团队成员</span>
             <span class="member-count" v-if="total > 0">(共 {{ total }} 人)</span>
           </div>
-          <el-input
-            v-model="memberSearchKeyword"
-            placeholder="搜索成员"
-            prefix-icon="el-icon-search"
-            clearable
-            size="small"
-            class="member-search"
-          ></el-input>
+          <div class="member-search-container">
+            <el-input
+              v-model="queryParams.name"
+              placeholder="搜索成员"
+              prefix-icon="el-icon-search"
+              clearable
+              size="small"
+              class="member-search"
+              @keyup.enter.native="handleMemberSearch"
+            ></el-input>
+            <el-select 
+              v-model="queryParams.role" 
+              placeholder="角色筛选" 
+              clearable 
+              size="small"
+              class="role-filter"
+              @change="handleMemberSearch">
+              <el-option
+                v-for="item in roleOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
+            </el-select>
+            <el-button 
+              type="primary" 
+              icon="el-icon-search" 
+              size="small"
+              @click="handleMemberSearch">搜索</el-button>
+            <el-button 
+              icon="el-icon-refresh" 
+              size="small"
+              @click="resetMemberSearch">重置</el-button>
+          </div>
         </div>
         <el-table
-          :data="filteredTeamMembers"
+          :data="teamMembers"
           style="width: 100%"
           row-key="userId"
           border
@@ -217,7 +243,7 @@
 </template>
 
 <script>
-import { getMy_team, updateMy_team, delMy_team, transferTeam, removeMember, updateMemberRole, uploadTeamAvatar } from "@/api/team/my_team";
+import { getMy_team, updateMy_team, delMy_team, transferTeam, removeMember, updateMemberRole, uploadTeamAvatar, listTeamMembers } from "@/api/team/my_team";
 import { getToken } from "@/utils/auth";
 
 export default {
@@ -236,7 +262,10 @@ export default {
       total: 0,
       queryParams: {
         pageNum: 1,
-        pageSize: 10
+        pageSize: 10,
+        name: '',
+        role: '',
+        teamId: null
       },
       
       // 成员搜索
@@ -278,21 +307,17 @@ export default {
       uploadAvatarUrl: process.env.VUE_APP_BASE_API + '/team/my_team/avatar',
       uploadHeaders: {
         Authorization: 'Bearer ' + getToken()
-      }
+      },
+      
+      // 角色选项
+      roleOptions: [
+        { value: 'creator', label: '创建者' },
+        { value: 'admin', label: '管理员' },
+        { value: 'member', label: '普通成员' }
+      ]
     };
   },
   computed: {
-    // 处理后的成员列表（过滤搜索结果）
-    filteredTeamMembers() {
-      if (!this.memberSearchKeyword || this.memberSearchKeyword.trim() === '') {
-        return this.teamMembers;
-      }
-      const keyword = this.memberSearchKeyword.toLowerCase();
-      return this.teamMembers.filter(member => {
-        return member.nickName && member.nickName.toLowerCase().includes(keyword);
-      });
-    },
-    
     // 当前用户是否为创建者
     isCreator() {
       return this.teamInfo && this.teamInfo.role === 'creator';
@@ -304,14 +329,10 @@ export default {
     }
   },
   watch: {
-    // 监听搜索关键词变化，重置分页
-    memberSearchKeyword(val) {
-      if (val !== this.lastSearchKeyword) {
-        this.queryParams.pageNum = 1;
-        this.lastSearchKeyword = val;
-        
-        // 如果启用了本地搜索，则不需要重新请求接口
-        // 如果后端支持搜索，则可以在这里调用 getTeamDetails()
+    // 监听查询参数变化
+    'queryParams.name'() {
+      if (this.queryParams.name !== this.lastSearchKeyword) {
+        this.lastSearchKeyword = this.queryParams.name;
       }
     }
   },
@@ -326,7 +347,9 @@ export default {
       this.teamId = parseInt(this.teamId, 10);
       console.log('转换后的团队ID:', this.teamId);
       this.pageTitle = `团队详情`;
+      this.queryParams.teamId = this.teamId; // 设置查询参数中的teamId
       this.getTeamDetails();
+      this.getTeamMembers(); // 获取团队成员
     } else {
       this.loading = false;
       this.pageTitle = "无效的团队";
@@ -338,14 +361,12 @@ export default {
     getTeamDetails() {
       this.loading = true;
       console.log('获取团队详情 - 团队ID:', this.teamId);
-      console.log('请求参数:', this.queryParams);
       
-      getMy_team(this.teamId, this.queryParams).then(response => {
+      getMy_team(this.teamId).then(response => {
         console.log('团队详情响应:', response);
         if (response.code === 200 && response.data) {
-          this.teamInfo = response.data.teamInfo;
-          this.teamMembers = response.data.teamMembers || [];
-          this.total = response.total || this.teamMembers.length;
+          // 直接使用返回的团队信息对象作为 teamInfo
+          this.teamInfo = response.data;
           
           // 设置页面标题
           this.pageTitle = `团队详情 - ${this.teamInfo.name}`;
@@ -368,6 +389,25 @@ export default {
         console.error("获取团队详情出错:", error);
         this.$modal.msgError("获取团队详情时发生错误");
         this.loading = false;
+      });
+    },
+    
+    // 获取团队成员列表
+    getTeamMembers() {
+      listTeamMembers(this.queryParams).then(response => {
+        if (response.code === 200) {
+          this.teamMembers = response.rows || [];
+          this.total = response.total || 0;
+        } else {
+          this.$modal.msgError(response.msg || "获取团队成员失败");
+          this.teamMembers = [];
+          this.total = 0;
+        }
+      }).catch(error => {
+        console.error("获取团队成员出错:", error);
+        this.$modal.msgError("获取团队成员时发生错误");
+        this.teamMembers = [];
+        this.total = 0;
       });
     },
     
@@ -547,14 +587,14 @@ export default {
     // 处理页码变化
     handleCurrentChange(pageNum) {
       this.queryParams.pageNum = pageNum;
-      this.getTeamDetails();
+      this.getTeamMembers();
     },
     
     // 处理每页条数变化
     handleSizeChange(pageSize) {
       this.queryParams.pageSize = pageSize;
       this.queryParams.pageNum = 1;
-      this.getTeamDetails();
+      this.getTeamMembers();
     },
     
     // 格式化时间
@@ -584,6 +624,20 @@ export default {
         }
         return value || 0;
       });
+    },
+    
+    // 处理成员搜索
+    handleMemberSearch() {
+      this.queryParams.pageNum = 1;
+      this.getTeamMembers();
+    },
+    
+    // 重置成员搜索
+    resetMemberSearch() {
+      this.queryParams.name = '';
+      this.queryParams.role = '';
+      this.queryParams.pageNum = 1;
+      this.getTeamMembers();
     }
   }
 };
@@ -698,8 +752,18 @@ export default {
     }
   }
   
-  .member-search {
-    width: 200px;
+  .member-search-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    
+    .member-search {
+      width: 200px;
+    }
+    
+    .role-filter {
+      width: 120px;
+    }
   }
 }
 
@@ -790,8 +854,17 @@ export default {
         margin-bottom: 10px;
       }
       
-      .member-search {
-        width: 100% !important;
+      .member-search-container {
+        width: 100%;
+        flex-wrap: wrap;
+        
+        .member-search, .role-filter {
+          margin-bottom: 10px;
+        }
+        
+        .el-button {
+          margin-right: 10px;
+        }
       }
     }
   }

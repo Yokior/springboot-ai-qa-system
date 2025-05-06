@@ -6,8 +6,10 @@ import javax.servlet.http.HttpServletResponse;
 import com.yokior.common.exception.ServiceException;
 import com.yokior.common.utils.SecurityUtils;
 import com.yokior.team.domain.dto.QaUserTeamDto;
+import com.yokior.team.domain.dto.TeamMemberDto;
 import com.yokior.team.domain.vo.QaTeamVo;
 import com.yokior.team.domain.vo.QaUserTeamVo;
+import com.yokior.team.domain.vo.TeamMemberVo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -78,10 +80,23 @@ public class QaUserTeamController extends BaseController
      */
     @PreAuthorize("@ss.hasPermi('team:my_team:query')")
     @GetMapping(value = "/{id}")
-    public TableDataInfo getInfo(@PathVariable("id") Long id)
+    public AjaxResult getInfo(@PathVariable("id") Long id)
     {
-        TableDataInfo tableDataInfo = qaUserTeamService.selectQaUserTeamById(id);
-        return tableDataInfo;
+        QaTeamVo qaTeamVo = qaUserTeamService.selectQaUserTeamById(id);
+        return success(qaTeamVo);
+    }
+
+
+    /**
+     * 获取我的团队成员信息
+     */
+    @PreAuthorize("@ss.hasPermi('team:my_team:query')")
+    @GetMapping("/member")
+    public TableDataInfo getTeamMemberInfo(TeamMemberDto teamMemberDto)
+    {
+        List<TeamMemberVo> teamMemberVoList = qaUserTeamService.selectTeamMember(teamMemberDto);
+
+        return getDataTable(teamMemberVoList);
     }
 
     /**

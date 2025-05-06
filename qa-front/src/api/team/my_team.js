@@ -82,3 +82,12 @@ export function uploadTeamAvatar(data) {
     }
   })
 }
+
+// 查询团队成员列表
+export function listTeamMembers(query) {
+  return request({
+    url: '/team/my_team/member',
+    method: 'get',
+    params: query
+  })
+}

@@ -1,55 +1,56 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.yokior.team.mapper.QaUserTeamMapper">
-    
+
     <resultMap type="QaUserTeam" id="QaUserTeamResult">
-        <result property="id"    column="id"    />
-        <result property="userId"    column="user_id"    />
-        <result property="teamId"    column="team_id"    />
-        <result property="role"    column="role"    />
-        <result property="joinTime"    column="join_time"    />
+        <result property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="teamId" column="team_id"/>
+        <result property="role" column="role"/>
+        <result property="joinTime" column="join_time"/>
     </resultMap>
 
     <resultMap type="QaTeamVo" id="QaTeamVoResult">
-        <result property="teamId"    column="team_id"    />
-        <result property="name"    column="name"    />
-        <result property="description"    column="description"    />
-        <result property="avatar"    column="avatar"    />
-        <result property="ownerUserName"    column="owner_name"    />
-        <result property="role"    column="role"    />
-        <result property="joinTime"    column="join_time"    />
+        <result property="teamId" column="team_id"/>
+        <result property="name" column="name"/>
+        <result property="description" column="description"/>
+        <result property="avatar" column="avatar"/>
+        <result property="ownerUserName" column="owner_name"/>
+        <result property="role" column="role"/>
+        <result property="joinTime" column="join_time"/>
     </resultMap>
 
     <resultMap type="TeamMemberVo" id="TeamMemberVoResult">
-        <result property="userId"    column="user_id"    />
-        <result property="avatar"    column="avatar"    />
-        <result property="nickName"    column="nick_name"    />
-        <result property="role"    column="role"    />
-        <result property="joinTime"    column="join_time"    />
+        <result property="userId" column="user_id"/>
+        <result property="avatar" column="avatar"/>
+        <result property="nickName" column="nick_name"/>
+        <result property="role" column="role"/>
+        <result property="joinTime" column="join_time"/>
     </resultMap>
 
     <sql id="selectQaUserTeamVo">
-        select id, user_id, team_id, role, join_time from qa_user_team
+        select id, user_id, team_id, role, join_time
+        from qa_user_team
     </sql>
 
     <select id="selectQaUserTeamList" parameterType="QaUserTeamDto" resultMap="QaTeamVoResult">
         SELECT
-            qt.team_id,
-            qt.name,
-            qt.description,
-            qt.avatar,
-            qut.role,
-            su.user_name AS owner_name,
-            qut.join_time
+        qt.team_id,
+        qt.name,
+        qt.description,
+        qt.avatar,
+        qut.role,
+        su.user_name AS owner_name,
+        qut.join_time
         FROM
-            qa_team qt
-                INNER JOIN qa_user_team qut ON qt.team_id = qut.team_id
-                INNER JOIN sys_user su ON su.user_id = qt.owner_user_id
+        qa_team qt
+        INNER JOIN qa_user_team qut ON qt.team_id = qut.team_id
+        INNER JOIN sys_user su ON su.user_id = qt.owner_user_id
         <where>
             qt.status = '0'
-          AND qut.user_id = #{userId}
+            AND qut.user_id = #{userId}
             <if test="name != null and name != ''">
                 AND qt.name like concat('%',#{name},'%')
             </if>
@@ -58,29 +59,26 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             </if>
         </where>
     </select>
-    
+
     <select id="selectQaUserTeamById" parameterType="Long" resultMap="QaUserTeamResult">
         <include refid="selectQaUserTeamVo"/>
         where id = #{id}
     </select>
 
     <select id="selectQaUserTeamByTeamIdAndUserId" resultMap="QaTeamVoResult">
-        SELECT
-            qt.team_id,
-            qt.name,
-            qt.description,
-            qt.avatar,
-            qut.role,
-            su.user_name AS owner_name,
-            qut.join_time
-        FROM
-            qa_team qt
-                INNER JOIN qa_user_team qut ON qt.team_id = qut.team_id
-                INNER JOIN sys_user su ON su.user_id = qt.owner_user_id
-        WHERE
-            qt.status = '0'
-        AND qt.team_id = #{teamId}
-        AND qut.user_id = #{userId}
+        SELECT qt.team_id,
+               qt.name,
+               qt.description,
+               qt.avatar,
+               qut.role,
+               su.user_name AS owner_name,
+               qut.join_time
+        FROM qa_team qt
+                 INNER JOIN qa_user_team qut ON qt.team_id = qut.team_id
+                 INNER JOIN sys_user su ON su.user_id = qt.owner_user_id
+        WHERE qt.status = '0'
+          AND qt.team_id = #{teamId}
+          AND qut.user_id = #{userId}
     </select>
 
     <select id="selectTeamMemberByTeamId" resultMap="TeamMemberVoResult">
@@ -90,6 +88,21 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         where qut.team_id = #{teamId}
     </select>
 
+    <select id="selectTeamMember" resultMap="TeamMemberVoResult">
+        select su.user_id, su.avatar, su.nick_name, qut.role, qut.join_time
+        from qa_user_team qut
+        inner join sys_user su on su.user_id = qut.user_id
+        <where>
+            qut.team_id = #{dto.teamId}
+            <if test="dto.name != null and dto.name != ''">
+                and su.nick_name like concat('%',#{dto.name},'%')
+            </if>
+            <if test="dto.role != null and dto.role != ''">
+                and qut.role = #{dto.role}
+            </if>
+        </where>
+    </select>
+
     <insert id="insertQaUserTeam" parameterType="QaUserTeam" useGeneratedKeys="true" keyProperty="id">
         insert into qa_user_team
         <trim prefix="(" suffix=")" suffixOverrides=",">
@@ -97,13 +110,13 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             <if test="teamId != null">team_id,</if>
             <if test="role != null and role != ''">role,</if>
             <if test="joinTime != null">join_time,</if>
-         </trim>
+        </trim>
         <trim prefix="values (" suffix=")" suffixOverrides=",">
             <if test="userId != null">#{userId},</if>
             <if test="teamId != null">#{teamId},</if>
             <if test="role != null and role != ''">#{role},</if>
             <if test="joinTime != null">#{joinTime},</if>
-         </trim>
+        </trim>
     </insert>
 
     <update id="updateQaUserTeam" parameterType="QaUserTeam">
@@ -118,7 +131,9 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
     </update>
 
     <delete id="deleteQaUserTeamById" parameterType="Long">
-        delete from qa_user_team where id = #{id}
+        delete
+        from qa_user_team
+        where id = #{id}
     </delete>
 
     <delete id="deleteQaUserTeamByTeamIds">
