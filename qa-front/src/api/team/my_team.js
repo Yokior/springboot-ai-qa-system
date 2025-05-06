@@ -10,10 +10,11 @@ export function listMy_team(query) {
 }
 
 // 查询我的团队详细
-export function getMy_team(id) {
+export function getMy_team(id, query) {
   return request({
     url: '/team/my_team/' + id,
-    method: 'get'
+    method: 'get',
+    params: query
   })
 }
 
@@ -40,5 +41,44 @@ export function delMy_team(id) {
   return request({
     url: '/team/my_team/' + id,
     method: 'delete'
+  })
+}
+
+// 转让团队
+export function transferTeam(data) {
+  return request({
+    url: '/team/my_team/transfer',
+    method: 'put',
+    data: data
+  })
+}
+
+// 踢出团队成员
+export function removeMember(data) {
+  return request({
+    url: '/team/my_team/remove-member',
+    method: 'delete',
+    data: data
+  })
+}
+
+// 更新成员角色
+export function updateMemberRole(data) {
+  return request({
+    url: '/team/my_team/update-role',
+    method: 'put',
+    data: data
+  })
+}
+
+// 上传团队头像
+export function uploadTeamAvatar(data) {
+  return request({
+    url: '/team/my_team/avatar',
+    method: 'post',
+    data: data,
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
   })
 }

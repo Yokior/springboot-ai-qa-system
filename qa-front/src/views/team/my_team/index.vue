@@ -131,10 +131,9 @@ export default {
     },
     /** 处理团队卡片点击事件 */
     handleTeamClick(team) {
-      // 跳转到详情页，确保路由已配置
-      this.$router.push(`/team/detail/${team.teamId}`)
-      // 或者如果你使用命名路由：
-      // this.$router.push({ name: 'TeamDetail', params: { teamId: team.teamId } })
+      // 使用绝对路径方式跳转
+      console.log('点击团队卡片，团队ID:', team.teamId);
+      this.$router.push(`/team/my_team/detail/${team.teamId}`);
     },
     /** 获取角色显示文本 */
     getRoleText(role) {

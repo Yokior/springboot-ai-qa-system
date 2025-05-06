@@ -87,6 +87,26 @@ export const constantRoutes = [
         meta: { title: '个人中心', icon: 'user' }
       }
     ]
+  },
+  // 添加团队相关路由
+  {
+    path: '/team/my_team',
+    component: Layout,
+    hidden: true,
+    children: [
+      {
+        path: 'index',
+        component: () => import('@/views/team/my_team/index'),
+        name: 'MyTeam',
+        meta: { title: '我的团队', activeMenu: '/team/my_team' }
+      },
+      {
+        path: 'detail/:teamId(\\d+)',
+        component: () => import('@/views/team/my_team/detail'),
+        name: 'TeamDetail',
+        meta: { title: '团队详情', activeMenu: '/team/my_team' }
+      }
+    ]
   }
 ]
 

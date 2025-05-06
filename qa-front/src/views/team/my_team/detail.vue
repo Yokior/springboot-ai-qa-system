@@ -1,57 +1,590 @@
 <template>
   <div class="app-container team-detail-container">
     <el-page-header @back="goBack" :content="pageTitle" class="page-header"></el-page-header>
-    <el-card class="box-card content-card">
-      <div slot="header" class="clearfix">
-        <span>团队详情 (占位)</span>
+    
+    <!-- 加载中状态 -->
+    <div v-if="loading" class="loading-container">
+      <el-skeleton style="width: 100%" animated>
+        <template slot="template">
+          <el-skeleton-item variant="image" style="width: 100%; height: 160px" />
+          <div style="padding: 14px;">
+            <el-skeleton-item variant="h3" style="width: 50%" />
+            <div style="display: flex; justify-content: space-between; margin-top: 20px;">
+              <el-skeleton-item variant="text" style="margin-right: 16px; width: 30%" />
+              <el-skeleton-item variant="text" style="width: 30%" />
+            </div>
+          </div>
+        </template>
+      </el-skeleton>
+    </div>
+    
+    <!-- 团队详情内容 -->
+    <div v-else-if="teamInfo">
+      <!-- 团队基本信息 -->
+      <el-card class="box-card info-card" :body-style="{ padding: '0px' }">
+        <div class="team-info-header">
+          <div class="team-avatar-container">
+            <el-avatar :size="80" :src="teamInfo.avatar || defaultAvatar"></el-avatar>
+          </div>
+          <div class="team-info-content">
+            <div class="team-name-container">
+              <h2 class="team-name">{{ teamInfo.name }}</h2>
+              <el-tag class="role-tag" :type="getRoleTagType(teamInfo.role)">{{ getRoleText(teamInfo.role) }}</el-tag>
+            </div>
+            <div class="team-stats">
+              <div class="stat-item">
+                <i class="el-icon-user"></i> 
+                <span>创建者: {{ teamInfo.ownerUserName }}</span>
+              </div>
+              <div class="stat-item">
+                <i class="el-icon-time"></i> 
+                <span>加入时间: {{ parseTime(teamInfo.joinTime, '{y}-{m}-{d} {h}:{i}') }}</span>
+              </div>
+              <div class="stat-item">
+                <i class="el-icon-user-solid"></i> 
+                <span>成员数量: {{ teamMembers.length }}</span>
+              </div>
+            </div>
+            <p class="team-description">{{ teamInfo.description || '暂无团队描述' }}</p>
+          </div>
+        </div>
+        <div class="team-actions">
+          <!-- 创建者可以编辑、转让和解散团队 -->
+          <div v-if="isCreator">
+            <el-button type="primary" size="small" icon="el-icon-edit" @click="handleEdit">编辑团队</el-button>
+            <el-button type="warning" size="small" icon="el-icon-share" @click="handleTransfer">转让团队</el-button>
+            <el-button type="danger" size="small" icon="el-icon-delete" @click="handleDissolve">解散团队</el-button>
+          </div>
+        </div>
+      </el-card>
+
+      <!-- 成员列表 -->
+      <el-card class="box-card member-card">
+        <div slot="header" class="member-header">
+          <div class="header-left">
+            <span class="card-title">团队成员</span>
+            <span class="member-count" v-if="total > 0">(共 {{ total }} 人)</span>
+          </div>
+          <el-input
+            v-model="memberSearchKeyword"
+            placeholder="搜索成员"
+            prefix-icon="el-icon-search"
+            clearable
+            size="small"
+            class="member-search"
+          ></el-input>
+        </div>
+        <el-table
+          :data="filteredTeamMembers"
+          style="width: 100%"
+          row-key="userId"
+          border
+          stripe
+          :header-cell-style="{background:'#f8f8f9',color:'#606266'}"
+          :cell-style="{ padding: '8px 0' }"
+          :table-layout="'fixed'"
+        >
+          <el-table-column label="头像" prop="avatar" width="60" align="center">
+            <template slot-scope="scope">
+              <el-avatar :size="32" :src="scope.row.avatar || defaultAvatar"></el-avatar>
+            </template>
+          </el-table-column>
+          <el-table-column prop="nickName" label="昵称" min-width="100" show-overflow-tooltip>
+            <template slot-scope="scope">
+              <div class="nickname-cell">
+                <span>{{ scope.row.nickName || '未设置昵称' }}</span>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="role" label="角色" width="120" align="center">
+            <template slot-scope="scope">
+              <el-tag size="mini" :type="getRoleTagType(scope.row.role)">{{ getRoleText(scope.row.role) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column prop="joinTime" label="加入时间" width="300" align="center">
+            <template slot-scope="scope">
+              <span>{{ parseTime(scope.row.joinTime) || '未知' }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="150" align="center" fixed="right">
+            <template slot-scope="scope">
+              <div class="member-action-container">
+                <!-- 仅创建者可以设置成员角色 -->
+                <el-tooltip content="设置角色" placement="top" :enterable="false" v-if="isCreator && scope.row.role !== 'creator'">
+                  <el-dropdown @command="(command) => handleRoleChange(command, scope.row)" size="mini">
+                    <el-button type="primary" size="mini" circle>
+                      <i class="el-icon-setting"></i>
+                    </el-button>
+                    <el-dropdown-menu slot="dropdown">
+                      <el-dropdown-item command="admin" :disabled="scope.row.role === 'admin'">设为管理员</el-dropdown-item>
+                      <el-dropdown-item command="member" :disabled="scope.row.role === 'member'">设为普通成员</el-dropdown-item>
+                    </el-dropdown-menu>
+                  </el-dropdown>
+                </el-tooltip>
+                
+                <!-- 创建者和管理员可以踢出成员 -->
+                <el-tooltip content="移除成员" placement="top" :enterable="false" v-if="(isCreator || isAdmin) && scope.row.role !== 'creator' && (isCreator || scope.row.role !== 'admin')">
+                  <el-button 
+                    type="danger" 
+                    size="mini"
+                    icon="el-icon-delete" 
+                    circle
+                    @click="handleRemoveMember(scope.row)"
+                  ></el-button>
+                </el-tooltip>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+        
+        <!-- 分页组件 -->
+        <div class="pagination-container">
+          <el-pagination
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+            :current-page="queryParams.pageNum"
+            :page-sizes="[10, 20, 30, 50]"
+            :page-size="queryParams.pageSize"
+            layout="total, sizes, prev, pager, next, jumper"
+            :total="total">
+          </el-pagination>
+        </div>
+      </el-card>
+    </div>
+    <div v-else class="no-team-info">
+      <el-empty description="未找到团队信息" :image-size="200">
+        <el-button type="primary" @click="goBack">返回团队列表</el-button>
+      </el-empty>
+    </div>
+    
+    <!-- 编辑团队对话框 -->
+    <el-dialog :title="'编辑团队信息'" :visible.sync="editDialogVisible" width="500px" append-to-body>
+      <el-form ref="editForm" :model="editForm" :rules="editRules" label-width="100px">
+        <el-form-item label="团队名称" prop="name">
+          <el-input v-model="editForm.name" placeholder="请输入团队名称" />
+        </el-form-item>
+        <el-form-item label="团队描述" prop="description">
+          <el-input v-model="editForm.description" type="textarea" placeholder="请输入团队描述" 
+            maxlength="200" show-word-limit :autosize="{ minRows: 3, maxRows: 6 }" />
+        </el-form-item>
+        <el-form-item label="团队头像">
+          <el-upload
+            class="avatar-uploader"
+            :action="uploadAvatarUrl"
+            :headers="uploadHeaders"
+            :show-file-list="false"
+            :on-success="handleAvatarSuccess"
+            :before-upload="beforeAvatarUpload">
+            <img v-if="editForm.avatar" :src="editForm.avatar" class="avatar-preview">
+            <i v-else class="el-icon-plus avatar-uploader-icon"></i>
+            <div class="avatar-tip">点击上传头像</div>
+          </el-upload>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="editDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitEditForm">确 定</el-button>
       </div>
-      <div v-if="teamId">
-        <p>当前查看的团队 ID 是: <strong>{{ teamId }}</strong></p>
-        <p>这里将来会显示团队的详细信息、成员列表、关联的知识库文档等。</p>
-        <el-alert
-          title="开发中"
-          type="info"
-          description="此页面为占位符，具体功能待后续开发。"
-          show-icon
-          :closable="false">
-        </el-alert>
+    </el-dialog>
+    
+    <!-- 转让团队对话框 -->
+    <el-dialog title="转让团队" :visible.sync="transferDialogVisible" width="500px" append-to-body>
+      <el-form ref="transferForm" :model="transferForm" :rules="transferRules" label-width="100px">
+        <el-form-item label="转让给" prop="targetUserId">
+          <el-select v-model="transferForm.targetUserId" filterable placeholder="请选择团队成员">
+            <el-option
+              v-for="member in teamMembers.filter(m => m.role !== 'creator')"
+              :key="member.userId"
+              :label="member.nickName || '未设置昵称'"
+              :value="member.userId">
+              <div class="member-option">
+                <el-avatar :size="24" :src="member.avatar || defaultAvatar"></el-avatar>
+                <span style="margin-left: 8px">{{ member.nickName || '未设置昵称' }}</span>
+              </div>
+            </el-option>
+          </el-select>
+        </el-form-item>
+        <el-form-item label="确认密码" prop="password">
+          <el-input v-model="transferForm.password" type="password" placeholder="请输入您的密码以确认转让" show-password />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="transferDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="submitTransferForm">确 定</el-button>
       </div>
-      <div v-else>
-        <p>无效的团队 ID。</p>
-      </div>
-    </el-card>
+    </el-dialog>
   </div>
 </template>
 
 <script>
+import { getMy_team, updateMy_team, delMy_team, transferTeam, removeMember, updateMemberRole, uploadTeamAvatar } from "@/api/team/my_team";
+import { getToken } from "@/utils/auth";
+
 export default {
   name: "TeamDetail",
   data() {
     return {
+      // 基础信息
       teamId: null,
-      pageTitle: "团队详情"
+      pageTitle: "团队详情",
+      loading: true,
+      teamInfo: null,
+      teamMembers: [],
+      defaultAvatar: require('@/assets/images/profile.jpg'), // 默认头像
+      
+      // 分页参数
+      total: 0,
+      queryParams: {
+        pageNum: 1,
+        pageSize: 10
+      },
+      
+      // 成员搜索
+      memberSearchKeyword: '',
+      lastSearchKeyword: '',
+      
+      // 编辑团队表单相关
+      editDialogVisible: false,
+      editForm: {
+        teamId: null,
+        name: '',
+        description: '',
+        avatar: ''
+      },
+      editRules: {
+        name: [
+          { required: true, message: "团队名称不能为空", trigger: "blur" },
+          { min: 2, max: 30, message: "长度在 2 到 30 个字符", trigger: "blur" }
+        ]
+      },
+      
+      // 转让团队对话框相关
+      transferDialogVisible: false,
+      transferForm: {
+        teamId: null,
+        targetUserId: null,
+        password: ''
+      },
+      transferRules: {
+        targetUserId: [
+          { required: true, message: "请选择要转让的成员", trigger: "change" }
+        ],
+        password: [
+          { required: true, message: "请输入密码", trigger: "blur" }
+        ]
+      },
+      
+      // 上传头像相关
+      uploadAvatarUrl: process.env.VUE_APP_BASE_API + '/team/my_team/avatar',
+      uploadHeaders: {
+        Authorization: 'Bearer ' + getToken()
+      }
     };
+  },
+  computed: {
+    // 处理后的成员列表（过滤搜索结果）
+    filteredTeamMembers() {
+      if (!this.memberSearchKeyword || this.memberSearchKeyword.trim() === '') {
+        return this.teamMembers;
+      }
+      const keyword = this.memberSearchKeyword.toLowerCase();
+      return this.teamMembers.filter(member => {
+        return member.nickName && member.nickName.toLowerCase().includes(keyword);
+      });
+    },
+    
+    // 当前用户是否为创建者
+    isCreator() {
+      return this.teamInfo && this.teamInfo.role === 'creator';
+    },
+    
+    // 当前用户是否为管理员
+    isAdmin() {
+      return this.teamInfo && this.teamInfo.role === 'admin';
+    }
+  },
+  watch: {
+    // 监听搜索关键词变化，重置分页
+    memberSearchKeyword(val) {
+      if (val !== this.lastSearchKeyword) {
+        this.queryParams.pageNum = 1;
+        this.lastSearchKeyword = val;
+        
+        // 如果启用了本地搜索，则不需要重新请求接口
+        // 如果后端支持搜索，则可以在这里调用 getTeamDetails()
+      }
+    }
   },
   created() {
     // 从路由参数中获取 teamId
+    console.log('路由对象:', this.$route);
+    console.log('路由参数:', this.$route.params);
+    
     this.teamId = this.$route.params.teamId;
+    // 转换为数字类型，因为路由参数通常是字符串
     if (this.teamId) {
-      this.pageTitle = `团队 #${this.teamId} 详情`;
-      // 在这里可以添加获取团队详细信息的 API 调用
-      // this.getTeamDetails();
+      this.teamId = parseInt(this.teamId, 10);
+      console.log('转换后的团队ID:', this.teamId);
+      this.pageTitle = `团队详情`;
+      this.getTeamDetails();
     } else {
-       this.pageTitle = "无效的团队";
+      this.loading = false;
+      this.pageTitle = "无效的团队";
+      console.error('未从路由参数获取到团队ID');
     }
   },
   methods: {
-    goBack() {
-      // 返回上一页，通常是团队列表页
-      this.$router.go(-1);
+    // 获取团队详情
+    getTeamDetails() {
+      this.loading = true;
+      console.log('获取团队详情 - 团队ID:', this.teamId);
+      console.log('请求参数:', this.queryParams);
+      
+      getMy_team(this.teamId, this.queryParams).then(response => {
+        console.log('团队详情响应:', response);
+        if (response.code === 200 && response.data) {
+          this.teamInfo = response.data.teamInfo;
+          this.teamMembers = response.data.teamMembers || [];
+          this.total = response.total || this.teamMembers.length;
+          
+          // 设置页面标题
+          this.pageTitle = `团队详情 - ${this.teamInfo.name}`;
+          
+          // 初始化编辑表单数据
+          this.editForm = {
+            teamId: this.teamInfo.teamId,
+            name: this.teamInfo.name,
+            description: this.teamInfo.description,
+            avatar: this.teamInfo.avatar
+          };
+          
+          // 初始化转让表单
+          this.transferForm.teamId = this.teamInfo.teamId;
+        } else {
+          this.$modal.msgError(response.msg || "获取团队详情失败");
+        }
+        this.loading = false;
+      }).catch(error => {
+        console.error("获取团队详情出错:", error);
+        this.$modal.msgError("获取团队详情时发生错误");
+        this.loading = false;
+      });
     },
-    // getTeamDetails() {
-    //   // 调用 API 获取团队详情
-    //   console.log(`Fetching details for team ${this.teamId}`);
-    // }
+    
+    // 返回团队列表
+    goBack() {
+      console.log('返回团队列表');
+      this.$router.push('/team/my_team/index');
+    },
+    
+    // 获取角色显示文本
+    getRoleText(role) {
+      const roleMap = {
+        creator: '创建者',
+        admin: '管理员',
+        member: '普通成员'
+      };
+      return roleMap[role] || '未知角色';
+    },
+    
+    // 获取角色标签类型
+    getRoleTagType(role) {
+      switch (role) {
+        case 'creator': return 'success';
+        case 'admin': return 'warning';
+        case 'member': return 'info';
+        default: return 'info';
+      }
+    },
+    
+    // 处理编辑团队信息
+    handleEdit() {
+      this.editDialogVisible = true;
+    },
+    
+    // 提交编辑表单
+    submitEditForm() {
+      this.$refs.editForm.validate(valid => {
+        if (valid) {
+          const data = {
+            teamId: this.editForm.teamId,
+            name: this.editForm.name,
+            description: this.editForm.description,
+            avatar: this.editForm.avatar
+          };
+          
+          updateMy_team(data).then(response => {
+            if (response.code === 200) {
+              this.$modal.msgSuccess("更新团队信息成功");
+              this.editDialogVisible = false;
+              this.getTeamDetails(); // 刷新团队信息
+            } else {
+              this.$modal.msgError(response.msg || "更新团队信息失败");
+            }
+          }).catch(error => {
+            console.error("更新团队信息出错:", error);
+            this.$modal.msgError("更新团队信息时发生错误");
+          });
+        }
+      });
+    },
+    
+    // 处理团队转让
+    handleTransfer() {
+      this.transferDialogVisible = true;
+      this.transferForm.targetUserId = null;
+      this.transferForm.password = '';
+    },
+    
+    // 提交转让表单
+    submitTransferForm() {
+      this.$refs.transferForm.validate(valid => {
+        if (valid) {
+          this.$modal.confirm('确定要将团队转让给该成员吗？转让后您将变成普通成员，且无法撤销。').then(() => {
+            transferTeam(this.transferForm).then(response => {
+              if (response.code === 200) {
+                this.$modal.msgSuccess("团队转让成功");
+                this.transferDialogVisible = false;
+                this.getTeamDetails(); // 刷新团队信息
+              } else {
+                this.$modal.msgError(response.msg || "团队转让失败");
+              }
+            }).catch(error => {
+              console.error("团队转让出错:", error);
+              this.$modal.msgError("团队转让时发生错误");
+            });
+          }).catch(() => {});
+        }
+      });
+    },
+    
+    // 解散团队
+    handleDissolve() {
+      this.$modal.confirm('确定要解散该团队吗？解散后所有数据将被删除且无法恢复。').then(() => {
+        delMy_team(this.teamId).then(response => {
+          if (response.code === 200) {
+            this.$modal.msgSuccess("团队已解散");
+            this.goBack(); // 返回团队列表
+          } else {
+            this.$modal.msgError(response.msg || "解散团队失败");
+          }
+        }).catch(error => {
+          console.error("解散团队出错:", error);
+          this.$modal.msgError("解散团队时发生错误");
+        });
+      }).catch(() => {});
+    },
+    
+    // 移除团队成员
+    handleRemoveMember(member) {
+      this.$modal.confirm(`确定要移除团队成员 "${member.nickName || '未设置昵称'}" 吗？`).then(() => {
+        const data = {
+          teamId: this.teamId,
+          userId: member.userId
+        };
+        
+        removeMember(data).then(response => {
+          if (response.code === 200) {
+            this.$modal.msgSuccess("移除成员成功");
+            this.getTeamDetails(); // 刷新团队信息
+          } else {
+            this.$modal.msgError(response.msg || "移除成员失败");
+          }
+        }).catch(error => {
+          console.error("移除成员出错:", error);
+          this.$modal.msgError("移除成员时发生错误");
+        });
+      }).catch(() => {});
+    },
+    
+    // 更改成员角色
+    handleRoleChange(role, member) {
+      this.$modal.confirm(`确定要将 "${member.nickName || '未设置昵称'}" 的角色修改为"${this.getRoleText(role)}"吗？`).then(() => {
+        const data = {
+          teamId: this.teamId,
+          userId: member.userId,
+          role: role
+        };
+        
+        updateMemberRole(data).then(response => {
+          if (response.code === 200) {
+            this.$modal.msgSuccess("角色修改成功");
+            this.getTeamDetails(); // 刷新团队信息
+          } else {
+            this.$modal.msgError(response.msg || "角色修改失败");
+          }
+        }).catch(error => {
+          console.error("修改角色出错:", error);
+          this.$modal.msgError("修改角色时发生错误");
+        });
+      }).catch(() => {});
+    },
+    
+    // 头像上传成功处理
+    handleAvatarSuccess(res, file) {
+      if (res.code === 200) {
+        this.editForm.avatar = res.data || res.url;
+        this.$message.success('头像上传成功');
+      } else {
+        this.$message.error(res.msg || '头像上传失败');
+      }
+    },
+    
+    // 头像上传前的校验
+    beforeAvatarUpload(file) {
+      const isJPG = file.type === 'image/jpeg' || file.type === 'image/png';
+      const isLt2M = file.size / 1024 / 1024 < 2;
+
+      if (!isJPG) {
+        this.$message.error('上传头像图片只能是 JPG 或 PNG 格式!');
+      }
+      if (!isLt2M) {
+        this.$message.error('上传头像图片大小不能超过 2MB!');
+      }
+      return isJPG && isLt2M;
+    },
+    
+    // 处理页码变化
+    handleCurrentChange(pageNum) {
+      this.queryParams.pageNum = pageNum;
+      this.getTeamDetails();
+    },
+    
+    // 处理每页条数变化
+    handleSizeChange(pageSize) {
+      this.queryParams.pageSize = pageSize;
+      this.queryParams.pageNum = 1;
+      this.getTeamDetails();
+    },
+    
+    // 格式化时间
+    parseTime(time, pattern) {
+      if (!time) return '未知';
+      let date = new Date(time);
+      let isValid = !isNaN(date.getTime());
+      if (!isValid) return time;
+      
+      if (!pattern) {
+        pattern = '{y}-{m}-{d} {h}:{i}:{s}';
+      }
+      
+      return pattern.replace(/{(y|m|d|h|i|s|a)+}/g, (result, key) => {
+        let value = {
+          y: date.getFullYear(),
+          m: date.getMonth() + 1,
+          d: date.getDate(),
+          h: date.getHours(),
+          i: date.getMinutes(),
+          s: date.getSeconds()
+        }[key];
+        
+        if (key === 'a') return ['日', '一', '二', '三', '四', '五', '六'][date.getDay()];
+        if (result.length > 0 && value < 10) {
+          value = '0' + value;
+        }
+        return value || 0;
+      });
+    }
   }
 };
 </script>
@@ -59,6 +592,8 @@ export default {
 <style scoped lang="scss">
 .team-detail-container {
   padding: 20px;
+  background-color: #f5f7fa;
+  min-height: calc(100vh - 100px);
 }
 
 .page-header {
@@ -66,19 +601,247 @@ export default {
   background-color: #fff;
   padding: 15px 20px;
   border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
 }
 
-.content-card {
+.loading-container {
+  padding: 20px;
+  background: #fff;
   border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
+}
 
-  p {
-    line-height: 1.8;
-    margin-bottom: 15px;
-  }
+.info-card, .member-card {
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
+  overflow: hidden;
+}
 
-  strong {
-    color: #409EFF;
+.team-info-header {
+  display: flex;
+  padding: 24px;
+  background: linear-gradient(135deg, #34495e, #2c3e50);
+  color: white;
+}
+
+.team-avatar-container {
+  margin-right: 24px;
+  flex-shrink: 0;
+}
+
+.team-info-content {
+  flex-grow: 1;
+}
+
+.team-name-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.team-name {
+  margin: 0;
+  font-size: 24px;
+  margin-right: 12px;
+  color: white;
+}
+
+.role-tag {
+  font-size: 12px;
+}
+
+.team-stats {
+  display: flex;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.stat-item {
+  margin-right: 24px;
+  display: flex;
+  align-items: center;
+  
+  i {
+    margin-right: 8px;
   }
+}
+
+.team-description {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.team-actions {
+  padding: 16px 24px;
+  background-color: white;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid #ebeef5;
+}
+
+.member-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  
+  .header-left {
+    display: flex;
+    align-items: center;
+    
+    .member-count {
+      margin-left: 8px;
+      font-size: 14px;
+      color: #909399;
+    }
+  }
+  
+  .member-search {
+    width: 200px;
+  }
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.no-team-info {
+  margin-top: 60px;
+}
+
+// 头像上传相关样式
+.avatar-uploader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  
+  .avatar-uploader-icon {
+    font-size: 28px;
+    color: #8c939d;
+    width: 100px;
+    height: 100px;
+    line-height: 100px;
+    text-align: center;
+    border: 1px dashed #d9d9d9;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  
+  .avatar-preview {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+  }
+  
+  .avatar-tip {
+    margin-top: 8px;
+    font-size: 12px;
+    color: #606266;
+  }
+}
+
+.member-option {
+  display: flex;
+  align-items: center;
+}
+
+.member-action-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 5px;
+  
+  .el-button {
+    padding: 5px;
+  }
+}
+
+.nickname-cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+// 响应式表格样式
+@media screen and (max-width: 768px) {
+  .member-card {
+    .el-table {
+      width: 100%;
+      overflow-x: auto;
+      white-space: nowrap;
+      
+      .el-table__body,
+      .el-table__header {
+        min-width: 100%;
+      }
+    }
+    
+    .member-header {
+      flex-direction: column;
+      align-items: flex-start;
+      
+      .header-left {
+        margin-bottom: 10px;
+      }
+      
+      .member-search {
+        width: 100% !important;
+      }
+    }
+  }
+  
+  .team-info-header {
+    flex-direction: column;
+    
+    .team-avatar-container {
+      margin-right: 0;
+      margin-bottom: 15px;
+      align-self: center;
+    }
+    
+    .team-info-content {
+      .team-name-container {
+        justify-content: center;
+      }
+      
+      .team-stats {
+        justify-content: center;
+      }
+    }
+  }
+  
+  .pagination-container {
+    .el-pagination {
+      padding: 0 5px;
+      
+      .el-pagination__sizes {
+        display: none;
+      }
+    }
+  }
+}
+
+.member-card {
+  .el-card__header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #ebeef5;
+  }
+  
+  .el-card__body {
+    padding: 0;
+  }
+}
+
+.pagination-container {
+  display: flex;
+  justify-content: center;
+  padding: 15px 0;
+  background-color: #fff;
 }
 </style> 

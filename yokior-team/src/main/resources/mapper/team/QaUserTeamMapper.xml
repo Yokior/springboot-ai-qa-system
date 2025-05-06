@@ -22,6 +22,14 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         <result property="joinTime"    column="join_time"    />
     </resultMap>
 
+    <resultMap type="TeamMemberVo" id="TeamMemberVoResult">
+        <result property="userId"    column="user_id"    />
+        <result property="avatar"    column="avatar"    />
+        <result property="nickName"    column="nick_name"    />
+        <result property="role"    column="role"    />
+        <result property="joinTime"    column="join_time"    />
+    </resultMap>
+
     <sql id="selectQaUserTeamVo">
         select id, user_id, team_id, role, join_time from qa_user_team
     </sql>
@@ -75,7 +83,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         AND qut.user_id = #{userId}
     </select>
 
-    <select id="selectTeamMemberByTeamId" resultType="TeamMemberVo">
+    <select id="selectTeamMemberByTeamId" resultMap="TeamMemberVoResult">
         select su.user_id, su.avatar, su.nick_name, qut.role, qut.join_time
         from qa_user_team qut
                  inner join sys_user su on su.user_id = qut.user_id
