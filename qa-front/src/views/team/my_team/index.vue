@@ -1,29 +1,24 @@
 <template>
-  <div class="app-container">
-    <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch" label-width="70px">
-      <el-form-item label="用户ID (关联 sys_user.user_id)" prop="userId">
+  <div class="app-container my-team-container">
+    <el-form :model="queryParams" ref="queryForm" size="small" :inline="true" v-show="showSearch" label-width="70px" class="search-form">
+      <el-form-item label="团队名称" prop="name">
         <el-input
-          v-model="queryParams.userId"
-          placeholder="请输入用户ID (关联 sys_user.user_id)"
+          v-model="queryParams.name"
+          placeholder="请输入团队名称"
           clearable
+          style="width: 240px"
           @keyup.enter.native="handleQuery"
         />
       </el-form-item>
-      <el-form-item label="团队ID (关联 qa_team.team_id)" prop="teamId">
-        <el-input
-          v-model="queryParams.teamId"
-          placeholder="请输入团队ID (关联 qa_team.team_id)"
-          clearable
-          @keyup.enter.native="handleQuery"
-        />
-      </el-form-item>
-      <el-form-item label="加入时间" prop="joinTime">
-        <el-date-picker clearable
-          v-model="queryParams.joinTime"
-          type="date"
-          value-format="yyyy-MM-dd"
-          placeholder="请选择加入时间">
-        </el-date-picker>
+      <el-form-item label="角色身份" prop="role">
+        <el-select v-model="queryParams.role" placeholder="请选择角色" clearable style="width: 240px">
+          <el-option
+            v-for="item in roleOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item>
         <el-button type="primary" icon="el-icon-search" size="mini" @click="handleQuery">搜索</el-button>
@@ -31,83 +26,33 @@
       </el-form-item>
     </el-form>
 
-    <el-row :gutter="10" class="mb8">
-      <el-col :span="1.5">
-        <el-button
-          type="primary"
-          plain
-          icon="el-icon-plus"
-          size="mini"
-          @click="handleAdd"
-          v-hasPermi="['team:my_team:add']"
-        >新增</el-button>
+    <el-row :gutter="20" class="team-list-row" v-loading="loading">
+      <el-col :span="8" v-for="(team, index) in teamList" :key="team.teamId" class="team-col">
+         <transition name="el-zoom-in-center">
+          <el-card shadow="hover" class="team-card" @click.native="handleTeamClick(team)">
+            <div slot="header" class="clearfix card-header">
+              <el-avatar size="medium" :src="team.avatar || defaultAvatar" class="team-avatar"></el-avatar>
+              <span class="team-name">{{ team.name }}</span>
+              <el-tag size="mini" :type="getRoleTagType(team.role)" class="role-tag">{{ getRoleText(team.role) }}</el-tag>
+            </div>
+            <div class="card-body">
+              <p class="team-description">
+                <i class="el-icon-document"></i> {{ team.description || '暂无描述' }}
+              </p>
+              <p class="team-owner">
+                <i class="el-icon-user"></i> 创建者: {{ team.ownerUserName }}
+              </p>
+              <p class="join-time">
+                <i class="el-icon-time"></i> 加入时间: {{ parseTime(team.joinTime, '{y}-{m}-{d} {h}:{i}') }}
+              </p>
+            </div>
+             <div class="card-index">#{{ (queryParams.pageNum - 1) * queryParams.pageSize + index + 1 }}</div>
+          </el-card>
+         </transition>
       </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="success"
-          plain
-          icon="el-icon-edit"
-          size="mini"
-          :disabled="single"
-          @click="handleUpdate"
-          v-hasPermi="['team:my_team:edit']"
-        >修改</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="danger"
-          plain
-          icon="el-icon-delete"
-          size="mini"
-          :disabled="multiple"
-          @click="handleDelete"
-          v-hasPermi="['team:my_team:remove']"
-        >删除</el-button>
-      </el-col>
-      <el-col :span="1.5">
-        <el-button
-          type="warning"
-          plain
-          icon="el-icon-download"
-          size="mini"
-          @click="handleExport"
-          v-hasPermi="['team:my_team:export']"
-        >导出</el-button>
-      </el-col>
-      <right-toolbar :showSearch.sync="showSearch" @queryTable="getList"></right-toolbar>
+      <el-empty v-if="!loading && teamList.length === 0" description="暂无团队数据" :image-size="100"></el-empty>
     </el-row>
 
-    <el-table v-loading="loading" :data="my_teamList" @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="55" align="center" />
-      <el-table-column label="主键ID" align="center" prop="id" />
-      <el-table-column label="用户ID (关联 sys_user.user_id)" align="center" prop="userId" />
-      <el-table-column label="团队ID (关联 qa_team.team_id)" align="center" prop="teamId" />
-      <el-table-column label="用户在团队中的角色" align="center" prop="role" />
-      <el-table-column label="加入时间" align="center" prop="joinTime" width="180">
-        <template slot-scope="scope">
-          <span>{{ parseTime(scope.row.joinTime, '{y}-{m}-{d}') }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" align="center" class-name="small-padding fixed-width">
-        <template slot-scope="scope">
-          <el-button
-            size="mini"
-            type="text"
-            icon="el-icon-edit"
-            @click="handleUpdate(scope.row)"
-            v-hasPermi="['team:my_team:edit']"
-          >修改</el-button>
-          <el-button
-            size="mini"
-            type="text"
-            icon="el-icon-delete"
-            @click="handleDelete(scope.row)"
-            v-hasPermi="['team:my_team:remove']"
-          >删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-    
     <pagination
       v-show="total>0"
       :total="total"
@@ -115,113 +60,64 @@
       :limit.sync="queryParams.pageSize"
       @pagination="getList"
     />
-
-    <!-- 添加或修改我的团队对话框 -->
-    <el-dialog :title="title" :visible.sync="open" width="500px" append-to-body>
-      <el-form ref="form" :model="form" :rules="rules" label-width="80px">
-        <el-form-item label="用户ID (关联 sys_user.user_id)" prop="userId">
-          <el-input v-model="form.userId" placeholder="请输入用户ID (关联 sys_user.user_id)" />
-        </el-form-item>
-        <el-form-item label="团队ID (关联 qa_team.team_id)" prop="teamId">
-          <el-input v-model="form.teamId" placeholder="请输入团队ID (关联 qa_team.team_id)" />
-        </el-form-item>
-        <el-form-item label="用户在团队中的角色" prop="role">
-          <el-input v-model="form.role" placeholder="请输入用户在团队中的角色" />
-        </el-form-item>
-        <el-form-item label="加入时间" prop="joinTime">
-          <el-date-picker clearable
-            v-model="form.joinTime"
-            type="date"
-            value-format="yyyy-MM-dd"
-            placeholder="请选择加入时间">
-          </el-date-picker>
-        </el-form-item>
-      </el-form>
-      <div slot="footer" class="dialog-footer">
-        <el-button type="primary" @click="submitForm">确 定</el-button>
-        <el-button @click="cancel">取 消</el-button>
-      </div>
-    </el-dialog>
   </div>
 </template>
 
 <script>
-import { listMy_team, getMy_team, delMy_team, addMy_team, updateMy_team } from "@/api/team/my_team"
+import { listMy_team } from "@/api/team/my_team"
 
 export default {
-  name: "My_team",
+  name: "MyTeam",
   data() {
     return {
       // 遮罩层
       loading: true,
-      // 选中数组
-      ids: [],
-      // 非单个禁用
-      single: true,
-      // 非多个禁用
-      multiple: true,
       // 显示搜索条件
       showSearch: true,
       // 总条数
       total: 0,
-      // 我的团队表格数据
-      my_teamList: [],
-      // 弹出层标题
-      title: "",
-      // 是否显示弹出层
-      open: false,
+      // 团队数据列表
+      teamList: [],
       // 查询参数
       queryParams: {
         pageNum: 1,
         pageSize: 10,
-        userId: null,
-        teamId: null,
-        joinTime: null
+        name: undefined, // 对应团队名称搜索
+        role: undefined   // 对应角色身份搜索
       },
-      // 表单参数
-      form: {},
-      // 表单校验
-      rules: {
-        userId: [
-          { required: true, message: "用户ID (关联 sys_user.user_id)不能为空", trigger: "blur" }
-        ],
-        teamId: [
-          { required: true, message: "团队ID (关联 qa_team.team_id)不能为空", trigger: "blur" }
-        ],
-        role: [
-          { required: true, message: "用户在团队中的角色不能为空", trigger: "blur" }
-        ],
-      }
+      // 角色选项
+      roleOptions: [
+        { value: 'creator', label: '创建者' },
+        { value: 'admin', label: '管理员' },
+        { value: 'member', label: '普通成员' }
+      ],
+      // 默认头像路径，根据实际情况修改
+      defaultAvatar: require('@/assets/images/profile.jpg') // 或者其他默认图片路径
     }
   },
   created() {
     this.getList()
   },
   methods: {
-    /** 查询我的团队列表 */
+    /** 查询团队列表 */
     getList() {
       this.loading = true
       listMy_team(this.queryParams).then(response => {
-        this.my_teamList = response.rows
-        this.total = response.total
+        if (response.code === 200) {
+          this.teamList = response.rows
+          this.total = response.total
+        } else {
+          this.$modal.msgError(response.msg || "获取团队列表失败")
+          this.teamList = []
+          this.total = 0
+        }
         this.loading = false
+      }).catch(() => {
+        this.loading = false
+        this.$modal.msgError("请求团队列表时发生错误")
+        this.teamList = []
+        this.total = 0
       })
-    },
-    // 取消按钮
-    cancel() {
-      this.open = false
-      this.reset()
-    },
-    // 表单重置
-    reset() {
-      this.form = {
-        id: null,
-        userId: null,
-        teamId: null,
-        role: null,
-        joinTime: null
-      }
-      this.resetForm("form")
     },
     /** 搜索按钮操作 */
     handleQuery() {
@@ -233,64 +129,143 @@ export default {
       this.resetForm("queryForm")
       this.handleQuery()
     },
-    // 多选框选中数据
-    handleSelectionChange(selection) {
-      this.ids = selection.map(item => item.id)
-      this.single = selection.length!==1
-      this.multiple = !selection.length
+    /** 处理团队卡片点击事件 */
+    handleTeamClick(team) {
+      // 跳转到详情页，确保路由已配置
+      this.$router.push(`/team/detail/${team.teamId}`)
+      // 或者如果你使用命名路由：
+      // this.$router.push({ name: 'TeamDetail', params: { teamId: team.teamId } })
     },
-    /** 新增按钮操作 */
-    handleAdd() {
-      this.reset()
-      this.open = true
-      this.title = "添加我的团队"
+    /** 获取角色显示文本 */
+    getRoleText(role) {
+      const roleMap = {
+        creator: '创建者',
+        admin: '管理员',
+        member: '普通成员'
+      }
+      return roleMap[role] || '未知角色'
     },
-    /** 修改按钮操作 */
-    handleUpdate(row) {
-      this.reset()
-      const id = row.id || this.ids
-      getMy_team(id).then(response => {
-        this.form = response.data
-        this.open = true
-        this.title = "修改我的团队"
-      })
-    },
-    /** 提交按钮 */
-    submitForm() {
-      this.$refs["form"].validate(valid => {
-        if (valid) {
-          if (this.form.id != null) {
-            updateMy_team(this.form).then(response => {
-              this.$modal.msgSuccess("修改成功")
-              this.open = false
-              this.getList()
-            })
-          } else {
-            addMy_team(this.form).then(response => {
-              this.$modal.msgSuccess("新增成功")
-              this.open = false
-              this.getList()
-            })
-          }
-        }
-      })
-    },
-    /** 删除按钮操作 */
-    handleDelete(row) {
-      const ids = row.id || this.ids
-      this.$modal.confirm('是否确认删除我的团队编号为"' + ids + '"的数据项？').then(function() {
-        return delMy_team(ids)
-      }).then(() => {
-        this.getList()
-        this.$modal.msgSuccess("删除成功")
-      }).catch(() => {})
-    },
-    /** 导出按钮操作 */
-    handleExport() {
-      this.download('team/my_team/export', {
-        ...this.queryParams
-      }, `my_team_${new Date().getTime()}.xlsx`)
+    /** 获取角色标签类型 */
+    getRoleTagType(role) {
+      switch (role) {
+        case 'creator': return 'success'
+        case 'admin': return 'warning'
+        case 'member': return 'info'
+        default: return 'info'
+      }
     }
   }
 }
 </script>
+
+<style scoped lang="scss">
+.my-team-container {
+  padding: 20px;
+  background-color: #f0f2f5; // 淡灰色背景，提升质感
+}
+
+.search-form {
+  background-color: #ffffff;
+  padding: 15px 20px 0;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
+}
+
+.team-list-row {
+  min-height: 300px; /* 防止加载时高度塌陷 */
+}
+
+.team-col {
+  margin-bottom: 20px;
+}
+
+.team-card {
+  border-radius: 8px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  position: relative; /* For absolute positioning of index */
+  overflow: hidden; /* Hide index overflow */
+
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #ebeeef; // 更柔和的分割线
+    padding-bottom: 10px;
+  }
+
+  .team-avatar {
+    margin-right: 12px;
+    flex-shrink: 0; // 防止头像被压缩
+  }
+
+  .team-name {
+    font-weight: bold;
+    font-size: 16px;
+    color: #303133;
+    flex-grow: 1; // 占据剩余空间
+    margin-right: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .role-tag {
+    flex-shrink: 0; // 防止标签被压缩
+  }
+
+  .card-body {
+    font-size: 14px;
+    color: #606266;
+    line-height: 1.6;
+
+    p {
+      margin: 8px 0;
+      display: flex;
+      align-items: center;
+      i {
+        margin-right: 6px;
+        color: #909399;
+      }
+    }
+
+    .team-description {
+       min-height: 1.6em; // 保证即使没描述也有行高
+       display: -webkit-box;
+       -webkit-line-clamp: 2; // 最多显示两行
+       -webkit-box-orient: vertical;
+       overflow: hidden;
+       text-overflow: ellipsis;
+    }
+  }
+
+   .card-index {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    color: white;
+    padding: 2px 8px;
+    font-size: 12px;
+    border-bottom-left-radius: 8px;
+   }
+}
+
+/* 列表动画 */
+.list-anim-enter-active, .list-anim-leave-active {
+  transition: all 0.5s ease;
+}
+.list-anim-enter, .list-anim-leave-to /* .list-anim-leave-active for <2.1.8 */ {
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+.el-empty {
+  width: 100%;
+}
+</style>
