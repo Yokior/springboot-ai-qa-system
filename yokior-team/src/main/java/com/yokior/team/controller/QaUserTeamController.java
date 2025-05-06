@@ -7,6 +7,7 @@ import com.yokior.common.exception.ServiceException;
 import com.yokior.common.utils.SecurityUtils;
 import com.yokior.team.domain.dto.QaUserTeamDto;
 import com.yokior.team.domain.vo.QaTeamVo;
+import com.yokior.team.domain.vo.QaUserTeamVo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -77,9 +78,10 @@ public class QaUserTeamController extends BaseController
      */
     @PreAuthorize("@ss.hasPermi('team:my_team:query')")
     @GetMapping(value = "/{id}")
-    public AjaxResult getInfo(@PathVariable("id") Long id)
+    public TableDataInfo getInfo(@PathVariable("id") Long id)
     {
-        return success(qaUserTeamService.selectQaUserTeamById(id));
+        TableDataInfo tableDataInfo = qaUserTeamService.selectQaUserTeamById(id);
+        return tableDataInfo;
     }
 
     /**

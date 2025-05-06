@@ -1,5 +1,7 @@
 package com.yokior.common.core.page;
 
+import com.yokior.common.constant.HttpStatus;
+
 import java.io.Serializable;
 import java.util.List;
 
@@ -17,6 +19,9 @@ public class TableDataInfo implements Serializable
 
     /** 列表数据 */
     private List<?> rows;
+
+    /** 数据对象 */
+    private Object data;
 
     /** 消息状态码 */
     private int code;
@@ -41,6 +46,27 @@ public class TableDataInfo implements Serializable
     {
         this.rows = list;
         this.total = total;
+    }
+
+    public static TableDataInfo getDataTableFromData(Object data, long total)
+    {
+        TableDataInfo rspData = new TableDataInfo();
+        rspData.setCode(HttpStatus.SUCCESS);
+        rspData.setMsg("查询成功");
+        rspData.setData(data);
+        rspData.setTotal(total);
+        return rspData;
+    }
+
+
+    public Object getData()
+    {
+        return data;
+    }
+
+    public void setData(Object data)
+    {
+        this.data = data;
     }
 
     public long getTotal()

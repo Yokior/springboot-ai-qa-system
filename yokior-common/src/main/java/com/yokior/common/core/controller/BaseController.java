@@ -89,7 +89,6 @@ public class BaseController
         rspData.setTotal(new PageInfo(list).getTotal());
         return rspData;
     }
-
     /**
      * 返回成功
      */

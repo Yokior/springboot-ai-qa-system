@@ -1,9 +1,12 @@
 package com.yokior.team.service;
 
 import java.util.List;
+
+import com.yokior.common.core.page.TableDataInfo;
 import com.yokior.team.domain.QaUserTeam;
 import com.yokior.team.domain.dto.QaUserTeamDto;
 import com.yokior.team.domain.vo.QaTeamVo;
+import com.yokior.team.domain.vo.QaUserTeamVo;
 
 /**
  * 我的团队Service接口
@@ -19,7 +22,7 @@ public interface IQaUserTeamService
      * @param id 我的团队主键
      * @return 我的团队
      */
-    public QaUserTeam selectQaUserTeamById(Long id);
+    public TableDataInfo selectQaUserTeamById(Long id);
 
     /**
      * 查询我的团队列表
