@@ -2,6 +2,7 @@ package com.yokior.team.mapper;
 
 import java.util.List;
 import com.yokior.team.domain.QaUserTeam;
+import com.yokior.team.domain.dto.QaUserTeamDto;
 import com.yokior.team.domain.vo.QaTeamVo;
 import org.apache.ibatis.annotations.Param;
 
@@ -24,10 +25,10 @@ public interface QaUserTeamMapper
     /**
      * 查询我的团队列表
      * 
-     * @param qaUserTeam 我的团队
+     * @param qaUserTeamDto 我的团队
      * @return 我的团队集合
      */
-    public List<QaTeamVo> selectQaUserTeamList(QaUserTeam qaUserTeam);
+    public List<QaTeamVo> selectQaUserTeamList(QaUserTeamDto qaUserTeamDto);
 
     /**
      * 新增我的团队

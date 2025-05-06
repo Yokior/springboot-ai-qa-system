@@ -5,6 +5,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.yokior.common.exception.ServiceException;
 import com.yokior.common.utils.SecurityUtils;
+import com.yokior.team.domain.dto.QaUserTeamDto;
 import com.yokior.team.domain.vo.QaTeamVo;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,19 +44,18 @@ public class QaUserTeamController extends BaseController
      */
     @PreAuthorize("@ss.hasPermi('team:my_team:list')")
     @GetMapping("/list")
-    public TableDataInfo list()
+    public TableDataInfo list(QaUserTeamDto qaUserTeamDto)
     {
-        QaUserTeam qaUserTeam = new QaUserTeam();
-        qaUserTeam.setUserId(SecurityUtils.getUserId());
+        qaUserTeamDto.setUserId(SecurityUtils.getUserId());
 
         // 检查userId是否为空
-        if (qaUserTeam.getUserId() == null)
+        if (qaUserTeamDto.getUserId() == null)
         {
             throw new ServiceException("userId不能为空");
         }
 
         startPage();
-        List<QaTeamVo> list = qaUserTeamService.selectQaUserTeamList(qaUserTeam);
+        List<QaTeamVo> list = qaUserTeamService.selectQaUserTeamList(qaUserTeamDto);
         return getDataTable(list);
     }
 

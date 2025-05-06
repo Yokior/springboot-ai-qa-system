@@ -26,7 +26,7 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         select id, user_id, team_id, role, join_time from qa_user_team
     </sql>
 
-    <select id="selectQaUserTeamList" parameterType="QaUserTeam" resultMap="QaTeamVoResult">
+    <select id="selectQaUserTeamList" parameterType="QaUserTeamDto" resultMap="QaTeamVoResult">
         SELECT
             qt.team_id,
             qt.name,
@@ -39,9 +39,16 @@ PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
             qa_team qt
                 INNER JOIN qa_user_team qut ON qt.team_id = qut.team_id
                 INNER JOIN sys_user su ON su.user_id = qt.owner_user_id
-        WHERE
+        <where>
             qt.status = '0'
           AND qut.user_id = #{userId}
+            <if test="name != null and name != ''">
+                AND qt.name like concat('%',#{name},'%')
+            </if>
+            <if test="role != null and role != ''">
+                AND qut.role = #{role}
+            </if>
+        </where>
     </select>
     
     <select id="selectQaUserTeamById" parameterType="Long" resultMap="QaUserTeamResult">
