@@ -27,8 +27,8 @@
     </el-form>
 
     <el-row :gutter="20" class="team-list-row" v-loading="loading">
-      <el-col :span="8" v-for="(team, index) in teamList" :key="team.teamId" class="team-col">
-         <transition name="el-zoom-in-center">
+      <template v-if="teamList.length > 0">
+        <el-col :span="8" v-for="(team, index) in teamList" :key="team.teamId" class="team-col">
           <el-card shadow="hover" class="team-card" @click.native="handleTeamClick(team)">
             <div slot="header" class="clearfix card-header">
               <el-avatar size="medium" :src="team.avatar || defaultAvatar" class="team-avatar"></el-avatar>
@@ -46,11 +46,11 @@
                 <i class="el-icon-time"></i> 加入时间: {{ parseTime(team.joinTime, '{y}-{m}-{d} {h}:{i}') }}
               </p>
             </div>
-             <div class="card-index">#{{ (queryParams.pageNum - 1) * queryParams.pageSize + index + 1 }}</div>
+            <div class="card-index">#{{ (queryParams.pageNum - 1) * queryParams.pageSize + index + 1 }}</div>
           </el-card>
-         </transition>
-      </el-col>
-      <el-empty v-if="!loading && teamList.length === 0" description="暂无团队数据" :image-size="100"></el-empty>
+        </el-col>
+      </template>
+      <el-empty v-else-if="!loading" description="暂无团队数据" :image-size="100"></el-empty>
     </el-row>
 
     <pagination
@@ -96,22 +96,30 @@ export default {
     }
   },
   created() {
-    this.getList()
+    this.$nextTick(() => {
+      this.getList()
+    })
   },
   methods: {
     /** 查询团队列表 */
     getList() {
       this.loading = true
+      this.teamList = [] // 重置列表，避免旧数据影响布局计算
+      
       listMy_team(this.queryParams).then(response => {
         if (response.code === 200) {
-          this.teamList = response.rows
-          this.total = response.total
+          // 确保DOM更新后再设置数据
+          this.$nextTick(() => {
+            this.teamList = response.rows
+            this.total = response.total
+            this.loading = false
+          })
         } else {
           this.$modal.msgError(response.msg || "获取团队列表失败")
           this.teamList = []
           this.total = 0
+          this.loading = false
         }
-        this.loading = false
       }).catch(() => {
         this.loading = false
         this.$modal.msgError("请求团队列表时发生错误")
@@ -173,10 +181,13 @@ export default {
 
 .team-list-row {
   min-height: 300px; /* 防止加载时高度塌陷 */
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .team-col {
   margin-bottom: 20px;
+  display: flex;
 }
 
 .team-card {
@@ -185,6 +196,7 @@ export default {
   cursor: pointer;
   position: relative; /* For absolute positioning of index */
   overflow: hidden; /* Hide index overflow */
+  width: 100%; /* 确保卡片填充整个列宽 */
 
   &:hover {
     transform: translateY(-5px);
@@ -266,5 +278,6 @@ export default {
 
 .el-empty {
   width: 100%;
+  margin: 40px 0;
 }
 </style>
