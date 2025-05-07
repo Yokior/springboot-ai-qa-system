@@ -24,7 +24,7 @@
       <el-card class="box-card info-card" :body-style="{ padding: '0px' }">
         <div class="team-info-header">
           <div class="team-avatar-container">
-            <el-avatar :size="80" :src="teamInfo.avatar || defaultAvatar"></el-avatar>
+            <el-avatar :size="80" :src="getImageUrl(teamInfo.avatar)"></el-avatar>
           </div>
           <div class="team-info-content">
             <div class="team-name-container">
@@ -112,7 +112,7 @@
         >
           <el-table-column label="头像" prop="avatar" width="60" align="center">
             <template slot-scope="scope">
-              <el-avatar :size="32" :src="scope.row.avatar || defaultAvatar"></el-avatar>
+              <el-avatar :size="32" :src="getImageUrl(scope.row.avatar)"></el-avatar>
             </template>
           </el-table-column>
           <el-table-column prop="nickName" label="昵称" min-width="100" show-overflow-tooltip>
@@ -201,7 +201,7 @@
             :show-file-list="false"
             :on-success="handleAvatarSuccess"
             :before-upload="beforeAvatarUpload">
-            <img v-if="editForm.avatar" :src="editForm.avatar" class="avatar-preview">
+            <img v-if="editForm.avatar" :src="getImageUrl(editForm.avatar)" class="avatar-preview">
             <i v-else class="el-icon-plus avatar-uploader-icon"></i>
             <div class="avatar-tip">点击上传头像</div>
           </el-upload>
@@ -224,7 +224,7 @@
               :label="member.nickName || '未设置昵称'"
               :value="member.userId">
               <div class="member-option">
-                <el-avatar :size="24" :src="member.avatar || defaultAvatar"></el-avatar>
+                <el-avatar :size="24" :src="getImageUrl(member.avatar)"></el-avatar>
                 <span style="margin-left: 8px">{{ member.nickName || '未设置昵称' }}</span>
               </div>
             </el-option>
@@ -357,6 +357,18 @@ export default {
     }
   },
   methods: {
+    // 获取图片URL
+    getImageUrl(avatar) {
+      if (!avatar) return this.defaultAvatar;
+      if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+        return avatar;
+      }
+      if (avatar.startsWith('data:image/')) {
+        return avatar;
+      }
+      return process.env.VUE_APP_BASE_API + avatar;
+    },
+    
     // 获取团队详情
     getTeamDetails() {
       this.loading = true;

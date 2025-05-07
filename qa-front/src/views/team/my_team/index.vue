@@ -31,7 +31,7 @@
         <el-col :span="8" v-for="(team, index) in teamList" :key="team.teamId" class="team-col">
           <el-card shadow="hover" class="team-card" @click.native="handleTeamClick(team)">
             <div slot="header" class="clearfix card-header">
-              <el-avatar size="medium" :src="team.avatar || defaultAvatar" class="team-avatar"></el-avatar>
+              <el-avatar size="medium" :src="getImageUrl(team.avatar)" class="team-avatar"></el-avatar>
               <span class="team-name">{{ team.name }}</span>
               <el-tag size="mini" :type="getRoleTagType(team.role)" class="role-tag">{{ getRoleText(team.role) }}</el-tag>
             </div>
@@ -101,6 +101,18 @@ export default {
     })
   },
   methods: {
+    /** 获取图片URL */
+    getImageUrl(avatar) {
+      if (!avatar) return this.defaultAvatar;
+      if (avatar.startsWith('http://') || avatar.startsWith('https://')) {
+        return avatar;
+      }
+      if (avatar.startsWith('data:image/')) {
+        return avatar;
+      }
+      return process.env.VUE_APP_BASE_API + avatar;
+    },
+    
     /** 查询团队列表 */
     getList() {
       this.loading = true
@@ -160,6 +172,34 @@ export default {
         case 'member': return 'info'
         default: return 'info'
       }
+    },
+    /** 格式化时间 */
+    parseTime(time, pattern) {
+      if (!time) return '未知';
+      let date = new Date(time);
+      let isValid = !isNaN(date.getTime());
+      if (!isValid) return time;
+      
+      if (!pattern) {
+        pattern = '{y}-{m}-{d} {h}:{i}:{s}';
+      }
+      
+      return pattern.replace(/{(y|m|d|h|i|s|a)+}/g, (result, key) => {
+        let value = {
+          y: date.getFullYear(),
+          m: date.getMonth() + 1,
+          d: date.getDate(),
+          h: date.getHours(),
+          i: date.getMinutes(),
+          s: date.getSeconds()
+        }[key];
+        
+        if (key === 'a') return ['日', '一', '二', '三', '四', '五', '六'][date.getDay()];
+        if (result.length > 0 && value < 10) {
+          value = '0' + value;
+        }
+        return value || 0;
+      });
     }
   }
 }
