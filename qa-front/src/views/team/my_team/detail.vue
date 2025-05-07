@@ -661,7 +661,7 @@ export default {
 <style scoped lang="scss">
 .team-detail-container {
   padding: 20px;
-  background-color: #f5f7fa;
+  background-color: #e8ecf0;
   min-height: calc(100vh - 100px);
 }
 
@@ -670,27 +670,30 @@ export default {
   background-color: #fff;
   padding: 15px 20px;
   border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px 0 rgba(0,0,0,0.1);
+  border: 1px solid #dcdfe6;
 }
 
 .loading-container {
   padding: 20px;
   background: #fff;
   border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px 0 rgba(0,0,0,0.1);
+  border: 1px solid #dcdfe6;
 }
 
 .info-card, .member-card {
   margin-bottom: 20px;
   border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.05);
+  box-shadow: 0 4px 12px 0 rgba(0,0,0,0.15);
   overflow: hidden;
+  border: 1px solid #d0d7de;
 }
 
 .team-info-header {
   display: flex;
   padding: 24px;
-  background: linear-gradient(135deg, #34495e, #2c3e50);
+  background: linear-gradient(135deg, #1a365d, #153254);
   color: white;
 }
 
@@ -745,16 +748,17 @@ export default {
 
 .team-actions {
   padding: 16px 24px;
-  background-color: white;
+  background-color: #f8f9fa;
   display: flex;
   justify-content: flex-end;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid #dcdfe6;
 }
 
 .member-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  background-color: #f2f6fc;
   
   .header-left {
     display: flex;
@@ -918,7 +922,8 @@ export default {
 .member-card {
   .el-card__header {
     padding: 15px 20px;
-    border-bottom: 1px solid #ebeef5;
+    border-bottom: 1px solid #dcdfe6;
+    background-color: #f2f6fc;
   }
   
   .el-card__body {
@@ -930,6 +935,31 @@ export default {
   display: flex;
   justify-content: center;
   padding: 15px 0;
-  background-color: #fff;
+  background-color: #f8f9fa;
+  border-top: 1px solid #ebeef5;
+}
+
+// 表格样式增强 - 使用正确的深度选择器语法
+::v-deep .el-table {
+  &::before {
+    height: 0;
+  }
+  
+  th {
+    background-color: #eef1f6 !important;
+    font-weight: bold;
+  }
+  
+  td {
+    border-bottom: 1px solid #dcdfe6;
+  }
+  
+  .el-table__row:hover > td {
+    background-color: #f0f7ff !important;
+  }
+  
+  .el-table__row--striped td {
+    background-color: #f5f7fa !important;
+  }
 }
 </style> 

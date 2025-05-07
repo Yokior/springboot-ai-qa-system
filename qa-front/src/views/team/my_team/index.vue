@@ -208,7 +208,7 @@ export default {
 <style scoped lang="scss">
 .my-team-container {
   padding: 20px;
-  background-color: #f0f2f5; // 淡灰色背景，提升质感
+  background-color: #e8ecf0; // 修改为与详情页相同的背景色
 }
 
 .search-form {
@@ -216,7 +216,8 @@ export default {
   padding: 15px 20px 0;
   border-radius: 8px;
   margin-bottom: 20px;
-  box-shadow: 0 2px 12px 0 rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px 0 rgba(0,0,0,0.1); // 增强阴影
+  border: 1px solid #dcdfe6; // 添加边框
 }
 
 .team-list-row {
@@ -237,6 +238,8 @@ export default {
   position: relative; /* For absolute positioning of index */
   overflow: hidden; /* Hide index overflow */
   width: 100%; /* 确保卡片填充整个列宽 */
+  border: 1px solid #d0d7de; // 添加一致风格的边框
+  box-shadow: 0 4px 12px 0 rgba(0,0,0,0.1); // 与详情页一致的阴影效果
 
   &:hover {
     transform: translateY(-5px);
@@ -246,8 +249,10 @@ export default {
   .card-header {
     display: flex;
     align-items: center;
-    border-bottom: 1px solid #ebeeef; // 更柔和的分割线
-    padding-bottom: 10px;
+    border-bottom: 1px solid #dcdfe6; // 更明显的分隔线，与详情页一致
+    padding-bottom: 12px;
+    background-color: #f2f6fc; // 添加背景色，与详情页一致
+    padding: 15px 20px 12px; // 增加左右内边距
   }
 
   .team-avatar {
@@ -274,14 +279,15 @@ export default {
     font-size: 14px;
     color: #606266;
     line-height: 1.6;
+    padding: 15px 20px; // 增加内边距，与卡片头部对齐
 
     p {
       margin: 8px 0;
       display: flex;
       align-items: center;
       i {
-        margin-right: 6px;
-        color: #909399;
+        margin-right: 8px; // 增加图标右侧间距
+        color: #606266; // 加深图标颜色
       }
     }
 
@@ -299,7 +305,7 @@ export default {
     position: absolute;
     top: 0;
     right: 0;
-    background-color: rgba(0, 0, 0, 0.4);
+    background-color: rgba(0, 0, 0, 0.5); // 略微加深背景色
     color: white;
     padding: 2px 8px;
     font-size: 12px;
@@ -319,5 +325,50 @@ export default {
 .el-empty {
   width: 100%;
   margin: 40px 0;
+}
+
+/* 分页样式 - 与卡片风格一致 */
+::v-deep .pagination-container {
+  background-color: #fff;
+  padding: 15px 0;
+  margin-top: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px 0 rgba(0,0,0,0.1);
+  border: 1px solid #dcdfe6;
+  
+  .el-pagination {
+    padding: 0 20px;
+    font-weight: normal;
+    color: #606266;
+    
+    .btn-prev,
+    .btn-next,
+    .el-pager li {
+      background-color: #f8f9fa;
+      border: 1px solid #dcdfe6;
+      border-radius: 4px;
+      margin: 0 3px;
+      
+      &:not(.disabled).active {
+        background-color: #409EFF;
+        border-color: #409EFF;
+        color: #fff;
+      }
+      
+      &:hover {
+        color: #409EFF;
+      }
+    }
+    
+    .el-pagination__editor.el-input .el-input__inner {
+      border-radius: 4px;
+      border: 1px solid #dcdfe6;
+    }
+    
+    .el-pagination__sizes .el-input .el-input__inner {
+      border-radius: 4px;
+      border: 1px solid #dcdfe6;
+    }
+  }
 }
 </style>
