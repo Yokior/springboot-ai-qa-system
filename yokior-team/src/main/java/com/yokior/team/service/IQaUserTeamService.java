@@ -90,4 +90,12 @@ public interface IQaUserTeamService
      * @return
      */
     Boolean updateMyTeamInfo(QaTeam qaTeam);
+
+    /**
+     * 根据团队id和用户id查询团队成员角色
+     * @param teamId
+     * @param userId
+     * @return
+     */
+    String getUserRole(Long teamId, Long userId);
 }

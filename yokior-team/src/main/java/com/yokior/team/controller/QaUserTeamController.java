@@ -3,24 +3,23 @@ package com.yokior.team.controller;
 import java.util.List;
 import javax.servlet.http.HttpServletResponse;
 
+import com.yokior.common.annotation.TeamAuth;
+import com.yokior.common.config.YokiorConfig;
+import com.yokior.common.constant.TeamConstants;
 import com.yokior.common.exception.ServiceException;
 import com.yokior.common.utils.SecurityUtils;
+import com.yokior.common.utils.file.FileUploadUtils;
+import com.yokior.common.utils.file.MimeTypeUtils;
 import com.yokior.team.domain.QaTeam;
 import com.yokior.team.domain.dto.QaUserTeamDto;
 import com.yokior.team.domain.dto.TeamMemberDto;
 import com.yokior.team.domain.vo.QaTeamVo;
 import com.yokior.team.domain.vo.QaUserTeamVo;
 import com.yokior.team.domain.vo.TeamMemberVo;
+import com.yokior.team.service.IQaTeamService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import com.yokior.common.annotation.Log;
 import com.yokior.common.core.controller.BaseController;
 import com.yokior.common.core.domain.AjaxResult;
@@ -29,6 +28,7 @@ import com.yokior.team.domain.QaUserTeam;
 import com.yokior.team.service.IQaUserTeamService;
 import com.yokior.common.utils.poi.ExcelUtil;
 import com.yokior.common.core.page.TableDataInfo;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 我的团队Controller
@@ -40,6 +40,9 @@ import com.yokior.common.core.page.TableDataInfo;
 @RequestMapping("/team/my_team")
 public class QaUserTeamController extends BaseController
 {
+    @Autowired
+    private IQaTeamService qaTeamService;
+
     @Autowired
     private IQaUserTeamService qaUserTeamService;
 
@@ -135,6 +138,35 @@ public class QaUserTeamController extends BaseController
         Boolean isSuccess = qaUserTeamService.updateRole(qaUserTeam);
 
         return isSuccess ? success("角色信息更新成功") : error("更新角色遇到错误");
+    }
+
+    /**
+     * 修改团队头像 (创建者和管理员可操作)
+     */
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR, TeamConstants.ROLE_ADMIN})
+    @PreAuthorize("@ss.hasPermi('team:my_team:edit')")
+    @Log(title = "团队头像", businessType = BusinessType.UPDATE)
+    @PostMapping("/avatar")
+    public AjaxResult avatar(@RequestParam("teamAvatarFile") MultipartFile file, @RequestParam("teamId") Long teamId) throws Exception
+    {
+        if (!file.isEmpty())
+        {
+            // 上传团队头像到指定路径（创建团队头像专用文件夹）
+            String avatar = FileUploadUtils.upload(YokiorConfig.getAvatarPath() + "/team", file, MimeTypeUtils.IMAGE_EXTENSION);
+
+            // 更新团队头像信息
+            QaTeam qaTeam = new QaTeam();
+            qaTeam.setTeamId(teamId);
+            qaTeam.setAvatar(avatar);
+
+            if (qaTeamService.updateQaTeam(qaTeam) > 0)
+            {
+                AjaxResult ajax = AjaxResult.success();
+                ajax.put("imgUrl", avatar);
+                return ajax;
+            }
+        }
+        return error("上传图片异常，请联系管理员");
     }
 
     /**

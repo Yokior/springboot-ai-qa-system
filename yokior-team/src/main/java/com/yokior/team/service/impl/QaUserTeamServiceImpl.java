@@ -159,7 +159,7 @@ public class QaUserTeamServiceImpl implements IQaUserTeamService
      *
      * @return 角色
      */
-    private String getUserRole(Long teamId, Long userId)
+    public String getUserRole(Long teamId, Long userId)
     {
         if (teamId == null || userId == null)
         {

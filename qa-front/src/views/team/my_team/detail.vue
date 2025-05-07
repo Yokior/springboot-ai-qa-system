@@ -194,17 +194,9 @@
             maxlength="200" show-word-limit :autosize="{ minRows: 3, maxRows: 6 }" />
         </el-form-item>
         <el-form-item label="团队头像">
-          <el-upload
-            class="avatar-uploader"
-            :action="uploadAvatarUrl"
-            :headers="uploadHeaders"
-            :show-file-list="false"
-            :on-success="handleAvatarSuccess"
-            :before-upload="beforeAvatarUpload">
-            <img v-if="editForm.avatar" :src="getImageUrl(editForm.avatar)" class="avatar-preview">
-            <i v-else class="el-icon-plus avatar-uploader-icon"></i>
-            <div class="avatar-tip">点击上传头像</div>
-          </el-upload>
+          <div class="team-avatar-container">
+            <team-avatar v-model="editForm.avatar" :teamId="editForm.teamId" @upload-success="handleAvatarSuccess" ref="teamAvatar"></team-avatar>
+          </div>
         </el-form-item>
       </el-form>
       <div slot="footer" class="dialog-footer">
@@ -245,9 +237,12 @@
 <script>
 import { getMy_team, updateMy_team, delMy_team, transferTeam, removeMember, updateMemberRole, uploadTeamAvatar, listTeamMembers } from "@/api/team/my_team";
 import { getToken } from "@/utils/auth";
+import TeamAvatar from "@/views/team/qa_team/teamAvatar"; // 导入 TeamAvatar 组件
 
 export default {
   name: "TeamDetail",
+  components: { TeamAvatar }, // 注册组件
+  dicts: ['sys_normal_disable'],
   data() {
     return {
       // 基础信息
@@ -301,12 +296,6 @@ export default {
         password: [
           { required: true, message: "请输入密码", trigger: "blur" }
         ]
-      },
-      
-      // 上传头像相关
-      uploadAvatarUrl: process.env.VUE_APP_BASE_API + '/team/my_team/avatar',
-      uploadHeaders: {
-        Authorization: 'Bearer ' + getToken()
       },
       
       // 角色选项
@@ -458,25 +447,57 @@ export default {
     submitEditForm() {
       this.$refs.editForm.validate(valid => {
         if (valid) {
-          const data = {
-            teamId: this.editForm.teamId,
-            name: this.editForm.name,
-            description: this.editForm.description,
-            avatar: this.editForm.avatar
+          // 头像上传处理
+          const uploadAvatar = async () => {
+            // 获取TeamAvatar组件实例
+            const teamAvatarRef = this.$refs.teamAvatar;
+            
+            // 检查是否有新选择的头像
+            if (teamAvatarRef && this.editForm.avatar === 'pending_upload') {
+              try {
+                // 上传头像
+                this.$modal.loading("正在上传头像，请稍候...");
+                const avatarPath = await teamAvatarRef.uploadImage();
+                this.$modal.closeLoading();
+                // 更新表单中的头像路径
+                this.editForm.avatar = avatarPath;
+              } catch (error) {
+                this.$modal.closeLoading();
+                this.$modal.msgError("头像上传失败: " + (error.message || "未知错误"));
+                return false;
+              }
+            }
+            return true;
           };
           
-          updateMy_team(data).then(response => {
-            if (response.code === 200) {
-              this.$modal.msgSuccess("更新团队信息成功");
-              this.editDialogVisible = false;
-              this.getTeamDetails(); // 刷新团队信息
-            } else {
-              this.$modal.msgError(response.msg || "更新团队信息失败");
-            }
-          }).catch(error => {
-            console.error("更新团队信息出错:", error);
-            this.$modal.msgError("更新团队信息时发生错误");
-          });
+          // 执行头像上传和表单提交
+          const submitFormData = async () => {
+            // 先上传头像
+            const uploadSuccess = await uploadAvatar();
+            if (!uploadSuccess) return;
+            
+            const data = {
+              teamId: this.editForm.teamId,
+              name: this.editForm.name,
+              description: this.editForm.description,
+              avatar: this.editForm.avatar
+            };
+            
+            updateMy_team(data).then(response => {
+              if (response.code === 200) {
+                this.$modal.msgSuccess("更新团队信息成功");
+                this.editDialogVisible = false;
+                this.getTeamDetails(); // 刷新团队信息
+              } else {
+                this.$modal.msgError(response.msg || "更新团队信息失败");
+              }
+            }).catch(error => {
+              console.error("更新团队信息出错:", error);
+              this.$modal.msgError("更新团队信息时发生错误: " + (error.message || "请检查网络或联系管理员"));
+            });
+          };
+          
+          submitFormData();
         }
       });
     },
@@ -576,27 +597,9 @@ export default {
     },
     
     // 头像上传成功处理
-    handleAvatarSuccess(res, file) {
-      if (res.code === 200) {
-        this.editForm.avatar = res.data || res.url;
-        this.$message.success('头像上传成功');
-      } else {
-        this.$message.error(res.msg || '头像上传失败');
-      }
-    },
-    
-    // 头像上传前的校验
-    beforeAvatarUpload(file) {
-      const isJPG = file.type === 'image/jpeg' || file.type === 'image/png';
-      const isLt2M = file.size / 1024 / 1024 < 2;
-
-      if (!isJPG) {
-        this.$message.error('上传头像图片只能是 JPG 或 PNG 格式!');
-      }
-      if (!isLt2M) {
-        this.$message.error('上传头像图片大小不能超过 2MB!');
-      }
-      return isJPG && isLt2M;
+    handleAvatarSuccess(avatarPath) {
+      this.editForm.avatar = avatarPath;
+      this.$message.success('头像上传成功');
     },
     
     // 处理页码变化
@@ -961,5 +964,11 @@ export default {
   .el-table__row--striped td {
     background-color: #f5f7fa !important;
   }
+}
+
+.team-avatar-container {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0;
 }
 </style> 

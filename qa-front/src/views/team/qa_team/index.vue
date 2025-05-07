@@ -99,7 +99,7 @@
                 <el-form-item label="团队头像" prop="avatar">
                     <div class="team-avatar-container">
                         <team-avatar v-if="!isAdd || (isAdd && tempTeamId)" v-model="form.avatar"
-                            :teamId="form.teamId || tempTeamId" @upload-success="handleAvatarSuccess"></team-avatar>
+                            :teamId="form.teamId || tempTeamId" @upload-success="handleAvatarSuccess" ref="teamAvatar"></team-avatar>
                         <div v-else class="team-avatar-notice">
                             <i class="el-icon-info"></i>
                             <span>请先保存团队基本信息后再上传头像</span>
@@ -349,57 +349,91 @@ export default {
         submitForm() {
             this.$refs["form"].validate(valid => {
                 if (valid) {
-                    if (this.form.teamId != null) {
-                        // 修改操作
-                        updateQa_team(this.form).then(response => {
-                            this.$modal.msgSuccess("修改成功")
-                            this.open = false
-                            this.getList()
-                        })
-                    } else {
-                        // 新增操作
-                        addQa_team(this.form).then(response => {
-                            this.$modal.msgSuccess("新增成功")
-                            
-                            // 这是问题所在的部分，需要调整响应处理逻辑
+                    // 头像上传处理
+                    const uploadAvatar = async () => {
+                        // 获取TeamAvatar组件实例
+                        const teamAvatarRef = this.$refs.teamAvatar;
+                        
+                        // 检查是否有新选择的头像
+                        if (teamAvatarRef && this.form.avatar === 'pending_upload') {
                             try {
-                                // 根据实际返回情况调整，这里尝试几种可能的格式
+                                // 上传头像
+                                this.$modal.loading("正在上传头像，请稍候...");
+                                const avatarPath = await teamAvatarRef.uploadImage();
+                                this.$modal.closeLoading();
+                                // 更新表单中的头像路径
+                                this.form.avatar = avatarPath;
+                            } catch (error) {
+                                this.$modal.closeLoading();
+                                this.$modal.msgError("头像上传失败: " + (error.message || "未知错误"));
+                                return false;
+                            }
+                        }
+                        return true;
+                    };
+                    
+                    // 执行头像上传和表单提交
+                    const submitFormData = async () => {
+                        // 先上传头像
+                        const uploadSuccess = await uploadAvatar();
+                        if (!uploadSuccess) return;
+                        
+                        if (this.form.teamId != null) {
+                            // 修改操作
+                            updateQa_team(this.form).then(response => {
+                                this.$modal.msgSuccess("修改成功");
+                                this.open = false;
+                                this.getList();
+                            }).catch(error => {
+                                console.error("修改团队出错:", error);
+                                this.$modal.msgError("修改失败: " + (error.message || "请检查网络或联系管理员"));
+                            });
+                        } else {
+                            // 新增操作
+                            addQa_team(this.form).then(response => {
+                                this.$modal.msgSuccess("新增成功");
                                 
-                                // 方式1：如果返回的是 {code: 200, data: {teamId: xxx}}
-                                if (response.code === 200 && response.data && response.data.teamId) {
-                                    this.tempTeamId = response.data.teamId;
-                                } 
-                                // 方式2：如果返回的是 {code: 200, data: teamId}
-                                else if (response.code === 200 && response.data) {
-                                    this.tempTeamId = response.data;
-                                }
-                                // 方式3：如果 data 字段就是整个团队对象
-                                else if (response.code === 200 && typeof response.data === 'object') {
-                                    for (let key in response.data) {
-                                        if (key === 'teamId' || key === 'team_id') {
-                                            this.tempTeamId = response.data[key];
-                                            break;
+                                try {
+                                    // 根据实际返回情况调整，这里尝试几种可能的格式
+                                    
+                                    // 方式1：如果返回的是 {code: 200, data: {teamId: xxx}}
+                                    if (response.code === 200 && response.data && response.data.teamId) {
+                                        this.tempTeamId = response.data.teamId;
+                                    } 
+                                    // 方式2：如果返回的是 {code: 200, data: teamId}
+                                    else if (response.code === 200 && response.data) {
+                                        this.tempTeamId = response.data;
+                                    }
+                                    // 方式3：如果 data 字段就是整个团队对象
+                                    else if (response.code === 200 && typeof response.data === 'object') {
+                                        for (let key in response.data) {
+                                            if (key === 'teamId' || key === 'team_id') {
+                                                this.tempTeamId = response.data[key];
+                                                break;
+                                            }
                                         }
                                     }
+                                    
+                                    // 不管能否获取到新团队ID，都关闭对话框并刷新列表
+                                    this.open = false;
+                                    this.getList();
+                                } catch (error) {
+                                    console.error("处理新增响应出错:", error);
+                                    // 发生错误时，仍然关闭对话框并刷新列表
+                                    this.open = false;
+                                    this.getList();
                                 }
-                                
-                                // 不管能否获取到新团队ID，都关闭对话框并刷新列表
-                                this.open = false;
-                                this.getList();
-                            } catch (error) {
-                                console.error("处理新增响应出错:", error);
-                                // 发生错误时，仍然关闭对话框并刷新列表
-                                this.open = false;
-                                this.getList();
-                            }
-                        }).catch(error => {
-                            console.error("新增请求出错:", error);
-                            // 即使请求出错，也给用户一些反馈
-                            this.$modal.msgError("新增请求发生错误，请检查控制台或联系管理员");
-                        });
-                    }
+                            }).catch(error => {
+                                console.error("新增请求出错:", error);
+                                // 即使请求出错，也给用户一些反馈
+                                this.$modal.msgError("新增请求发生错误: " + (error.message || "请检查控制台或联系管理员"));
+                            });
+                        }
+                    };
+                    
+                    submitFormData();
                 }
-            })
+            });
         },
         /** 删除按钮操作 */
         handleDelete(row) {

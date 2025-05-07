@@ -26,6 +26,15 @@ public class FilterConfig
     @Value("${xss.urlPatterns}")
     private String urlPatterns;
 
+    @Bean
+    public FilterRegistrationBean<RequestWrapperFilter> requestWrapperFilter() {
+        FilterRegistrationBean<RequestWrapperFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new RequestWrapperFilter());
+        registration.addUrlPatterns("/*");
+        registration.setOrder(1); // 确保在其他过滤器之前执行
+        return registration;
+    }
+
     @SuppressWarnings({ "rawtypes", "unchecked" })
     @Bean
     @ConditionalOnProperty(value = "xss.enabled", havingValue = "true")

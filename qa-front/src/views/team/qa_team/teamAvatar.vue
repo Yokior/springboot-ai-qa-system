@@ -1,7 +1,7 @@
 <template>
   <div>
     <div class="team-info-head" @click="editCropper()">
-      <img v-bind:src="avatarUrl" v-if="avatarUrl" class="img-circle img-lg" />
+      <img v-bind:src="previewUrl || avatarUrl" v-if="previewUrl || avatarUrl" class="img-circle img-lg" />
       <div v-else class="empty-avatar" title="点击上传团队头像">
         <i class="el-icon-plus"></i>
       </div>
@@ -51,7 +51,7 @@
           <el-button icon="el-icon-refresh-right" size="small" @click="rotateRight()"></el-button>
         </el-col>
         <el-col :lg="{span: 2, offset: 6}" :sm="2" :xs="2">
-          <el-button type="primary" size="small" @click="uploadImg()">提 交</el-button>
+          <el-button type="primary" size="small" @click="confirmCrop()">确 认</el-button>
         </el-col>
       </el-row>
     </el-dialog>
@@ -79,6 +79,10 @@ export default {
     return {
       // 实际头像地址
       avatarUrl: '',
+      // 本地预览头像地址
+      previewUrl: '',
+      // 裁剪后的图片数据
+      cropBlob: null,
       // 是否显示弹出层
       open: false,
       // 是否显示cropper
@@ -166,42 +170,33 @@ export default {
         reader.onload = () => {
           this.options.img = reader.result
           this.options.filename = file.name
+          // 清除之前的裁剪数据
+          this.cropBlob = null
         }
       }
     },
-    // 上传图片
-    uploadImg() {
+    // 确认裁剪
+    confirmCrop() {
       if (!this.teamId) {
         this.$modal.msgError("团队ID不能为空，请先保存团队基本信息")
         return
       }
       
       this.$refs.cropper.getCropBlob(data => {
-        let formData = new FormData()
-        formData.append("teamAvatarFile", data, this.options.filename)
-        formData.append("teamId", this.teamId)
+        // 保存裁剪后的图片数据到组件实例
+        this.cropBlob = data
         
-        this.$modal.loading("正在上传头像，请稍候...")
+        // 生成临时预览URL
+        this.previewUrl = URL.createObjectURL(data)
         
-        uploadTeamAvatar(formData).then(response => {
-          this.$modal.closeLoading()
-          
-          if (response.code === 200) {
-            this.open = false
-            let imgUrl = response.imgUrl || (response.data && response.data.imgUrl) || '';
-            this.avatarUrl = imgUrl ? process.env.VUE_APP_BASE_API + imgUrl : '';
-            this.$emit('input', imgUrl || '')
-            this.$emit('upload-success', imgUrl || '')
-            this.$modal.msgSuccess("上传成功")
-            this.visible = false
-          } else {
-            this.$modal.msgError(response.msg || "上传失败，请重试")
-          }
-        }).catch(error => {
-          this.$modal.closeLoading()
-          console.error("头像上传出错:", error);
-          this.$modal.msgError("头像上传发生错误，请检查网络或联系管理员")
-        })
+        // 关闭对话框
+        this.open = false
+        
+        // 通知父组件已裁剪图片，但未上传
+        this.$emit('crop-success', this.options.filename)
+        
+        // 为了兼容旧的调用方式，也发送一个占位路径
+        this.$emit('input', 'pending_upload')
       })
     },
     // 实时预览
@@ -213,6 +208,55 @@ export default {
       this.options.img = this.avatarUrl || ''
       this.visible = false
       window.removeEventListener("resize", this.resizeHandler)
+    },
+    // 获取裁剪后的图片数据，供父组件使用
+    getCropData() {
+      return {
+        blob: this.cropBlob,
+        filename: this.options.filename
+      }
+    },
+    // 上传图片，由父组件调用
+    uploadImage() {
+      return new Promise((resolve, reject) => {
+        if (!this.cropBlob) {
+          // 如果没有裁剪数据，直接返回当前值
+          resolve(this.value)
+          return
+        }
+        
+        if (!this.teamId) {
+          reject(new Error("团队ID不能为空，请先保存团队基本信息"))
+          return
+        }
+        
+        let formData = new FormData()
+        formData.append("teamAvatarFile", this.cropBlob, this.options.filename)
+        formData.append("teamId", this.teamId)
+        
+        uploadTeamAvatar(formData).then(response => {
+          if (response.code === 200) {
+            let imgUrl = response.imgUrl || (response.data && response.data.imgUrl) || ''
+            this.avatarUrl = imgUrl ? process.env.VUE_APP_BASE_API + imgUrl : ''
+            this.previewUrl = '' // 清除临时预览
+            
+            // 清除裁剪数据
+            this.cropBlob = null
+            
+            resolve(imgUrl || '')
+          } else {
+            reject(new Error(response.msg || "上传失败，请重试"))
+          }
+        }).catch(error => {
+          console.error("头像上传出错:", error)
+          reject(error)
+        })
+      })
+    },
+    // 取消本次修改
+    cancelCrop() {
+      this.previewUrl = ''
+      this.cropBlob = null
     }
   }
 }
