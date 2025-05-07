@@ -486,6 +486,7 @@ export default {
                 this.$modal.msgSuccess("团队转让成功");
                 this.transferDialogVisible = false;
                 this.getTeamDetails(); // 刷新团队信息
+                this.getTeamMembers(); // 刷新团队成员列表
               } else {
                 this.$modal.msgError(response.msg || "团队转让失败");
               }
@@ -527,6 +528,7 @@ export default {
           if (response.code === 200) {
             this.$modal.msgSuccess("移除成员成功");
             this.getTeamDetails(); // 刷新团队信息
+            this.getTeamMembers(); // 刷新团队成员列表
           } else {
             this.$modal.msgError(response.msg || "移除成员失败");
           }
@@ -550,6 +552,7 @@ export default {
           if (response.code === 200) {
             this.$modal.msgSuccess("角色修改成功");
             this.getTeamDetails(); // 刷新团队信息
+            this.getTeamMembers(); // 刷新团队成员列表
           } else {
             this.$modal.msgError(response.msg || "角色修改失败");
           }

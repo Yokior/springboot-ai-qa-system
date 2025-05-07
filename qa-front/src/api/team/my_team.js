@@ -56,7 +56,7 @@ export function transferTeam(data) {
 // 踢出团队成员
 export function removeMember(data) {
   return request({
-    url: '/team/my_team/remove-member',
+    url: '/team/my_team/remove_member',
     method: 'delete',
     data: data
   })
@@ -65,7 +65,7 @@ export function removeMember(data) {
 // 更新成员角色
 export function updateMemberRole(data) {
   return request({
-    url: '/team/my_team/update-role',
+    url: '/team/my_team/update_role',
     method: 'put',
     data: data
   })

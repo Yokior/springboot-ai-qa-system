@@ -122,12 +122,13 @@
     <update id="updateQaUserTeam" parameterType="QaUserTeam">
         update qa_user_team
         <trim prefix="SET" suffixOverrides=",">
-            <if test="userId != null">user_id = #{userId},</if>
-            <if test="teamId != null">team_id = #{teamId},</if>
             <if test="role != null and role != ''">role = #{role},</if>
-            <if test="joinTime != null">join_time = #{joinTime},</if>
         </trim>
-        where id = #{id}
+        <where>
+            <if test="id != null"> and id = #{id}</if>
+            <if test="userId != null"> and user_id = #{userId}</if>
+            <if test="teamId != null"> and team_id = #{teamId}</if>
+        </where>
     </update>
 
     <delete id="deleteQaUserTeamById" parameterType="Long">

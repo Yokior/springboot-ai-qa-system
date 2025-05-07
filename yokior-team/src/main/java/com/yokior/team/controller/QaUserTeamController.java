@@ -111,7 +111,7 @@ public class QaUserTeamController extends BaseController
 //    }
 
     /**
-     * 修改我的团队
+     * 修改我的团队详情
      */
     @PreAuthorize("@ss.hasPermi('team:my_team:edit')")
     @Log(title = "我的团队", businessType = BusinessType.UPDATE)
@@ -119,6 +119,19 @@ public class QaUserTeamController extends BaseController
     public AjaxResult edit(@RequestBody QaUserTeam qaUserTeam)
     {
         return toAjax(qaUserTeamService.updateQaUserTeam(qaUserTeam));
+    }
+
+    /**
+     * 修改我的团队角色信息
+     */
+    @PreAuthorize("@ss.hasPermi('team:my_team:edit')")
+    @Log(title = "我的团队", businessType = BusinessType.UPDATE)
+    @PutMapping("/update_role")
+    public AjaxResult updateRole(@RequestBody QaUserTeam qaUserTeam)
+    {
+        Boolean isSuccess = qaUserTeamService.updateRole(qaUserTeam);
+
+        return isSuccess ? success("角色信息更新成功") : error("更新角色遇到错误");
     }
 
     /**

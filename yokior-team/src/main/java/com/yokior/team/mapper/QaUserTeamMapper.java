@@ -40,7 +40,7 @@ public interface QaUserTeamMapper
     public List<QaTeamVo> selectQaUserTeamList(QaUserTeamDto qaUserTeamDto);
 
     /**
-     * 根据teamId 和 userId查询我的团队列表
+     * 根据teamId 和 userId查询我的团队
      * @param teamId
      * @param userId
      * @return

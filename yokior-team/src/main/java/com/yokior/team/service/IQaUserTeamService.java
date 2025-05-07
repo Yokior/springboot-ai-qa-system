@@ -74,4 +74,12 @@ public interface IQaUserTeamService
      * @return 团队成员集合
      */
     public List<TeamMemberVo> selectTeamMember(TeamMemberDto teamMemberDto);
+
+    /**
+     * 修改团队成员角色
+     *
+     * @param qaUserTeam 团队成员
+     * @return 结果
+     */
+    Boolean updateRole(QaUserTeam qaUserTeam);
 }

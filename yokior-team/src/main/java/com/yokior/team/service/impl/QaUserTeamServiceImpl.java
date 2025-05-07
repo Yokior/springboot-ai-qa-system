@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.github.pagehelper.PageInfo;
 import com.github.pagehelper.page.PageMethod;
+import com.yokior.common.constant.TeamConstants;
 import com.yokior.common.core.page.TableDataInfo;
 import com.yokior.common.exception.ServiceException;
 import com.yokior.common.utils.PageUtils;
@@ -146,5 +147,78 @@ public class QaUserTeamServiceImpl implements IQaUserTeamService
         List<TeamMemberVo> teamMemberVoList = qaUserTeamMapper.selectTeamMember(teamMemberDto);
 
         return teamMemberVoList;
+    }
+
+    /**
+     * 获取用户角色
+     *
+     * @return 角色
+     */
+    private String getUserRole(Long teamId, Long userId)
+    {
+        QaTeamVo qaTeamVo = qaUserTeamMapper.selectQaUserTeamByTeamIdAndUserId(teamId, userId);
+        if (qaTeamVo == null)
+        {
+            return null;
+        }
+
+        return qaTeamVo.getRole();
+    }
+
+    /**
+     * 修改团队成员角色
+     *
+     * @param qaUserTeam 团队成员
+     * @return 结果
+     */
+    @Override
+    public Boolean updateRole(QaUserTeam qaUserTeam)
+    {
+        Long userId = SecurityUtils.getUserId();
+        Long teamId = qaUserTeam.getTeamId();
+        Long updateUserId = qaUserTeam.getUserId();
+        String role = qaUserTeam.getRole();
+
+        // 检查需要更新的用户是否为自己
+        if (updateUserId.equals(userId))
+        {
+            throw new ServiceException("不能更新自己的角色 更新失败");
+        }
+
+        // 检查操作用户是否在团队中 检查权限
+        String userRole = getUserRole(teamId, userId);
+        if (userRole == null)
+        {
+            throw new ServiceException("用户不在团队中 更新失败");
+        }
+        // 检查操作者是否是团队创建者
+        if (!TeamConstants.ROLE_CREATOR.equals(userRole))
+        {
+            throw new ServiceException("用户不是创建者 更新失败");
+        }
+
+        // 检查被操作用户是否在团队中
+        String updateUserRole = getUserRole(teamId, updateUserId);
+        if (updateUserRole == null)
+        {
+            throw new ServiceException("被操作用户不在团队中 更新失败");
+        }
+
+        // 检查role参数是否合法
+        if (!TeamConstants.ROLE_MEMBER.equals(role) && !TeamConstants.ROLE_ADMIN.equals(role))
+        {
+            throw new ServiceException("角色身份不合法 更新失败");
+        }
+
+
+
+        QaUserTeam userTeam = new QaUserTeam();
+        userTeam.setTeamId(teamId);
+        userTeam.setUserId(updateUserId);
+        userTeam.setRole(role);
+
+        int i = qaUserTeamMapper.updateQaUserTeam(userTeam);
+
+        return i > 0;
     }
 }
