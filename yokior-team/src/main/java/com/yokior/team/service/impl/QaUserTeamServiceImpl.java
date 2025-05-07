@@ -10,11 +10,13 @@ import com.yokior.common.core.page.TableDataInfo;
 import com.yokior.common.exception.ServiceException;
 import com.yokior.common.utils.PageUtils;
 import com.yokior.common.utils.SecurityUtils;
+import com.yokior.team.domain.QaTeam;
 import com.yokior.team.domain.dto.QaUserTeamDto;
 import com.yokior.team.domain.dto.TeamMemberDto;
 import com.yokior.team.domain.vo.QaTeamVo;
 import com.yokior.team.domain.vo.QaUserTeamVo;
 import com.yokior.team.domain.vo.TeamMemberVo;
+import com.yokior.team.mapper.QaTeamMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import com.yokior.team.mapper.QaUserTeamMapper;
@@ -32,6 +34,9 @@ public class QaUserTeamServiceImpl implements IQaUserTeamService
 {
     @Autowired
     private QaUserTeamMapper qaUserTeamMapper;
+
+    @Autowired
+    private QaTeamMapper qaTeamMapper;
 
     /**
      * 查询我的团队
@@ -156,6 +161,11 @@ public class QaUserTeamServiceImpl implements IQaUserTeamService
      */
     private String getUserRole(Long teamId, Long userId)
     {
+        if (teamId == null || userId == null)
+        {
+            return null;
+        }
+
         QaTeamVo qaTeamVo = qaUserTeamMapper.selectQaUserTeamByTeamIdAndUserId(teamId, userId);
         if (qaTeamVo == null)
         {
@@ -218,6 +228,41 @@ public class QaUserTeamServiceImpl implements IQaUserTeamService
         userTeam.setRole(role);
 
         int i = qaUserTeamMapper.updateQaUserTeam(userTeam);
+
+        return i > 0;
+    }
+
+    /**
+     * 修改团队信息
+     *
+     * @param qaTeam 团队信息
+     * @return 结果
+     */
+    @Override
+    public Boolean updateMyTeamInfo(QaTeam qaTeam)
+    {
+        Long userId = SecurityUtils.getUserId();
+        Long teamId = qaTeam.getTeamId();
+
+        // 检查操作者角色信息
+        String userRole = getUserRole(teamId, userId);
+        if (userRole == null)
+        {
+            throw new ServiceException("用户或者团队不存在");
+        }
+        // 如果不是创建者或者管理员
+        if (!TeamConstants.ROLE_CREATOR.equals(userRole) && !TeamConstants.ROLE_ADMIN.equals(userRole))
+        {
+            throw new ServiceException("非法操作");
+        }
+
+        QaTeam newTeamInfo = new QaTeam();
+        newTeamInfo.setTeamId(teamId);
+        newTeamInfo.setAvatar(qaTeam.getAvatar());
+        newTeamInfo.setDescription(qaTeam.getDescription());
+        newTeamInfo.setName(qaTeam.getName());
+
+        int i = qaTeamMapper.updateQaTeam(newTeamInfo);
 
         return i > 0;
     }

@@ -3,6 +3,7 @@ package com.yokior.team.service;
 import java.util.List;
 
 import com.yokior.common.core.page.TableDataInfo;
+import com.yokior.team.domain.QaTeam;
 import com.yokior.team.domain.QaUserTeam;
 import com.yokior.team.domain.dto.QaUserTeamDto;
 import com.yokior.team.domain.dto.TeamMemberDto;
@@ -82,4 +83,11 @@ public interface IQaUserTeamService
      * @return 结果
      */
     Boolean updateRole(QaUserTeam qaUserTeam);
+
+    /**
+     * 修改团队信息
+     * @param qaTeam
+     * @return
+     */
+    Boolean updateMyTeamInfo(QaTeam qaTeam);
 }

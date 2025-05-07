@@ -5,6 +5,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import com.yokior.common.exception.ServiceException;
 import com.yokior.common.utils.SecurityUtils;
+import com.yokior.team.domain.QaTeam;
 import com.yokior.team.domain.dto.QaUserTeamDto;
 import com.yokior.team.domain.dto.TeamMemberDto;
 import com.yokior.team.domain.vo.QaTeamVo;
@@ -116,9 +117,11 @@ public class QaUserTeamController extends BaseController
     @PreAuthorize("@ss.hasPermi('team:my_team:edit')")
     @Log(title = "我的团队", businessType = BusinessType.UPDATE)
     @PutMapping
-    public AjaxResult edit(@RequestBody QaUserTeam qaUserTeam)
+    public AjaxResult edit(@RequestBody QaTeam qaTeam)
     {
-        return toAjax(qaUserTeamService.updateQaUserTeam(qaUserTeam));
+        Boolean isSuccess = qaUserTeamService.updateMyTeamInfo(qaTeam);
+
+        return isSuccess ? success("团队信息更新成功") : error("更新团队信息遇到错误");
     }
 
     /**
