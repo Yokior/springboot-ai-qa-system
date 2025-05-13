@@ -170,13 +170,16 @@ public class QaUserTeamController extends BaseController
     }
 
     /**
-     * 删除我的团队
+     * 删除成员
      */
-//    @PreAuthorize("@ss.hasPermi('team:my_team:remove')")
-//    @Log(title = "我的团队", businessType = BusinessType.DELETE)
-//    @DeleteMapping("/{ids}")
-//    public AjaxResult remove(@PathVariable Long[] ids)
-//    {
-//        return toAjax(qaUserTeamService.deleteQaUserTeamByIds(ids));
-//    }
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR, TeamConstants.ROLE_ADMIN})
+    @PreAuthorize("@ss.hasPermi('team:my_team:remove')")
+    @Log(title = "团队成员", businessType = BusinessType.DELETE)
+    @DeleteMapping("/remove_member")
+    public AjaxResult remove(@RequestBody QaUserTeamDto qaUserTeamDto)
+    {
+        Boolean isSuccess = qaUserTeamService.deleteMember(qaUserTeamDto);
+
+        return isSuccess ? success("删除成员成功") : error("删除成员失败");
+    }
 }

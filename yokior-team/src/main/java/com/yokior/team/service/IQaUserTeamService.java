@@ -98,4 +98,11 @@ public interface IQaUserTeamService
      * @return
      */
     String getUserRole(Long teamId, Long userId);
+
+    /**
+     * 删除团队成员
+     * @param qaUserTeamDto
+     * @return
+     */
+    Boolean deleteMember(QaUserTeamDto qaUserTeamDto);
 }

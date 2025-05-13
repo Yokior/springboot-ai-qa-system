@@ -85,4 +85,12 @@ public interface QaUserTeamMapper
      * @return
      */
     public List<TeamMemberVo> selectTeamMember(@Param("dto") TeamMemberDto teamMemberDto);
+
+    /**
+     * 根据teamId 和 userId删除团队成员
+     * @param teamId
+     * @param userId
+     * @return
+     */
+    int deleteMember(@Param("teamId") Long teamId,@Param("userId") Long userId);
 }

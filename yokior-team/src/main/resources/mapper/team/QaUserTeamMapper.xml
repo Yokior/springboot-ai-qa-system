@@ -143,4 +143,10 @@
             #{teamId}
         </foreach>
     </delete>
+
+    <delete id="deleteMember">
+        delete
+        from qa_user_team
+        where team_id = #{teamId} and user_id = #{userId}
+    </delete>
 </mapper>

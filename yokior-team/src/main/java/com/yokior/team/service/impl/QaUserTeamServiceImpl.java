@@ -176,6 +176,30 @@ public class QaUserTeamServiceImpl implements IQaUserTeamService
     }
 
     /**
+     * 删除团队成员
+     *
+     * @param qaUserTeamDto 团队成员
+     * @return 结果
+     */
+    @Override
+    public Boolean deleteMember(QaUserTeamDto qaUserTeamDto)
+    {
+        // 已经经过@TeamAuth校验，所以这里不需要再校验了
+
+        Long userId = qaUserTeamDto.getUserId();
+        Long teamId = qaUserTeamDto.getTeamId();
+
+        if (userId == null || teamId == null)
+        {
+            throw new ServiceException("参数错误");
+        }
+
+        int count = qaUserTeamMapper.deleteMember(teamId, userId);
+
+        return count > 0;
+    }
+
+    /**
      * 修改团队成员角色
      *
      * @param qaUserTeam 团队成员
