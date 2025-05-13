@@ -2,6 +2,7 @@ package com.yokior.team.service;
 
 import java.util.List;
 import com.yokior.team.domain.QaTeam;
+import com.yokior.team.domain.dto.QaUserTeamDto;
 
 /**
  * 知识库团队Service接口
@@ -58,4 +59,11 @@ public interface IQaTeamService
      * @return 结果
      */
     public int deleteQaTeamByTeamId(Long teamId);
+
+    /**
+     * 转移团队
+     * @param qaUserTeamDto
+     * @return
+     */
+    Boolean transferTeam(QaUserTeamDto qaUserTeamDto);
 }

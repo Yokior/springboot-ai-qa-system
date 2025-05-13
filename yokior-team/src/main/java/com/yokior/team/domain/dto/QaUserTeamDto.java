@@ -19,4 +19,10 @@ public class QaUserTeamDto extends QaUserTeam
 {
     // 团队名称
     private String name;
+
+    // 转让人id
+    private Long targetUserId;
+
+    // 密码
+    private String password;
 }

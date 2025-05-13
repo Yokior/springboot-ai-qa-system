@@ -2,6 +2,7 @@ package com.yokior.team.domain;
 
 import java.util.Date;
 import com.fasterxml.jackson.annotation.JsonFormat;
+import lombok.Builder;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import com.yokior.common.annotation.Excel;
@@ -29,7 +30,7 @@ public class QaUserTeam extends BaseEntity
     private Long teamId;
 
     /** 用户在团队中的角色（creator, admin, member） */
-    @Excel(name = "用户在团队中的角色", readConverterExp = "c=reator,,a=dmin,,m=ember")
+    @Excel(name = "用户在团队中的角色", readConverterExp = "creator,admin,member")
     private String role;
 
     /** 加入时间 */

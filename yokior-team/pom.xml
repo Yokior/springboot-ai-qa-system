@@ -21,6 +21,10 @@
             <groupId>com.yokior</groupId>
             <artifactId>yokior-common</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.yokior</groupId>
+            <artifactId>yokior-system</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

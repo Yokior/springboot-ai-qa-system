@@ -182,4 +182,19 @@ public class QaUserTeamController extends BaseController
 
         return isSuccess ? success("删除成员成功") : error("删除成员失败");
     }
+
+
+    /**
+     * 转让团队
+     */
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR})
+    @PreAuthorize("@ss.hasPermi('team:my_team:edit')")
+    @Log(title = "转让团队", businessType = BusinessType.UPDATE)
+    @PutMapping("/transfer")
+    public AjaxResult transfer(@RequestBody QaUserTeamDto qaUserTeamDto)
+    {
+        Boolean isSuccess = qaTeamService.transferTeam(qaUserTeamDto);
+
+        return isSuccess ? success("转让团队成功") : error("转让团队失败");
+    }
 }
