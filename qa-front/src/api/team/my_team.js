@@ -92,3 +92,36 @@ export function listTeamMembers(query) {
     params: query
   })
 }
+
+// 创建团队邀请
+export function createTeamInvite(data) {
+  return request({
+    url: '/team/my_team/invite/create',
+    method: 'post',
+    data: data
+  })
+}
+
+// 获取邀请信息
+export function getTeamInviteInfo(code) {
+  return request({
+    url: '/team/my_team/invite/info/' + code,
+    method: 'get'
+  })
+}
+
+// 接受团队邀请
+export function acceptTeamInvite(code) {
+  return request({
+    url: '/team/my_team/invite/accept/' + code,
+    method: 'post'
+  })
+}
+
+// 取消团队邀请
+export function cancelTeamInvite(inviteId) {
+  return request({
+    url: '/team/my_team/invite/cancel/' + inviteId,
+    method: 'delete'
+  })
+}

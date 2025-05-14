@@ -49,6 +49,7 @@
     "js-cookie": "3.0.1",
     "jsencrypt": "3.0.0-rc.1",
     "nprogress": "0.2.0",
+    "qrcode": "^1.5.4",
     "quill": "2.0.2",
     "screenfull": "5.0.2",
     "sortablejs": "1.10.2",

@@ -103,6 +103,19 @@
         </where>
     </select>
 
+    <select id="getTeamCreatorId" resultType="java.lang.Long">
+        select user_id
+        from qa_user_team qut
+        where team_id = #{teamId}
+        and role = 'creator'
+    </select>
+    <select id="isUserInTeam" resultType="java.lang.Boolean">
+        select count(1) > 0
+        from qa_user_team qut
+        where team_id = #{teamId}
+        and user_id = #{userId}
+    </select>
+
     <insert id="insertQaUserTeam" parameterType="QaUserTeam" useGeneratedKeys="true" keyProperty="id">
         insert into qa_user_team
         <trim prefix="(" suffix=")" suffixOverrides=",">

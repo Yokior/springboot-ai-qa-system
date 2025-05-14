@@ -93,4 +93,18 @@ public interface QaUserTeamMapper
      * @return
      */
     int deleteMember(@Param("teamId") Long teamId,@Param("userId") Long userId);
+
+    /**
+     * 根据teamId 查询团队创建者Id
+     * @param teamId
+     * @return
+     */
+    Long getTeamCreatorId(@Param("teamId") Long teamId);
+
+    /**
+     * 根据teamId 查询团队成员
+     * @param teamId
+     * @return
+     */
+    boolean isUserInTeam(@Param("teamId") Long teamId,@Param("userId") Long userId);
 }

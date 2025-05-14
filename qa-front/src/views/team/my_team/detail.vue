@@ -38,7 +38,7 @@
               </div>
               <div class="stat-item">
                 <i class="el-icon-time"></i> 
-                <span>加入时间: {{ parseTime(teamInfo.joinTime, '{y}-{m}-{d} {h}:{i}') }}</span>
+                <span>加入时间: {{ formatTime(teamInfo.joinTime) }}</span>
               </div>
               <div class="stat-item">
                 <i class="el-icon-user-solid"></i> 
@@ -54,6 +54,7 @@
             <el-button type="primary" size="small" icon="el-icon-edit" @click="handleEdit">编辑团队</el-button>
             <el-button type="warning" size="small" icon="el-icon-share" @click="handleTransfer">转让团队</el-button>
             <el-button type="danger" size="small" icon="el-icon-delete" @click="handleDissolve">解散团队</el-button>
+            <el-button type="success" size="small" icon="el-icon-plus" @click="handleInvite">邀请成员</el-button>
           </div>
         </div>
       </el-card>
@@ -248,11 +249,49 @@
         <el-button type="danger" @click="submitDissolveForm">确认解散</el-button>
       </div>
     </el-dialog>
+    
+    <!-- 邀请成员对话框 -->
+    <el-dialog title="邀请成员" :visible.sync="inviteDialogVisible" width="500px" append-to-body>
+      <el-form ref="inviteForm" :model="inviteForm" :rules="inviteRules" label-width="100px">
+        <el-form-item label="有效期" prop="expireTimeHour">
+          <el-select v-model="inviteForm.expireTimeHour" placeholder="请选择邀请链接有效期">
+            <el-option label="1小时" value="1"></el-option>
+            <el-option label="1天" value="24"></el-option>
+            <el-option label="7天" value="168"></el-option>
+            <el-option label="30天" value="720"></el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="inviteDialogVisible = false">取 消</el-button>
+        <el-button type="primary" @click="generateInviteLink">生成邀请链接</el-button>
+      </div>
+    </el-dialog>
+    
+    <!-- 邀请链接对话框 -->
+    <el-dialog title="邀请链接" :visible.sync="inviteLinkDialogVisible" width="500px" append-to-body>
+      <div class="invite-link-container">
+        <p>邀请链接已生成，有效期至: {{ formatTime(inviteLink.expireTime) }}</p>
+        <el-input
+          ref="inviteLinkInput"
+          v-model="inviteLink.url"
+          readonly
+          size="medium"
+        >
+          <el-button slot="append" icon="el-icon-copy-document" @click="copyInviteLink">复制</el-button>
+        </el-input>
+        <div class="qrcode-container" v-if="qrCodeUrl">
+          <p>或使用二维码邀请：</p>
+          <img :src="qrCodeUrl" alt="邀请二维码" class="invite-qrcode" />
+          <el-button size="small" type="text" @click="downloadQRCode">下载二维码</el-button>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import { getMy_team, updateMy_team, delMy_team, transferTeam, removeMember, updateMemberRole, uploadTeamAvatar, listTeamMembers } from "@/api/team/my_team";
+import { getMy_team, updateMy_team, delMy_team, transferTeam, removeMember, updateMemberRole, uploadTeamAvatar, listTeamMembers, createTeamInvite, getTeamInviteInfo, acceptTeamInvite, cancelTeamInvite } from "@/api/team/my_team";
 import { getToken } from "@/utils/auth";
 import TeamAvatar from "@/views/team/qa_team/teamAvatar"; // 导入 TeamAvatar 组件
 
@@ -332,7 +371,26 @@ export default {
         { value: 'creator', label: '创建者' },
         { value: 'admin', label: '管理员' },
         { value: 'member', label: '普通成员' }
-      ]
+      ],
+      
+      // 邀请相关
+      inviteDialogVisible: false,
+      inviteForm: {
+        teamId: null,
+        expireTimeHour: '24', // 默认1天
+      },
+      inviteRules: {
+        expireTime: [
+          { required: true, message: "请选择有效期", trigger: "change" }
+        ]
+      },
+      inviteLink: {
+        code: '',
+        url: '',
+        expireTime: null
+      },
+      qrCodeUrl: '',
+      inviteLinkDialogVisible: false
     };
   },
   computed: {
@@ -664,33 +722,40 @@ export default {
       this.getTeamMembers();
     },
     
-    // 格式化时间
-    parseTime(time, pattern) {
+    // 格式化时间 (与 parseTime 相同但更健壮)
+    formatTime(time) {
       if (!time) return '未知';
-      let date = new Date(time);
-      let isValid = !isNaN(date.getTime());
-      if (!isValid) return time;
-      
-      if (!pattern) {
-        pattern = '{y}-{m}-{d} {h}:{i}:{s}';
-      }
-      
-      return pattern.replace(/{(y|m|d|h|i|s|a)+}/g, (result, key) => {
-        let value = {
-          y: date.getFullYear(),
-          m: date.getMonth() + 1,
-          d: date.getDate(),
-          h: date.getHours(),
-          i: date.getMinutes(),
-          s: date.getSeconds()
-        }[key];
-        
-        if (key === 'a') return ['日', '一', '二', '三', '四', '五', '六'][date.getDay()];
-        if (result.length > 0 && value < 10) {
-          value = '0' + value;
+      try {
+        // 确保time是Date对象
+        let date = time;
+        if (!(time instanceof Date)) {
+          // 如果是时间戳或字符串，转换为Date对象
+          date = new Date(time);
         }
-        return value || 0;
-      });
+        
+        // 检查日期是否有效
+        if (isNaN(date.getTime())) {
+          console.error('无效的日期:', time);
+          return '无效的日期';
+        }
+        
+        // 使用更明确的方式格式化日期
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
+      } catch (error) {
+        console.error('格式化日期时出错:', error, time);
+        return '日期格式错误';
+      }
+    },
+    
+    // 兼容原有代码的解析时间方法
+    parseTime(time, pattern) {
+      return this.formatTime(time);
     },
     
     // 处理成员搜索
@@ -705,6 +770,84 @@ export default {
       this.queryParams.role = '';
       this.queryParams.pageNum = 1;
       this.getTeamMembers();
+    },
+    
+    // 处理邀请
+    handleInvite() {
+      this.inviteDialogVisible = true;
+      this.inviteForm.teamId = this.teamId;
+    },
+    
+    // 生成邀请链接
+    generateInviteLink() {
+      this.$refs.inviteForm.validate(valid => {
+        if (valid) {
+          // 调用API生成邀请链接
+          createTeamInvite(this.inviteForm).then(response => {
+            if (response.code === 200) {
+              const inviteData = response.data;
+              console.log('收到的邀请数据:', inviteData); // 添加日志查看接收到的数据
+              
+              // 确保正确处理日期
+              let expireTime = inviteData.expireTime;
+              if (expireTime) {
+                // 如果是时间戳（数字），转换为日期对象
+                if (typeof expireTime === 'number') {
+                  expireTime = new Date(expireTime);
+                } else if (typeof expireTime === 'string') {
+                  // 尝试解析日期字符串
+                  expireTime = new Date(expireTime);
+                }
+              }
+              
+              this.inviteLink = {
+                code: inviteData.inviteCode,
+                url: `${window.location.origin}/team/invite/accept/${inviteData.inviteCode}`,
+                expireTime: expireTime
+              };
+              
+              // 生成二维码
+              this.generateQRCode(this.inviteLink.url);
+              
+              this.inviteDialogVisible = false;
+              this.inviteLinkDialogVisible = true;
+            } else {
+              this.$modal.msgError(response.msg || "生成邀请链接失败");
+            }
+          }).catch(error => {
+            console.error("生成邀请链接出错:", error);
+            this.$modal.msgError("生成邀请链接时发生错误");
+          });
+        }
+      });
+    },
+    
+    // 生成二维码
+    generateQRCode(url) {
+      // 使用QRCode.js库生成二维码
+      import('qrcode').then(QRCode => {
+        QRCode.toDataURL(url, { width: 200 }, (err, url) => {
+          if (!err) {
+            this.qrCodeUrl = url;
+          }
+        });
+      });
+    },
+    
+    // 复制邀请链接
+    copyInviteLink() {
+      const input = this.$refs.inviteLinkInput.$el.querySelector('input');
+      input.select();
+      document.execCommand('copy');
+      this.$message.success('邀请链接已复制到剪贴板');
+    },
+    
+    // 下载二维码
+    downloadQRCode() {
+      const link = document.createElement('a');
+      link.href = this.qrCodeUrl;
+      link.download = `${this.teamInfo.name}_邀请.png`;
+      link.click();
     }
   }
 };
@@ -1032,5 +1175,20 @@ export default {
   color: #666;
   font-size: 14px;
   line-height: 1.5;
+}
+
+.invite-link-container {
+  padding: 15px;
+}
+
+.qrcode-container {
+  margin-top: 15px;
+  text-align: center;
+}
+
+.invite-qrcode {
+  width: 200px;
+  height: 200px;
+  margin: 10px 0;
 }
 </style> 

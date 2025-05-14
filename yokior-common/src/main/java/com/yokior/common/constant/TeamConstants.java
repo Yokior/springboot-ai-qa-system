@@ -15,4 +15,12 @@ public class TeamConstants
 
     // 团队成员
     public static final String ROLE_MEMBER = "member";
+
+    // 邀请状态
+    /** 邀请状态 - 正常 */
+    public static final String INVITE_STATUS_NORMAL = "0";
+    /** 邀请状态 - 已使用 */
+    public static final String INVITE_STATUS_USED = "1";
+    /** 邀请状态 - 已取消或过期 */
+    public static final String INVITE_STATUS_CANCELED = "2";
 }

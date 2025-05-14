@@ -107,6 +107,12 @@ export const constantRoutes = [
         meta: { title: '团队详情', activeMenu: '/team/my_team' }
       }
     ]
+  },
+  {
+    path: '/team/invite/accept/:code',
+    component: () => import('@/views/team/invite/accept'),
+    name: 'InviteAccept',
+    meta: { title: '接受团队邀请', activeMenu: '/team/my_team' }
   }
 ]
 
