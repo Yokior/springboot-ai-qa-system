@@ -176,4 +176,39 @@ public class QaTeamServiceImpl implements IQaTeamService
 
         return updateInfo1 > 0 && updateInfo2 > 0;
     }
+
+    /**
+     * 解散团队
+     * @param qaUserTeamDto
+     * @return
+     */
+    @Transactional
+    @Override
+    public Boolean dissolveTeam(QaUserTeamDto qaUserTeamDto)
+    {
+        // 已经通过@TeamAuth校验，所以这里不需要再校验了
+
+        Long teamId = qaUserTeamDto.getTeamId();
+        String password = qaUserTeamDto.getPassword();
+
+        // 获取正在操作用户的id和密码信息
+        Long userId = SecurityUtils.getUserId();
+
+        SysUser sysUser = sysUserMapper.selectUserById(userId);
+        boolean pwdIsMatch = SecurityUtils.matchesPassword(password, sysUser.getPassword());
+
+        // 校验密码
+        if (!pwdIsMatch)
+        {
+            throw new ServiceException("密码错误！");
+        }
+
+        // 删除团队信息
+        int delete1 = qaTeamMapper.deleteQaTeamByTeamId(teamId);
+
+        // 删除团队成员信息
+        int delete2 = qaUserTeamMapper.deleteQaUserTeamByTeamId(teamId);
+
+        return delete1 > 0 && delete2 > 0;
+    }
 }

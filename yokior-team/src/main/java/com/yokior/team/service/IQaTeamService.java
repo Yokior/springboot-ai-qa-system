@@ -66,4 +66,11 @@ public interface IQaTeamService
      * @return
      */
     Boolean transferTeam(QaUserTeamDto qaUserTeamDto);
+
+    /**
+     * 解散团队
+     * @param qaUserTeamDto
+     * @return
+     */
+    Boolean dissolveTeam(QaUserTeamDto qaUserTeamDto);
 }

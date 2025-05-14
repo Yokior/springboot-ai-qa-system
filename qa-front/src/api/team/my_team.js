@@ -37,10 +37,11 @@ export function updateMy_team(data) {
 }
 
 // 删除我的团队
-export function delMy_team(id) {
+export function delMy_team(data) {
   return request({
-    url: '/team/my_team/' + id,
-    method: 'delete'
+    url: '/team/my_team/dissolve',
+    method: 'delete',
+    data: data
   })
 }
 

@@ -1,34 +1,31 @@
 package com.yokior.team.controller;
 
-import java.util.List;
-import javax.servlet.http.HttpServletResponse;
-
+import com.yokior.common.annotation.Log;
 import com.yokior.common.annotation.TeamAuth;
 import com.yokior.common.config.YokiorConfig;
 import com.yokior.common.constant.TeamConstants;
+import com.yokior.common.core.controller.BaseController;
+import com.yokior.common.core.domain.AjaxResult;
+import com.yokior.common.core.page.TableDataInfo;
+import com.yokior.common.enums.BusinessType;
 import com.yokior.common.exception.ServiceException;
 import com.yokior.common.utils.SecurityUtils;
 import com.yokior.common.utils.file.FileUploadUtils;
 import com.yokior.common.utils.file.MimeTypeUtils;
 import com.yokior.team.domain.QaTeam;
+import com.yokior.team.domain.QaUserTeam;
 import com.yokior.team.domain.dto.QaUserTeamDto;
 import com.yokior.team.domain.dto.TeamMemberDto;
 import com.yokior.team.domain.vo.QaTeamVo;
-import com.yokior.team.domain.vo.QaUserTeamVo;
 import com.yokior.team.domain.vo.TeamMemberVo;
 import com.yokior.team.service.IQaTeamService;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.*;
-import com.yokior.common.annotation.Log;
-import com.yokior.common.core.controller.BaseController;
-import com.yokior.common.core.domain.AjaxResult;
-import com.yokior.common.enums.BusinessType;
-import com.yokior.team.domain.QaUserTeam;
 import com.yokior.team.service.IQaUserTeamService;
-import com.yokior.common.utils.poi.ExcelUtil;
-import com.yokior.common.core.page.TableDataInfo;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+
+import java.util.List;
 
 /**
  * 我的团队Controller
@@ -196,5 +193,20 @@ public class QaUserTeamController extends BaseController
         Boolean isSuccess = qaTeamService.transferTeam(qaUserTeamDto);
 
         return isSuccess ? success("转让团队成功") : error("转让团队失败");
+    }
+
+
+    /**
+     * 解散团队
+     */
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR})
+    @PreAuthorize("@ss.hasPermi('team:my_team:edit')")
+    @Log(title = "解散团队", businessType = BusinessType.UPDATE)
+    @DeleteMapping("/dissolve")
+    public AjaxResult dissolve(@RequestBody QaUserTeamDto qaUserTeamDto)
+    {
+        Boolean isSuccess = qaTeamService.dissolveTeam(qaUserTeamDto);
+
+        return isSuccess ? success("解散团队成功") : error("解散团队失败");
     }
 }

@@ -131,10 +131,10 @@
         </where>
     </update>
 
-    <delete id="deleteQaUserTeamById" parameterType="Long">
+    <delete id="deleteQaUserTeamByTeamId" parameterType="Long">
         delete
         from qa_user_team
-        where id = #{id}
+        where team_id = #{teamId}
     </delete>
 
     <delete id="deleteQaUserTeamByTeamIds">

@@ -231,6 +231,23 @@
         <el-button type="primary" @click="submitTransferForm">确 定</el-button>
       </div>
     </el-dialog>
+    
+    <!-- 解散团队对话框 -->
+    <el-dialog title="解散团队" :visible.sync="dissolveDialogVisible" width="500px" append-to-body>
+      <div class="dissolve-warning">
+        <i class="el-icon-warning" style="font-size: 24px; color: #E6A23C; margin-right: 10px;"></i>
+        <span>解散团队后，所有团队数据将被<strong style="color: #F56C6C;">永久删除</strong>且无法恢复！</span>
+      </div>
+      <el-form ref="dissolveForm" :model="dissolveForm" :rules="dissolveRules" label-width="100px" style="margin-top: 20px;">
+        <el-form-item label="确认密码" prop="password">
+          <el-input v-model="dissolveForm.password" type="password" placeholder="请输入您的密码以确认解散团队" show-password />
+        </el-form-item>
+      </el-form>
+      <div slot="footer" class="dialog-footer">
+        <el-button @click="dissolveDialogVisible = false">取 消</el-button>
+        <el-button type="danger" @click="submitDissolveForm">确认解散</el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -293,6 +310,18 @@ export default {
         targetUserId: [
           { required: true, message: "请选择要转让的成员", trigger: "change" }
         ],
+        password: [
+          { required: true, message: "请输入密码", trigger: "blur" }
+        ]
+      },
+      
+      // 解散团队对话框相关
+      dissolveDialogVisible: false,
+      dissolveForm: {
+        teamId: null,
+        password: ''
+      },
+      dissolveRules: {
         password: [
           { required: true, message: "请输入密码", trigger: "blur" }
         ]
@@ -382,6 +411,9 @@ export default {
           
           // 初始化转让表单
           this.transferForm.teamId = this.teamInfo.teamId;
+          
+          // 初始化解散表单
+          this.dissolveForm.teamId = this.teamInfo.teamId;
         } else {
           this.$modal.msgError(response.msg || "获取团队详情失败");
         }
@@ -532,21 +564,38 @@ export default {
       });
     },
     
-    // 解散团队
+    // 处理解散团队
     handleDissolve() {
-      this.$modal.confirm('确定要解散该团队吗？解散后所有数据将被删除且无法恢复。').then(() => {
-        delMy_team(this.teamId).then(response => {
-          if (response.code === 200) {
-            this.$modal.msgSuccess("团队已解散");
-            this.goBack(); // 返回团队列表
-          } else {
-            this.$modal.msgError(response.msg || "解散团队失败");
-          }
-        }).catch(error => {
-          console.error("解散团队出错:", error);
-          this.$modal.msgError("解散团队时发生错误");
-        });
-      }).catch(() => {});
+      this.dissolveDialogVisible = true;
+      this.dissolveForm.password = '';
+    },
+    
+    // 提交解散表单
+    submitDissolveForm() {
+      this.$refs.dissolveForm.validate(valid => {
+        if (valid) {
+          this.$modal.confirm('确定要解散该团队吗？所有团队数据将被永久删除且无法恢复！').then(() => {
+            // 构建解散请求数据
+            const data = {
+              teamId: this.dissolveForm.teamId,
+              password: this.dissolveForm.password
+            };
+            
+            delMy_team(data).then(response => {
+              if (response.code === 200) {
+                this.$modal.msgSuccess("团队已解散");
+                this.dissolveDialogVisible = false;
+                this.goBack(); // 返回团队列表
+              } else {
+                this.$modal.msgError(response.msg || "解散团队失败");
+              }
+            }).catch(error => {
+              console.error("解散团队出错:", error);
+              this.$modal.msgError("解散团队时发生错误");
+            });
+          }).catch(() => {});
+        }
+      });
     },
     
     // 移除团队成员
@@ -970,5 +1019,18 @@ export default {
   display: flex;
   justify-content: center;
   margin: 10px 0;
+}
+
+.dissolve-warning {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  background-color: #FEF0F0;
+  border-radius: 4px;
+  border-left: 3px solid #F56C6C;
+  margin-bottom: 15px;
+  color: #666;
+  font-size: 14px;
+  line-height: 1.5;
 }
 </style> 

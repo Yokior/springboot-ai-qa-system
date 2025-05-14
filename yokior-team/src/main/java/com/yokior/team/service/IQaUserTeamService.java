@@ -60,15 +60,6 @@ public interface IQaUserTeamService
     public int deleteQaUserTeamByIds(Long[] ids);
 
     /**
-     * 删除我的团队信息
-     * 
-     * @param id 我的团队主键
-     * @return 结果
-     */
-    public int deleteQaUserTeamById(Long id);
-
-
-    /**
      * 查询团队成员
      *
      * @param teamMemberDto 团队成员

@@ -69,7 +69,7 @@ public interface QaUserTeamMapper
      * @param id 我的团队主键
      * @return 结果
      */
-    public int deleteQaUserTeamById(Long id);
+    public int deleteQaUserTeamByTeamId(@Param("teamId") Long teamId);
 
     /**
      * 批量删除我的团队
