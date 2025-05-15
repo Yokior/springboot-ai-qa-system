@@ -96,6 +96,13 @@
         </foreach>
     </delete>
 
+    <delete id="deleteExpiredInvite">
+        delete from qa_team_invite
+        where status = '1'
+           or status = '2'
+           or expire_time &lt; now()
+    </delete>
+
     <update id="cleanExpiredInvites">
         update qa_team_invite set status = '2'
         where status = '0' and expire_time &lt; now()

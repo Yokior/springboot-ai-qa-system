@@ -36,4 +36,12 @@ public interface IQaTeamInviteService
      * @return 是否成功
      */
     Boolean cancelTeamInvite(Long inviteId);
+
+
+    /**
+     * 删除过期的邀请
+     *
+     * @return 是否成功
+     */
+    Integer deleteExpiredInvite();
 }

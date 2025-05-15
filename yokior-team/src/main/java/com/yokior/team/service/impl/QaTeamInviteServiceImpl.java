@@ -213,6 +213,16 @@ public class QaTeamInviteServiceImpl implements IQaTeamInviteService
     }
 
     /**
+     * 删除过期的邀请
+     * @return
+     */
+    @Override
+    public Integer deleteExpiredInvite()
+    {
+        return qaTeamInviteMapper.deleteExpiredInvite();
+    }
+
+    /**
      * 获取用户角色
      *
      * @return 角色

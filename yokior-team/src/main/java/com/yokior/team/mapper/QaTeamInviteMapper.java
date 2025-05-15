@@ -81,4 +81,11 @@ public interface QaTeamInviteMapper
      * @return 结果
      */
     public int cleanExpiredInvites();
+
+    /**
+     * 清理过期的邀请
+     *
+     * @return 结果
+     */
+    int deleteExpiredInvite();
 }

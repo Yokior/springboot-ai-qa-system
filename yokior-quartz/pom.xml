@@ -35,6 +35,11 @@
             <artifactId>yokior-common</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.yokior</groupId>
+            <artifactId>yokior-team</artifactId>
+        </dependency>
+
     </dependencies>
 
 </project>
