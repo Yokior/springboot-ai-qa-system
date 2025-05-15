@@ -282,8 +282,10 @@
         </el-input>
         <div class="qrcode-container" v-if="qrCodeUrl">
           <p>或使用二维码邀请：</p>
-          <img :src="qrCodeUrl" alt="邀请二维码" class="invite-qrcode" />
-          <el-button size="small" type="text" @click="downloadQRCode">下载二维码</el-button>
+          <div class="qrcode-wrapper">
+            <img :src="qrCodeUrl" alt="邀请二维码" class="invite-qrcode" />
+            <el-button size="small" type="primary" @click="downloadQRCode">下载二维码</el-button>
+          </div>
         </div>
       </div>
     </el-dialog>
@@ -1179,16 +1181,36 @@ export default {
 
 .invite-link-container {
   padding: 15px;
+  
+  p {
+    margin: 10px 0;
+    font-size: 14px;
+    color: #606266;
+  }
 }
 
 .qrcode-container {
-  margin-top: 15px;
+  margin-top: 20px;
   text-align: center;
+  
+  p {
+    margin-bottom: 15px;
+    font-weight: bold;
+  }
+}
+
+.qrcode-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .invite-qrcode {
   width: 200px;
   height: 200px;
-  margin: 10px 0;
+  margin: 0 auto 15px;
+  border: 1px solid #ebeef5;
+  border-radius: 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
 }
 </style> 
