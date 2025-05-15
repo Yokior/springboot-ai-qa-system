@@ -10,11 +10,11 @@
         </div>
         <h2 class="team-name">{{ inviteInfo.teamName }}</h2>
         <div class="invite-info">
-          <p>邀请人: {{ inviteInfo.inviterName }}</p>
-          <p>创建者: {{ inviteInfo.ownerName }}</p>
-          <p>团队描述: {{ inviteInfo.teamDescription || '暂无描述' }}</p>
+          <p><span class="label">邀请人:</span> {{ inviteInfo.inviterName }}</p>
+          <p><span class="label">创建者:</span> {{ inviteInfo.ownerName }}</p>
+          <p><span class="label">团队描述:</span> {{ inviteInfo.teamDescription || '暂无描述' }}</p>
           <p>
-            <span>邀请有效期至: </span>
+            <span class="label">邀请有效期至:</span>
             <span :class="{'expired': isExpired}">{{ formatTime(inviteInfo.expireTime) }}</span>
           </p>
         </div>
@@ -155,3 +155,128 @@ export default {
   }
 };
 </script>
+
+<style scoped lang="scss">
+.invite-accept-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: calc(100vh - 120px);
+  padding: 20px;
+  background-color: #f0f2f5;
+}
+
+.invite-card {
+  width: 100%;
+  max-width: 500px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  transition: transform 0.3s, box-shadow 0.3s;
+  
+  &:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+  }
+  
+  .el-card__header {
+    background: linear-gradient(135deg, #1a365d, #153254);
+    padding: 15px 20px;
+    border-bottom: none;
+  }
+}
+
+.header {
+  .title {
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+  }
+}
+
+.invite-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px 20px;
+}
+
+.team-avatar {
+  margin-bottom: 20px;
+  
+  .el-avatar {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    border: 3px solid white;
+  }
+}
+
+.team-name {
+  font-size: 24px;
+  margin: 0 0 20px;
+  color: #333;
+  text-align: center;
+}
+
+.invite-info {
+  width: 100%;
+  margin-bottom: 25px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 15px;
+  
+  p {
+    margin: 10px 0;
+    color: #606266;
+    font-size: 14px;
+    line-height: 1.6;
+    display: flex;
+    flex-wrap: wrap;
+  }
+  
+  .label {
+    color: #909399;
+    margin-right: 8px;
+    min-width: 80px;
+  }
+  
+  .expired {
+    color: #F56C6C;
+  }
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  margin-top: 10px;
+  
+  .el-button {
+    min-width: 100px;
+  }
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 40px;
+}
+
+.el-empty {
+  margin-top: 50px;
+}
+
+@media screen and (max-width: 576px) {
+  .invite-card {
+    max-width: 100%;
+  }
+  
+  .invite-info {
+    padding: 10px;
+  }
+  
+  .team-name {
+    font-size: 20px;
+    margin-bottom: 15px;
+  }
+}
+</style>
