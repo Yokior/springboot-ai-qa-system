@@ -170,33 +170,6 @@
         </el-col>
       </el-row>
       
-      <el-row :gutter="20" class="recent-activity">
-        <el-col :span="24">
-          <el-card shadow="hover" class="activity-card">
-            <div slot="header" class="activity-header">
-              <span><i class="el-icon-time"></i> 最近活动</span>
-            </div>
-            <div v-if="recentActivities.length > 0" class="activity-list">
-              <el-timeline>
-                <el-timeline-item
-                  v-for="(activity, index) in recentActivities"
-                  :key="index"
-                  :timestamp="activity.time"
-                  :type="activity.type"
-                  :color="getActivityColor(activity.type)"
-                  size="small"
-                >
-                  {{ activity.content }}
-                </el-timeline-item>
-              </el-timeline>
-            </div>
-            <div v-else class="empty-activity">
-              <el-empty description="暂无最近活动" :image-size="100"></el-empty>
-            </div>
-          </el-card>
-        </el-col>
-      </el-row>
-      
       <!-- 快捷工具和公告区域 -->
       <el-row :gutter="20" class="tools-announcement">
         <el-col :xs="24" :sm="24" :md="12" class="tools-wrapper">
@@ -229,16 +202,28 @@
           <el-card shadow="hover" class="announcement-card">
             <div slot="header" class="announcement-header">
               <span><i class="el-icon-bell"></i> 系统公告</span>
+              <span class="announcement-count" v-if="total > 0">共 {{ total }} 条</span>
             </div>
-            <div v-if="announcements.length > 0" class="announcement-list">
-              <div v-for="(item, index) in announcements" :key="index" class="announcement-item">
-                <div class="announcement-title">{{ item.title }}</div>
-                <div class="announcement-content">{{ item.content }}</div>
-                <div class="announcement-time">{{ item.time }}</div>
+            <div v-loading="announcements === null" element-loading-text="加载公告中...">
+              <div v-if="announcements && announcements.length > 0" class="announcement-list">
+                <div v-for="(item, index) in announcements" :key="index" class="announcement-item">
+                  <div class="announcement-title">{{ item.title }}</div>
+                  <div class="announcement-content" v-html="item.content"></div>
+                  <div class="announcement-time">{{ item.time }}</div>
+                </div>
+              </div>
+              <div v-else class="empty-announcement">
+                <el-empty description="暂无系统公告" :image-size="100"></el-empty>
               </div>
             </div>
-            <div v-else class="empty-announcement">
-              <el-empty description="暂无系统公告" :image-size="100"></el-empty>
+            <div class="announcement-pagination" v-if="total > queryParams.pageSize">
+              <el-pagination
+                background
+                layout="prev, pager, next"
+                :page-size="queryParams.pageSize"
+                :total="total"
+                @current-change="pageChange"
+              ></el-pagination>
             </div>
           </el-card>
         </el-col>
@@ -252,6 +237,8 @@ import * as echarts from 'echarts'
 import { getServer } from "@/api/monitor/server"
 // 导入store以获取用户角色
 import store from '@/store'
+// 引入系统公告查询接口
+import request from '@/utils/request'
 
 export default {
   name: "Index",
@@ -294,26 +281,18 @@ export default {
       // 是否正在加载数据
       isLoading: false,
       
-      // 普通用户首页数据
-      recentActivities: [
-        { type: 'primary', content: '您向知识库添加了新文档', time: '2023-05-20 14:32' },
-        { type: 'success', content: '您成功加入了"研发团队"', time: '2023-05-19 10:15' },
-        { type: 'warning', content: '系统更新了新功能', time: '2023-05-18 09:30' },
-        { type: 'info', content: '您提出的问题已得到解答', time: '2023-05-17 16:45' }
-      ],
-      
-      announcements: [
-        {
-          title: '系统升级通知',
-          content: '系统将于2023年5月25日凌晨2:00-4:00进行版本升级，期间服务可能短暂不可用，请提前做好准备。',
-          time: '2023-05-20 10:00'
-        },
-        {
-          title: '新功能上线',
-          content: '智能问答系统新增了团队协作功能，现在您可以邀请同事加入团队，共同建设知识库。',
-          time: '2023-05-18 09:00'
-        }
-      ]
+      // 系统公告数据
+      announcements: [],
+      // 系统公告分页参数
+      queryParams: {
+        pageNum: 1,
+        pageSize: 5,
+        noticeTitle: undefined,
+        createBy: undefined,
+        status: '0' // 只查询状态为正常的公告
+      },
+      // 公告总数
+      total: 0
     }
   },
   computed: {
@@ -348,6 +327,9 @@ export default {
       document.addEventListener('visibilitychange', this.handleVisibilityChange);
     }
     
+    // 加载系统公告数据
+    this.getNoticeList();
+    
     // 监听路由变化
     this.$router.beforeEach((to, from, next) => {
       // 如果离开当前页面，标记为非激活
@@ -360,6 +342,8 @@ export default {
         if (this.isSuperAdmin) {
           this.fetchServerData(false);
         }
+        // 重新加载系统公告
+        this.getNoticeList();
       }
       next();
     });
@@ -380,16 +364,42 @@ export default {
     });
   },
   methods: {
-    // 获取活动类型对应的颜色
-    getActivityColor(type) {
-      const colorMap = {
-        'primary': '#409EFF',
-        'success': '#67C23A',
-        'warning': '#E6A23C',
-        'danger': '#F56C6C',
-        'info': '#909399'
-      };
-      return colorMap[type] || colorMap.info;
+    // 获取系统公告列表
+    getNoticeList() {
+      request({
+        url: '/system/notice/list',
+        method: 'get',
+        params: this.queryParams
+      }).then(response => {
+        this.announcements = response.rows.map(item => {
+          return {
+            id: item.noticeId,
+            title: item.noticeTitle,
+            content: item.noticeContent,
+            // 将后端日期格式化为更友好的显示
+            time: this.formatTime(item.createTime)
+          };
+        });
+        this.total = response.total;
+      });
+    },
+
+    // 分页查询处理方法
+    pageChange(page) {
+      this.queryParams.pageNum = page;
+      this.getNoticeList();
+    },
+
+    // 格式化时间显示
+    formatTime(time) {
+      if (!time) return '';
+      const date = new Date(time);
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
     },
     
     // 导航方法
@@ -414,8 +424,12 @@ export default {
       this.isActive = !document.hidden;
       
       // 如果页面恢复可见，立即更新数据
-      if (this.isActive && !this.isLoading && this.isSuperAdmin) {
-        this.fetchServerData(false);
+      if (this.isActive) {
+        if (this.isSuperAdmin && !this.isLoading) {
+          this.fetchServerData(false);
+        }
+        // 重新加载系统公告
+        this.getNoticeList();
       }
     },
     
@@ -1129,19 +1143,15 @@ export default {
   line-height: 1.6;
 }
 
-.activity-card, .tools-card, .announcement-card {
+.tools-card, .announcement-card {
   margin-bottom: 20px;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.activity-header, .tools-header, .announcement-header {
+.tools-header, .announcement-header {
   font-weight: bold;
   font-size: 16px;
-}
-
-.activity-list {
-  padding: 10px;
 }
 
 .tools-grid {
@@ -1206,6 +1216,26 @@ export default {
   color: #606266;
   line-height: 1.6;
   margin-bottom: 8px;
+  word-break: break-word;
+  
+  // 设置富文本样式
+  ::v-deep p {
+    margin: 5px 0;
+  }
+  
+  ::v-deep img {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  ::v-deep a {
+    color: #409EFF;
+    text-decoration: none;
+  }
+  
+  ::v-deep ul, ::v-deep ol {
+    padding-left: 20px;
+  }
 }
 
 .announcement-time {
@@ -1214,7 +1244,7 @@ export default {
   text-align: right;
 }
 
-.empty-activity, .empty-announcement {
+.empty-announcement {
   padding: 20px;
   text-align: center;
 }
@@ -1228,6 +1258,26 @@ export default {
   .tools-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.announcement-header {
+  font-weight: bold;
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.announcement-count {
+  font-size: 13px;
+  color: #909399;
+  font-weight: normal;
+}
+
+.announcement-pagination {
+  text-align: center;
+  padding: 10px 0;
+  margin-top: 10px;
 }
 </style>
 
