@@ -98,7 +98,7 @@ export default {
       acceptTeamInvite(this.inviteCode).then(response => {
         if (response.code === 200) {
           this.$modal.msgSuccess("成功加入团队");
-          this.$router.push(`/team/my_team/${this.inviteInfo.teamId}`);
+          this.$router.push(`/team/my_team/detail/${this.inviteInfo.teamId}`);
         } else {
           this.$modal.msgError(response.msg || "加入团队失败");
         }
