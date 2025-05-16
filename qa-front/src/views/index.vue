@@ -1,135 +1,257 @@
 <template>
   <div class="app-container home">
-    <div class="welcome-info">
-      <h2>智能问答系统监控中心</h2>
-      <div class="version">当前版本: {{ version }}</div>
+    <!-- 超级管理员界面 - 系统监控中心 -->
+    <div v-if="isSuperAdmin">
+      <div class="welcome-info">
+        <h2>智能问答系统监控中心</h2>
+        <div class="version">当前版本: {{ version }}</div>
+      </div>
+      
+      <el-row :gutter="20">
+        <!-- 状态卡片区域 -->
+        <el-col :xs="24" :sm="12" :md="6" class="status-card-wrapper" v-if="server.cpu && server.mem && server.jvm">
+          <el-card shadow="hover" class="status-card">
+            <div class="status-title"><i class="el-icon-cpu"></i> CPU使用率</div>
+            <div class="status-value" :class="{'warning': server.cpu.used > 70, 'danger': server.cpu.used > 90}">{{ server.cpu.used }}%</div>
+            <div class="status-progress">
+              <el-progress :percentage="server.cpu.used" :color="getCpuProgressColor(server.cpu.used)" :show-text="false"></el-progress>
+            </div>
+            <div class="status-detail">核心数: {{ server.cpu.cpuNum }}</div>
+          </el-card>
+        </el-col>
+        
+        <el-col :xs="24" :sm="12" :md="6" class="status-card-wrapper" v-if="server.mem">
+          <el-card shadow="hover" class="status-card">
+            <div class="status-title"><i class="el-icon-tickets"></i> 内存使用率</div>
+            <div class="status-value" :class="{'warning': server.mem.usage > 70, 'danger': server.mem.usage > 90}">{{ server.mem.usage }}%</div>
+            <div class="status-progress">
+              <el-progress :percentage="server.mem.usage" :color="getMemProgressColor(server.mem.usage)" :show-text="false"></el-progress>
+            </div>
+            <div class="status-detail">{{ server.mem.used }}G / {{ server.mem.total }}G</div>
+          </el-card>
+        </el-col>
+        
+        <el-col :xs="24" :sm="12" :md="6" class="status-card-wrapper" v-if="server.jvm">
+          <el-card shadow="hover" class="status-card">
+            <div class="status-title"><i class="el-icon-coffee-cup"></i> JVM使用率</div>
+            <div class="status-value" :class="{'warning': server.jvm.usage > 70, 'danger': server.jvm.usage > 90}">{{ server.jvm.usage }}%</div>
+            <div class="status-progress">
+              <el-progress :percentage="server.jvm.usage" :color="getJvmProgressColor(server.jvm.usage)" :show-text="false"></el-progress>
+            </div>
+            <div class="status-detail">{{ server.jvm.used }}M / {{ server.jvm.total }}M</div>
+          </el-card>
+        </el-col>
+        
+        <el-col :xs="24" :sm="12" :md="6" class="status-card-wrapper" v-if="serverUptime">
+          <el-card shadow="hover" class="status-card uptime-card">
+            <div class="status-title"><i class="el-icon-alarm-clock"></i> 系统运行</div>
+            <div class="status-value uptime">{{ serverUptime }}</div>
+            <div class="status-detail" v-if="server.jvm">启动时间: {{ server.jvm.startTime }}</div>
+          </el-card>
+        </el-col>
+      </el-row>
+      
+      <!-- 图表区域 -->
+      <el-row :gutter="20" class="chart-row">
+        <!-- CPU图表 -->
+        <el-col :xs="24" :sm="24" :md="12" class="chart-wrapper">
+          <el-card shadow="hover" class="chart-card">
+            <div slot="header" class="chart-header">
+              <span><i class="el-icon-cpu"></i> CPU使用率分析</span>
+            </div>
+            <div class="chart-container">
+              <div ref="cpuChart" class="chart"></div>
+            </div>
+          </el-card>
+        </el-col>
+        
+        <!-- 内存图表 -->
+        <el-col :xs="24" :sm="24" :md="12" class="chart-wrapper">
+          <el-card shadow="hover" class="chart-card">
+            <div slot="header" class="chart-header">
+              <span><i class="el-icon-tickets"></i> 内存使用情况</span>
+            </div>
+            <div class="chart-container">
+              <div ref="memChart" class="chart"></div>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+      
+      <!-- 磁盘使用情况图表 -->
+      <el-row :gutter="20" class="chart-row">
+        <el-col :xs="24" :sm="24" :md="24" class="chart-wrapper">
+          <el-card shadow="hover" class="chart-card">
+            <div slot="header" class="chart-header">
+              <span><i class="el-icon-receiving"></i> 磁盘使用情况</span>
+            </div>
+            <div class="chart-container">
+              <div ref="diskChart" class="chart disk-chart"></div>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+      
+      <!-- 服务器信息卡片 -->
+      <el-row :gutter="20" class="info-row">
+        <el-col :xs="24" :sm="24" :md="12" class="info-wrapper">
+          <el-card shadow="hover" class="info-card">
+            <div slot="header" class="info-header">
+              <span><i class="el-icon-monitor"></i> 服务器信息</span>
+            </div>
+            <div class="info-content" v-if="server.sys">
+              <el-descriptions :column="1" border>
+                <el-descriptions-item label="服务器名称">{{ server.sys.computerName }}</el-descriptions-item>
+                <el-descriptions-item label="操作系统">{{ server.sys.osName }}</el-descriptions-item>
+                <el-descriptions-item label="服务器IP">{{ server.sys.computerIp }}</el-descriptions-item>
+                <el-descriptions-item label="系统架构">{{ server.sys.osArch }}</el-descriptions-item>
+              </el-descriptions>
+            </div>
+          </el-card>
+        </el-col>
+        
+        <el-col :xs="24" :sm="24" :md="12" class="info-wrapper">
+          <el-card shadow="hover" class="info-card">
+            <div slot="header" class="info-header">
+              <span><i class="el-icon-coffee-cup"></i> JVM信息</span>
+            </div>
+            <div class="info-content" v-if="server.jvm">
+              <el-descriptions :column="1" border>
+                <el-descriptions-item label="Java名称">{{ server.jvm.name }}</el-descriptions-item>
+                <el-descriptions-item label="Java版本">{{ server.jvm.version }}</el-descriptions-item>
+                <el-descriptions-item label="安装路径">{{ server.jvm.home }}</el-descriptions-item>
+                <el-descriptions-item label="项目路径" v-if="server.sys">{{ server.sys.userDir }}</el-descriptions-item>
+              </el-descriptions>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
     </div>
     
-    <el-row :gutter="20">
-      <!-- 状态卡片区域 -->
-      <el-col :xs="24" :sm="12" :md="6" class="status-card-wrapper" v-if="server.cpu && server.mem && server.jvm">
-        <el-card shadow="hover" class="status-card">
-          <div class="status-title"><i class="el-icon-cpu"></i> CPU使用率</div>
-          <div class="status-value" :class="{'warning': server.cpu.used > 70, 'danger': server.cpu.used > 90}">{{ server.cpu.used }}%</div>
-          <div class="status-progress">
-            <el-progress :percentage="server.cpu.used" :color="getCpuProgressColor(server.cpu.used)" :show-text="false"></el-progress>
-          </div>
-          <div class="status-detail">核心数: {{ server.cpu.cpuNum }}</div>
-        </el-card>
-      </el-col>
+    <!-- 普通用户界面 - 智能问答系统欢迎页 -->
+    <div v-else class="regular-user-home">
+      <div class="welcome-banner">
+        <h1>欢迎使用智能问答系统</h1>
+        <p class="welcome-subtitle">便捷、智能的团队知识库与问答平台</p>
+      </div>
       
-      <el-col :xs="24" :sm="12" :md="6" class="status-card-wrapper" v-if="server.mem">
-        <el-card shadow="hover" class="status-card">
-          <div class="status-title"><i class="el-icon-tickets"></i> 内存使用率</div>
-          <div class="status-value" :class="{'warning': server.mem.usage > 70, 'danger': server.mem.usage > 90}">{{ server.mem.usage }}%</div>
-          <div class="status-progress">
-            <el-progress :percentage="server.mem.usage" :color="getMemProgressColor(server.mem.usage)" :show-text="false"></el-progress>
-          </div>
-          <div class="status-detail">{{ server.mem.used }}G / {{ server.mem.total }}G</div>
-        </el-card>
-      </el-col>
+      <el-row :gutter="20" class="feature-cards">
+        <el-col :xs="24" :sm="12" :md="8" class="feature-card-wrapper">
+          <el-card shadow="hover" class="feature-card">
+            <div class="feature-icon">
+              <i class="el-icon-data-analysis"></i>
+            </div>
+            <h3>智能问答</h3>
+            <p>基于先进AI模型，快速准确回答您的问题，提供相关知识库信息</p>
+            <el-button type="primary" size="small" @click="goToQA">开始提问</el-button>
+          </el-card>
+        </el-col>
+        
+        <el-col :xs="24" :sm="12" :md="8" class="feature-card-wrapper">
+          <el-card shadow="hover" class="feature-card">
+            <div class="feature-icon">
+              <i class="el-icon-collection"></i>
+            </div>
+            <h3>知识库管理</h3>
+            <p>整理、分类和管理您的团队知识资源，让信息检索更加便捷</p>
+            <el-button type="primary" size="small" @click="goToKnowledgeBase">进入知识库</el-button>
+          </el-card>
+        </el-col>
+        
+        <el-col :xs="24" :sm="12" :md="8" class="feature-card-wrapper">
+          <el-card shadow="hover" class="feature-card">
+            <div class="feature-icon">
+              <i class="el-icon-user"></i>
+            </div>
+            <h3>团队协作</h3>
+            <p>邀请团队成员，协同构建完善的知识体系，提高团队效率</p>
+            <el-button type="primary" size="small" @click="goToTeam">团队管理</el-button>
+          </el-card>
+        </el-col>
+      </el-row>
       
-      <el-col :xs="24" :sm="12" :md="6" class="status-card-wrapper" v-if="server.jvm">
-        <el-card shadow="hover" class="status-card">
-          <div class="status-title"><i class="el-icon-coffee-cup"></i> JVM使用率</div>
-          <div class="status-value" :class="{'warning': server.jvm.usage > 70, 'danger': server.jvm.usage > 90}">{{ server.jvm.usage }}%</div>
-          <div class="status-progress">
-            <el-progress :percentage="server.jvm.usage" :color="getJvmProgressColor(server.jvm.usage)" :show-text="false"></el-progress>
-          </div>
-          <div class="status-detail">{{ server.jvm.used }}M / {{ server.jvm.total }}M</div>
-        </el-card>
-      </el-col>
+      <el-row :gutter="20" class="recent-activity">
+        <el-col :span="24">
+          <el-card shadow="hover" class="activity-card">
+            <div slot="header" class="activity-header">
+              <span><i class="el-icon-time"></i> 最近活动</span>
+            </div>
+            <div v-if="recentActivities.length > 0" class="activity-list">
+              <el-timeline>
+                <el-timeline-item
+                  v-for="(activity, index) in recentActivities"
+                  :key="index"
+                  :timestamp="activity.time"
+                  :type="activity.type"
+                  :color="getActivityColor(activity.type)"
+                  size="small"
+                >
+                  {{ activity.content }}
+                </el-timeline-item>
+              </el-timeline>
+            </div>
+            <div v-else class="empty-activity">
+              <el-empty description="暂无最近活动" :image-size="100"></el-empty>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
       
-      <el-col :xs="24" :sm="12" :md="6" class="status-card-wrapper" v-if="serverUptime">
-        <el-card shadow="hover" class="status-card uptime-card">
-          <div class="status-title"><i class="el-icon-alarm-clock"></i> 系统运行</div>
-          <div class="status-value uptime">{{ serverUptime }}</div>
-          <div class="status-detail" v-if="server.jvm">启动时间: {{ server.jvm.startTime }}</div>
-        </el-card>
-      </el-col>
-    </el-row>
-    
-    <!-- 图表区域 -->
-    <el-row :gutter="20" class="chart-row">
-      <!-- CPU图表 -->
-      <el-col :xs="24" :sm="24" :md="12" class="chart-wrapper">
-        <el-card shadow="hover" class="chart-card">
-          <div slot="header" class="chart-header">
-            <span><i class="el-icon-cpu"></i> CPU使用率分析</span>
-          </div>
-          <div class="chart-container">
-            <div ref="cpuChart" class="chart"></div>
-          </div>
-        </el-card>
-      </el-col>
-      
-      <!-- 内存图表 -->
-      <el-col :xs="24" :sm="24" :md="12" class="chart-wrapper">
-        <el-card shadow="hover" class="chart-card">
-          <div slot="header" class="chart-header">
-            <span><i class="el-icon-tickets"></i> 内存使用情况</span>
-          </div>
-          <div class="chart-container">
-            <div ref="memChart" class="chart"></div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-    
-    <!-- 磁盘使用情况图表 -->
-    <el-row :gutter="20" class="chart-row">
-      <el-col :xs="24" :sm="24" :md="24" class="chart-wrapper">
-        <el-card shadow="hover" class="chart-card">
-          <div slot="header" class="chart-header">
-            <span><i class="el-icon-receiving"></i> 磁盘使用情况</span>
-          </div>
-          <div class="chart-container">
-            <div ref="diskChart" class="chart disk-chart"></div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-    
-    <!-- 服务器信息卡片 -->
-    <el-row :gutter="20" class="info-row">
-      <el-col :xs="24" :sm="24" :md="12" class="info-wrapper">
-        <el-card shadow="hover" class="info-card">
-          <div slot="header" class="info-header">
-            <span><i class="el-icon-monitor"></i> 服务器信息</span>
-          </div>
-          <div class="info-content" v-if="server.sys">
-            <el-descriptions :column="1" border>
-              <el-descriptions-item label="服务器名称">{{ server.sys.computerName }}</el-descriptions-item>
-              <el-descriptions-item label="操作系统">{{ server.sys.osName }}</el-descriptions-item>
-              <el-descriptions-item label="服务器IP">{{ server.sys.computerIp }}</el-descriptions-item>
-              <el-descriptions-item label="系统架构">{{ server.sys.osArch }}</el-descriptions-item>
-            </el-descriptions>
-          </div>
-        </el-card>
-      </el-col>
-      
-      <el-col :xs="24" :sm="24" :md="12" class="info-wrapper">
-        <el-card shadow="hover" class="info-card">
-          <div slot="header" class="info-header">
-            <span><i class="el-icon-coffee-cup"></i> JVM信息</span>
-          </div>
-          <div class="info-content" v-if="server.jvm">
-            <el-descriptions :column="1" border>
-              <el-descriptions-item label="Java名称">{{ server.jvm.name }}</el-descriptions-item>
-              <el-descriptions-item label="Java版本">{{ server.jvm.version }}</el-descriptions-item>
-              <el-descriptions-item label="安装路径">{{ server.jvm.home }}</el-descriptions-item>
-              <el-descriptions-item label="项目路径" v-if="server.sys">{{ server.sys.userDir }}</el-descriptions-item>
-            </el-descriptions>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
+      <!-- 快捷工具和公告区域 -->
+      <el-row :gutter="20" class="tools-announcement">
+        <el-col :xs="24" :sm="24" :md="12" class="tools-wrapper">
+          <el-card shadow="hover" class="tools-card">
+            <div slot="header" class="tools-header">
+              <span><i class="el-icon-s-tools"></i> 快捷工具</span>
+            </div>
+            <div class="tools-grid">
+              <div class="tool-item" @click="goToQA">
+                <i class="el-icon-chat-dot-round"></i>
+                <span>在线问答</span>
+              </div>
+              <div class="tool-item" @click="goToKnowledgeBase">
+                <i class="el-icon-reading"></i>
+                <span>浏览知识库</span>
+              </div>
+              <div class="tool-item" @click="goToTeam">
+                <i class="el-icon-user"></i>
+                <span>团队管理</span>
+              </div>
+              <div class="tool-item" @click="goToProfile">
+                <i class="el-icon-s-custom"></i>
+                <span>个人中心</span>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+        
+        <el-col :xs="24" :sm="24" :md="12" class="announcement-wrapper">
+          <el-card shadow="hover" class="announcement-card">
+            <div slot="header" class="announcement-header">
+              <span><i class="el-icon-bell"></i> 系统公告</span>
+            </div>
+            <div v-if="announcements.length > 0" class="announcement-list">
+              <div v-for="(item, index) in announcements" :key="index" class="announcement-item">
+                <div class="announcement-title">{{ item.title }}</div>
+                <div class="announcement-content">{{ item.content }}</div>
+                <div class="announcement-time">{{ item.time }}</div>
+              </div>
+            </div>
+            <div v-else class="empty-announcement">
+              <el-empty description="暂无系统公告" :image-size="100"></el-empty>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+    </div>
   </div>
 </template>
 
 <script>
 import * as echarts from 'echarts'
 import { getServer } from "@/api/monitor/server"
+// 导入store以获取用户角色
+import store from '@/store'
 
 export default {
   name: "Index",
@@ -170,32 +292,61 @@ export default {
       // 是否在当前页面
       isActive: true,
       // 是否正在加载数据
-      isLoading: false
+      isLoading: false,
+      
+      // 普通用户首页数据
+      recentActivities: [
+        { type: 'primary', content: '您向知识库添加了新文档', time: '2023-05-20 14:32' },
+        { type: 'success', content: '您成功加入了"研发团队"', time: '2023-05-19 10:15' },
+        { type: 'warning', content: '系统更新了新功能', time: '2023-05-18 09:30' },
+        { type: 'info', content: '您提出的问题已得到解答', time: '2023-05-17 16:45' }
+      ],
+      
+      announcements: [
+        {
+          title: '系统升级通知',
+          content: '系统将于2023年5月25日凌晨2:00-4:00进行版本升级，期间服务可能短暂不可用，请提前做好准备。',
+          time: '2023-05-20 10:00'
+        },
+        {
+          title: '新功能上线',
+          content: '智能问答系统新增了团队协作功能，现在您可以邀请同事加入团队，共同建设知识库。',
+          time: '2023-05-18 09:00'
+        }
+      ]
     }
   },
   computed: {
+    // 判断是否为超级管理员
+    isSuperAdmin() {
+      return store.getters.roles.includes('admin');
+    },
+    
     serverUptime() {
       return this.server.jvm ? this.server.jvm.runTime : '--'
     }
   },
   mounted() {
-    // 首次加载时显示加载状态
-    this.isFirstLoad = true;
-    this.fetchServerData();
-    
-    // 每30秒更新一次数据
-    this.updateTimer = setInterval(() => {
-      // 只有当前页面激活时才更新数据
-      if (this.isActive) {
-        this.fetchServerData(false);
-      }
-    }, 30000);
-    
-    // 窗口大小改变时重新调整图表大小
-    window.addEventListener('resize', this.resizeCharts);
-    
-    // 监听页面可见性变化
-    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    // 根据用户角色决定是否加载服务器数据
+    if (this.isSuperAdmin) {
+      // 首次加载时显示加载状态
+      this.isFirstLoad = true;
+      this.fetchServerData();
+      
+      // 每30秒更新一次数据
+      this.updateTimer = setInterval(() => {
+        // 只有当前页面激活时才更新数据
+        if (this.isActive) {
+          this.fetchServerData(false);
+        }
+      }, 30000);
+      
+      // 窗口大小改变时重新调整图表大小
+      window.addEventListener('resize', this.resizeCharts);
+      
+      // 监听页面可见性变化
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
     
     // 监听路由变化
     this.$router.beforeEach((to, from, next) => {
@@ -206,7 +357,9 @@ export default {
       // 如果进入当前页面，标记为激活并更新数据
       if (to.path === '/' && from.path !== '/') {
         this.isActive = true;
-        this.fetchServerData(false);
+        if (this.isSuperAdmin) {
+          this.fetchServerData(false);
+        }
       }
       next();
     });
@@ -227,12 +380,41 @@ export default {
     });
   },
   methods: {
+    // 获取活动类型对应的颜色
+    getActivityColor(type) {
+      const colorMap = {
+        'primary': '#409EFF',
+        'success': '#67C23A',
+        'warning': '#E6A23C',
+        'danger': '#F56C6C',
+        'info': '#909399'
+      };
+      return colorMap[type] || colorMap.info;
+    },
+    
+    // 导航方法
+    goToQA() {
+      this.$router.push('/qa/index');
+    },
+    
+    goToKnowledgeBase() {
+      this.$router.push('/knowledge/index');
+    },
+    
+    goToTeam() {
+      this.$router.push('/team/my_team/index');
+    },
+    
+    goToProfile() {
+      this.$router.push('/user/profile');
+    },
+    
     // 处理页面可见性变化
     handleVisibilityChange() {
       this.isActive = !document.hidden;
       
       // 如果页面恢复可见，立即更新数据
-      if (this.isActive && !this.isLoading) {
+      if (this.isActive && !this.isLoading && this.isSuperAdmin) {
         this.fetchServerData(false);
       }
     },
@@ -874,6 +1056,177 @@ export default {
   // 文本颜色样式
   .text-danger {
     color: #f5222d;
+  }
+}
+
+/* 普通用户首页样式 */
+.regular-user-home {
+  padding: 20px 0;
+}
+
+.welcome-banner {
+  text-align: center;
+  padding: 30px 0;
+  margin-bottom: 30px;
+  background: linear-gradient(135deg, #1a365d, #153254);
+  color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.welcome-banner h1 {
+  font-size: 32px;
+  font-weight: bold;
+  margin-bottom: 10px;
+}
+
+.welcome-subtitle {
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.feature-cards {
+  margin-bottom: 30px;
+}
+
+.feature-card-wrapper {
+  margin-bottom: 20px;
+}
+
+.feature-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s, box-shadow 0.3s;
+  border-radius: 8px;
+  overflow: hidden;
+  text-align: center;
+  padding: 20px;
+}
+
+.feature-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.feature-icon {
+  font-size: 48px;
+  color: #409EFF;
+  margin-bottom: 15px;
+}
+
+.feature-card h3 {
+  font-size: 20px;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.feature-card p {
+  flex-grow: 1;
+  margin-bottom: 20px;
+  color: #606266;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.activity-card, .tools-card, .announcement-card {
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.activity-header, .tools-header, .announcement-header {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.activity-list {
+  padding: 10px;
+}
+
+.tools-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+  padding: 15px;
+}
+
+.tool-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: #f5f7fa;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.tool-item:hover {
+  background-color: #ecf5ff;
+  transform: translateY(-3px);
+}
+
+.tool-item i {
+  font-size: 28px;
+  color: #409EFF;
+  margin-bottom: 10px;
+}
+
+.tool-item span {
+  font-size: 14px;
+  color: #333;
+}
+
+.announcement-list {
+  padding: 10px;
+}
+
+.announcement-item {
+  padding: 15px;
+  margin-bottom: 10px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.announcement-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.announcement-title {
+  font-weight: bold;
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: #303133;
+}
+
+.announcement-content {
+  font-size: 14px;
+  color: #606266;
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+
+.announcement-time {
+  font-size: 12px;
+  color: #909399;
+  text-align: right;
+}
+
+.empty-activity, .empty-announcement {
+  padding: 20px;
+  text-align: center;
+}
+
+/* 响应式样式 */
+@media screen and (max-width: 768px) {
+  .welcome-banner h1 {
+    font-size: 24px;
+  }
+  
+  .tools-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
