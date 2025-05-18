@@ -88,6 +88,20 @@ export const constantRoutes = [
       }
     ]
   },
+  // 添加AI问答路由
+  {
+    path: '/ai',
+    component: Layout,
+    redirect: 'noredirect',
+    children: [
+      {
+        path: 'chat',
+        component: () => import('@/views/ai/index'),
+        name: 'AiChat',
+        meta: { title: '智能问答', icon: 'message' }
+      }
+    ]
+  },
   // 添加团队相关路由
   {
     path: '/team/my_team',
