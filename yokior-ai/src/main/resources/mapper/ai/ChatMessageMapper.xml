@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yokior.ai.mapper.ChatMessageMapper">
+
+    <resultMap type="com.yokior.ai.domain.ChatMessage" id="ChatMessageResult">
+        <id     property="id"           column="id"/>
+        <result property="sessionId"     column="session_id"/>
+        <result property="content"       column="content"/>
+        <result property="type"          column="type"/>
+        <result property="tokenCount"    column="token_count"/>
+        <result property="createTime"    column="create_time"/>
+    </resultMap>
+
+    <sql id="selectChatMessageVo">
+        select id, session_id, content, type, token_count, create_time from chat_message
+    </sql>
+
+    <insert id="insert" parameterType="com.yokior.ai.domain.ChatMessage">
+        insert into chat_message
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="sessionId != null">session_id,</if>
+            <if test="content != null">content,</if>
+            <if test="type != null">type,</if>
+            <if test="tokenCount != null">token_count,</if>
+            <if test="createTime != null">create_time,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="sessionId != null">#{sessionId},</if>
+            <if test="content != null">#{content},</if>
+            <if test="type != null">#{type},</if>
+            <if test="tokenCount != null">#{tokenCount},</if>
+            <if test="createTime != null">#{createTime},</if>
+        </trim>
+    </insert>
+
+    <select id="selectById" parameterType="String" resultMap="ChatMessageResult">
+        <include refid="selectChatMessageVo"/>
+        where id = #{id}
+    </select>
+
+    <select id="selectBySessionId" parameterType="String" resultMap="ChatMessageResult">
+        <include refid="selectChatMessageVo"/>
+        where session_id = #{sessionId} order by create_time asc
+    </select>
+
+    <select id="selectRecentBySessionId" resultMap="ChatMessageResult">
+        <include refid="selectChatMessageVo"/>
+        where session_id = #{sessionId} order by create_time desc limit #{count}
+    </select>
+
+    <delete id="deleteBySessionId" parameterType="String">
+        delete from chat_message where session_id = #{sessionId}
+    </delete>
+
+    <delete id="deleteById" parameterType="String">
+        delete from chat_message where id = #{id}
+    </delete>
+
+    <select id="countBySessionId" parameterType="String" resultType="int">
+        select count(1) from chat_message where session_id = #{sessionId}
+    </select>
+
+</mapper>

@@ -69,10 +69,11 @@
 </template>
 
 <script>
-import { parseTime } from '@/utils/ruoyi'
+import { parseTime } from '@/utils/yokior'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
 import marked from 'marked'
+import { sendChatMessage, createSession, deleteSession, getChatHistory } from '@/api/ai/index'
 
 export default {
   name: 'AiChat',
@@ -82,7 +83,9 @@ export default {
       messages: [],
       loading: false,
       userAvatar: '',
-      aiAvatar: require('@/assets/avatar/ai-avatar.png')
+      aiAvatar: require('@/assets/avatar/ai-avatar.png'),
+      sessionId: null, // 当前会话ID
+      error: null // 错误信息
     }
   },
   created() {
@@ -98,18 +101,63 @@ export default {
       langPrefix: 'hljs language-',
       breaks: true
     });
+    
+    // 创建新会话
+    this.createNewSession();
   },
   methods: {
+    // 创建新会话
+    createNewSession() {
+      createSession().then(response => {
+        if (response.code === 200) {
+          this.sessionId = response.data.sessionId;
+          this.loadChatHistory(); // 加载聊天历史
+        } else {
+          this.$message.error(response.msg || '创建会话失败');
+        }
+      }).catch(error => {
+        console.error('创建会话失败:', error);
+        this.$message.error('无法连接到服务器，请稍后再试');
+      });
+    },
+    
+    // 加载聊天历史
+    loadChatHistory() {
+      if (!this.sessionId) return;
+      
+      this.loading = true;
+      getChatHistory(this.sessionId).then(response => {
+        if (response.code === 200) {
+          this.messages = response.data.messages || [];
+          this.$nextTick(() => {
+            this.scrollToBottom();
+          });
+        } else {
+          this.$message.error(response.msg || '获取聊天历史失败');
+        }
+        this.loading = false;
+      }).catch(error => {
+        console.error('获取聊天历史失败:', error);
+        this.$message.error('无法连接到服务器，请稍后再试');
+        this.loading = false;
+      });
+    },
+    
     // 发送消息
     sendMessage() {
       if (!this.userInput.trim() || this.loading) return;
+      if (!this.sessionId) {
+        this.$message.error('会话未创建，请刷新页面重试');
+        return;
+      }
       
       // 添加用户消息
-      this.messages.push({
+      const userMessage = {
         type: 'user',
         content: this.userInput,
         time: new Date()
-      });
+      };
+      this.messages.push(userMessage);
       
       const question = this.userInput;
       this.userInput = '';
@@ -119,45 +167,56 @@ export default {
         this.scrollToBottom();
       });
       
-      // 模拟AI响应
+      // 发送请求到后端
       this.loading = true;
-      setTimeout(() => {
-        this.getAiResponse(question);
-      }, 300);
-    },
-    
-    // 获取AI响应 - 实际项目中应调用后端API
-    getAiResponse(question) {
-      // 模拟API调用 - 实际开发中替换为真实API
-      setTimeout(() => {
-        // 模拟回复内容
-        let response = '';
-        
-        if (question.includes('你好') || question.includes('您好')) {
-          response = '你好！我是AI助手，很高兴为您服务。有什么我可以帮助您的吗？';
-        } else if (question.includes('功能') || question.includes('能做什么')) {
-          response = '我可以回答各种问题，提供信息查询，帮助解决问题等。您可以试着问我一些问题！';
-        } else if (question.includes('代码') || question.includes('编程')) {
-          response = '以下是一个简单的Java Hello World示例：\n\n```java\npublic class HelloWorld {\n    public static void main(String[] args) {\n        System.out.println("Hello, World!");\n    }\n}\n```\n\n您还需要其他语言的示例吗？';
-        } else {
-          response = '感谢您的提问！这是一个示例回复。在实际应用中，我将连接到后端API来获取真实的回答。您的问题是：' + question;
+      sendChatMessage({
+        prompt: question,
+        sessionId: this.sessionId,
+        options: {
+          // 可选参数
+          // temperature: 0.7,
+          // maxTokens: 2000
         }
-        
-        // 添加AI响应消息
-        this.messages.push({
-          type: 'ai',
-          content: response,
-          time: new Date()
-        });
-        
-        // 重置加载状态
+      }).then(response => {
+        if (response.code === 200) {
+          // 添加AI响应消息
+          this.messages.push({
+            type: 'ai',
+            content: response.data.content,
+            time: new Date()
+          });
+          
+          // 更新会话ID（如果后端返回了新的）
+          if (response.data.sessionId) {
+            this.sessionId = response.data.sessionId;
+          }
+        } else {
+          this.handleError(response.msg || '获取AI回复失败');
+        }
         this.loading = false;
         
         // 滚动到底部
         this.$nextTick(() => {
           this.scrollToBottom();
         });
-      }, 1500);
+      }).catch(error => {
+        console.error('发送消息失败:', error);
+        this.handleError('网络错误，无法连接到服务器');
+      });
+    },
+    
+    // 处理错误
+    handleError(errorMsg) {
+      this.error = errorMsg;
+      this.$message.error(errorMsg);
+      this.loading = false;
+      
+      // 添加错误消息到聊天
+      this.messages.push({
+        type: 'ai',
+        content: `抱歉，出现了一个错误: ${errorMsg}`,
+        time: new Date()
+      });
     },
     
     // 格式化消息内容，支持Markdown
@@ -185,11 +244,23 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        this.messages = [];
-        this.$message({
-          type: 'success',
-          message: '对话已清空'
-        });
+        if (this.sessionId) {
+          // 删除当前会话
+          deleteSession(this.sessionId).then(() => {
+            this.messages = [];
+            this.createNewSession(); // 创建新会话
+            this.$message({
+              type: 'success',
+              message: '对话已清空'
+            });
+          }).catch(error => {
+            console.error('删除会话失败:', error);
+            this.$message.error('删除会话失败，请稍后再试');
+          });
+        } else {
+          this.messages = [];
+          this.createNewSession();
+        }
       }).catch(() => {});
     },
     

@@ -218,11 +218,18 @@
                 <version>${yokior.version}</version>
             </dependency>
 
-            <!-- 知识库模块-->
+            <!-- 团队模块-->
             <dependency>
                 <groupId>com.yokior</groupId>
                 <artifactId>yokior-team</artifactId>
                 <version>${yokior.version}</version>
+            </dependency>
+
+            <!-- ai模块-->
+            <dependency>
+                <groupId>com.yokior</groupId>
+                <artifactId>yokior-ai</artifactId>
+                <version>1.0.0</version>
             </dependency>
 
         </dependencies>
@@ -236,6 +243,8 @@
         <module>yokior-generator</module>
         <module>yokior-common</module>
         <module>yokior-team</module>
+        <module>yokior-ai</module>
+        <module>yokior-ai</module>
     </modules>
     <packaging>pom</packaging>
 

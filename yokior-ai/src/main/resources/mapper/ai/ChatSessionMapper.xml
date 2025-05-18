@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yokior.ai.mapper.ChatSessionMapper">
+
+    <resultMap type="com.yokior.ai.domain.ChatSession" id="ChatSessionResult">
+        <id     property="id"           column="id"/>
+        <result property="userId"       column="user_id"/>
+        <result property="title"        column="title"/>
+        <result property="createTime"   column="create_time"/>
+        <result property="updateTime"   column="update_time"/>
+        <result property="status"       column="status"/>
+    </resultMap>
+
+    <sql id="selectChatSessionVo">
+        select id, user_id, title, create_time, update_time, status from chat_session
+    </sql>
+
+    <insert id="insert" parameterType="com.yokior.ai.domain.ChatSession">
+        insert into chat_session
+        <trim prefix="(" suffix=")" suffixOverrides=",">
+            <if test="id != null">id,</if>
+            <if test="userId != null">user_id,</if>
+            <if test="title != null">title,</if>
+            <if test="createTime != null">create_time,</if>
+            <if test="updateTime != null">update_time,</if>
+            <if test="status != null">status,</if>
+        </trim>
+        <trim prefix="values (" suffix=")" suffixOverrides=",">
+            <if test="id != null">#{id},</if>
+            <if test="userId != null">#{userId},</if>
+            <if test="title != null">#{title},</if>
+            <if test="createTime != null">#{createTime},</if>
+            <if test="updateTime != null">#{updateTime},</if>
+            <if test="status != null">#{status},</if>
+        </trim>
+    </insert>
+
+    <select id="selectById" parameterType="String" resultMap="ChatSessionResult">
+        <include refid="selectChatSessionVo"/>
+        where id = #{id}
+    </select>
+
+    <update id="updateById" parameterType="com.yokior.ai.domain.ChatSession">
+        update chat_session
+        <trim prefix="SET" suffixOverrides=",">
+            <if test="userId != null">user_id = #{userId},</if>
+            <if test="title != null">title = #{title},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="status != null">status = #{status},</if>
+        </trim>
+        where id = #{id}
+    </update>
+
+    <delete id="deleteById" parameterType="String">
+        delete from chat_session where id = #{id}
+    </delete>
+
+    <select id="selectByUserId" parameterType="Long" resultMap="ChatSessionResult">
+        <include refid="selectChatSessionVo"/>
+        where user_id = #{userId} and status = '0' order by update_time desc
+    </select>
+
+    <select id="selectByIdAndUserId" resultMap="ChatSessionResult">
+        <include refid="selectChatSessionVo"/>
+        where id = #{id} and user_id = #{userId}
+    </select>
+
+    <update id="updateTitle">
+        update chat_session set title = #{title}, update_time = now() where id = #{id}
+    </update>
+
+</mapper>
