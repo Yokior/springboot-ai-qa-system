@@ -129,3 +129,21 @@ xss:
   excludes: /system/notice
   # 匹配链接
   urlPatterns: /system/*,/monitor/*,/tool/*
+
+
+# ai服务
+ai:
+  enabled: true # ai 服务开关
+  provider: deepseek # 默认的服务商
+  timeout: 60000 # 请求最大超时时间
+  retry: 2 # 请求失败重试次数
+
+  providers:
+    deepseek:
+      apiKey: sk-c84863a4fd9447faaf198f979fe8fa7e
+      model: deepseek-chat
+      endpoint: https://api.deepseek.com/chat/completions
+      stream: false
+      temperature: 0.8
+      topP: 0.9
+      maxTokens: 2000

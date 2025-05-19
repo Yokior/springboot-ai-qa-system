@@ -9,7 +9,7 @@
     <version>1.0.0</version>
 
     <name>yokior</name>
-    <url>http://ai.yokior.top</url>
+    <url>https://ai.yokior.top</url>
     <description>智能问答系统</description>
     
     <properties>
@@ -229,7 +229,7 @@
             <dependency>
                 <groupId>com.yokior</groupId>
                 <artifactId>yokior-ai</artifactId>
-                <version>1.0.0</version>
+                <version>${yokior.version}</version>
             </dependency>
 
         </dependencies>
@@ -243,7 +243,6 @@
         <module>yokior-generator</module>
         <module>yokior-common</module>
         <module>yokior-team</module>
-        <module>yokior-ai</module>
         <module>yokior-ai</module>
     </modules>
     <packaging>pom</packaging>

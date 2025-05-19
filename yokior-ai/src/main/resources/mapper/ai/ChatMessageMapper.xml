@@ -8,13 +8,13 @@
         <id     property="id"           column="id"/>
         <result property="sessionId"     column="session_id"/>
         <result property="content"       column="content"/>
-        <result property="type"          column="type"/>
+        <result property="role"          column="role"/>
         <result property="tokenCount"    column="token_count"/>
         <result property="createTime"    column="create_time"/>
     </resultMap>
 
     <sql id="selectChatMessageVo">
-        select id, session_id, content, type, token_count, create_time from chat_message
+        select id, session_id, content, role, token_count, create_time from chat_message
     </sql>
 
     <insert id="insert" parameterType="com.yokior.ai.domain.ChatMessage">
@@ -23,7 +23,7 @@
             <if test="id != null">id,</if>
             <if test="sessionId != null">session_id,</if>
             <if test="content != null">content,</if>
-            <if test="type != null">type,</if>
+            <if test="role != null">role,</if>
             <if test="tokenCount != null">token_count,</if>
             <if test="createTime != null">create_time,</if>
         </trim>
@@ -31,7 +31,7 @@
             <if test="id != null">#{id},</if>
             <if test="sessionId != null">#{sessionId},</if>
             <if test="content != null">#{content},</if>
-            <if test="type != null">#{type},</if>
+            <if test="role != null">#{role},</if>
             <if test="tokenCount != null">#{tokenCount},</if>
             <if test="createTime != null">#{createTime},</if>
         </trim>

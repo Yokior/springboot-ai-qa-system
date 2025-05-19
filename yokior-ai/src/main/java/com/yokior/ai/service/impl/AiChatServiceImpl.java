@@ -71,7 +71,7 @@ public class AiChatServiceImpl implements AiChatService
         userMessage.setId(UUID.randomUUID().toString());
         userMessage.setSessionId(sessionId);
         userMessage.setContent(request.getPrompt());
-        userMessage.setType("user");
+        userMessage.setRole("user");
         userMessage.setCreateTime(new Date());
         chatMessageMapper.insert(userMessage);
 
@@ -91,7 +91,7 @@ public class AiChatServiceImpl implements AiChatService
         aiMessage.setId(UUID.randomUUID().toString());
         aiMessage.setSessionId(sessionId);
         aiMessage.setContent(aiResponse);
-        aiMessage.setType("ai");
+        aiMessage.setRole("system");
         aiMessage.setCreateTime(new Date());
         chatMessageMapper.insert(aiMessage);
 

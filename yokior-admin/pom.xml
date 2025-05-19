@@ -67,6 +67,11 @@
             <artifactId>yokior-team</artifactId>
         </dependency>
 
+        <!-- AI模块 -->
+        <dependency>
+            <groupId>com.yokior</groupId>
+            <artifactId>yokior-ai</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
