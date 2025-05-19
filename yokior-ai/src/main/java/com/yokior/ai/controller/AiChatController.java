@@ -4,7 +4,6 @@ import com.yokior.ai.domain.ChatMessage;
 import com.yokior.ai.domain.dto.ChatRequest;
 import com.yokior.ai.domain.dto.ChatResponse;
 import com.yokior.ai.service.AiChatService;
-import com.yokior.ai.service.AiProvider;
 import com.yokior.common.core.controller.BaseController;
 import com.yokior.common.core.domain.R;
 import com.yokior.common.core.domain.model.LoginUser;
@@ -13,7 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
-import javax.annotation.Resource;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,19 +24,6 @@ public class AiChatController extends BaseController
 
     @Autowired
     private AiChatService aiChatService;
-
-    @Resource(name = "deepseek")
-    private AiProvider aiProvider;
-
-
-    @GetMapping("/test")
-    public R<ChatResponse> testChat()
-    {
-        String res = aiProvider.getCompletion("你好", null, null);
-        return R.ok(new ChatResponse(res,"session_id"));
-    }
-
-
 
     /**
      * 发送聊天消息
