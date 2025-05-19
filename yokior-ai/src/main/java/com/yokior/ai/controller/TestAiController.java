@@ -1,13 +1,20 @@
 package com.yokior.ai.controller;
 
+import com.yokior.ai.domain.ChatMessage;
+import com.yokior.ai.domain.dto.ChatRequest;
 import com.yokior.ai.domain.dto.ChatResponse;
 import com.yokior.ai.service.AiProvider;
 import com.yokior.common.core.domain.R;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * @author Yokior
@@ -16,6 +23,7 @@ import javax.annotation.Resource;
  */
 @RestController
 @RequestMapping("/test/ai")
+@Slf4j
 public class TestAiController
 {
     @Resource(name = "deepseek")
@@ -27,5 +35,171 @@ public class TestAiController
     {
         String res = aiProvider.getCompletion("你好", null, null);
         return R.ok(new ChatResponse(res,"session_id"));
+    }
+
+
+    /**
+     * 发送流式聊天消息（测试用）
+     * 仅请求AI并流式返回结果，不保存任何会话或消息
+     * {
+     *     "prompt": "你好"
+     * }
+     */
+    @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public void streamChat(@RequestBody ChatRequest request, HttpServletResponse response) throws IOException
+    {
+        // 设置响应头
+        response.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
+
+        try {
+            log.info("收到测试流式聊天请求: {}", request.getPrompt());
+            
+            // 先发送一个消息，确保响应流开始
+            String startMessage = "data: 正在思考...\n\n";
+            response.getOutputStream().write(startMessage.getBytes());
+            response.getOutputStream().flush();
+            log.info("已发送开始信息");
+            
+            // 简单起见，不使用历史记录，直接调用AI流式接口
+            List<ChatMessage> emptyHistory = new ArrayList<>();
+            
+            // 获取输出流并包装为带日志的输出流
+            final OutputStream originalOut = response.getOutputStream();
+            OutputStream loggingOut = new OutputStream() {
+                @Override
+                public void write(int b) throws IOException {
+                    originalOut.write(b);
+                    log.debug("写入单个字节: {}", (char)b);
+                }
+                
+                @Override
+                public void write(byte[] b, int off, int len) throws IOException {
+                    originalOut.write(b, off, len);
+                    String content = new String(b, off, len);
+                    log.debug("写入 [{}字节]: {}", len, content);
+                }
+                
+                @Override
+                public void flush() throws IOException {
+                    originalOut.flush();
+                    log.debug("刷新流");
+                }
+            };
+            
+            // 直接调用AI流式API
+            log.info("开始调用AI流式API");
+            aiProvider.streamCompletion(
+                    request.getPrompt(),
+                    emptyHistory,
+                    request.getOptions(),
+                    loggingOut
+            );
+            
+            // 发送结束标记
+            String endMessage = "data: [DONE]\n\n";
+            response.getOutputStream().write(endMessage.getBytes());
+            response.getOutputStream().flush();
+            
+            log.info("测试流式聊天请求处理完成");
+        } catch (Exception e) {
+            log.error("测试流式聊天处理异常", e);
+            try {
+                // 使用SSE格式发送错误
+                String errorMessage = "data: {\"error\": \"" + e.getMessage() + "\"}\n\n";
+                response.getOutputStream().write(errorMessage.getBytes());
+                response.getOutputStream().flush();
+            } catch (Exception ex) {
+                // 忽略写入错误
+                log.error("写入错误响应失败", ex);
+            }
+        }
+    }
+    
+    /**
+     * 简单的SSE格式测试
+     */
+    @GetMapping(value = "/sse-test", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public void sseTest(HttpServletResponse response) throws IOException {
+        response.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
+        
+        OutputStream out = response.getOutputStream();
+        
+        try {
+            log.info("开始SSE测试");
+            
+            // 先发送一个注释和初始事件，确保连接正常
+            out.write("event: ping\ndata: 连接已建立\n\n".getBytes());
+            out.flush();
+            Thread.sleep(500);
+            
+            // 发送5条测试消息
+            for (int i = 1; i <= 5; i++) {
+                String message = "data: 这是测试消息 #" + i + "\n\n";
+                out.write(message.getBytes());
+                out.flush();
+                log.info("发送测试消息 #{}: {}", i, message.trim());
+                
+                // 每条消息之间等待1秒
+                Thread.sleep(1000);
+            }
+            
+            // 发送一个特殊类型的事件
+            out.write("event: custom\ndata: {\"type\": \"info\", \"message\": \"这是特殊事件\"}\n\n".getBytes());
+            out.flush();
+            log.info("发送了一个特殊事件");
+            Thread.sleep(500);
+            
+            // 发送结束标记
+            out.write("data: [DONE]\n\n".getBytes());
+            out.flush();
+            
+            log.info("SSE测试完成");
+        } catch (Exception e) {
+            log.error("SSE测试异常", e);
+            out.write(("data: {\"error\": \"" + e.getMessage().replace("\"", "\\\"") + "\"}\n\n").getBytes());
+            out.flush();
+        }
+    }
+
+    /**
+     * 最简单的流式测试 - 发送纯文本，不使用SSE格式
+     */
+    @GetMapping(value = "/plain-stream")
+    public void plainStream(HttpServletResponse response) throws IOException {
+        response.setContentType("text/plain;charset=UTF-8");
+        
+        OutputStream out = response.getOutputStream();
+        
+        try {
+            log.info("开始纯文本流式测试");
+            
+            // 测试消息内容
+            String[] messages = {
+                "这是", "一个", "流式", "响应", "测试", "。",
+                "每个", "部分", "会", "单独", "发送", "。"
+            };
+            
+            // 逐个发送消息
+            for (String msg : messages) {
+                out.write(msg.getBytes());
+                out.flush();
+                log.info("发送: {}", msg);
+                
+                // 暂停200毫秒
+                Thread.sleep(200);
+            }
+            
+            log.info("纯文本流式测试完成");
+        } catch (Exception e) {
+            log.error("纯文本流式测试异常", e);
+            out.write(("错误: " + e.getMessage()).getBytes());
+            out.flush();
+        }
     }
 }

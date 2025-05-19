@@ -4,17 +4,26 @@ import com.yokior.ai.domain.ChatMessage;
 import com.yokior.ai.domain.dto.ChatRequest;
 import com.yokior.ai.domain.dto.ChatResponse;
 import com.yokior.ai.service.AiChatService;
+import com.yokior.ai.service.AiProvider;
 import com.yokior.common.core.controller.BaseController;
 import com.yokior.common.core.domain.R;
 import com.yokior.common.core.domain.model.LoginUser;
 import com.yokior.common.utils.SecurityUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.apache.commons.lang3.StringUtils;
 
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 @RestController
 @RequestMapping("/api/ai")
@@ -24,6 +33,9 @@ public class AiChatController extends BaseController
 
     @Autowired
     private AiChatService aiChatService;
+    
+    @Resource(name = "deepseek")
+    private AiProvider aiProvider;
 
     /**
      * 发送聊天消息
@@ -44,6 +56,77 @@ public class AiChatController extends BaseController
         {
             log.error("AI聊天处理异常", e);
             return R.fail("AI处理失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 发送流式聊天消息
+     */
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public void streamChat(@RequestBody ChatRequest request, HttpServletResponse response) throws IOException
+    {
+        // 设置响应头
+        response.setContentType(MediaType.TEXT_EVENT_STREAM_VALUE);
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Cache-Control", "no-cache");
+        response.setHeader("Connection", "keep-alive");
+        
+        // 获取当前登录用户
+        LoginUser loginUser = SecurityUtils.getLoginUser();
+        
+        // 消息内容收集器
+        final StringBuilder aiResponseContent = new StringBuilder();
+        
+        try {
+            // 获取或创建会话ID
+            String sessionId = request.getSessionId();
+            if (StringUtils.isEmpty(sessionId)) {
+                sessionId = aiChatService.createSession(loginUser.getUserId());
+            }
+            
+            final String finalSessionId = sessionId;
+            
+            // 保存用户消息
+            ChatMessage userMessage = new ChatMessage();
+            userMessage.setId(UUID.randomUUID().toString());
+            userMessage.setSessionId(finalSessionId);
+            userMessage.setContent(request.getPrompt());
+            userMessage.setRole("user");
+            userMessage.setCreateTime(new Date());
+            aiChatService.saveChatMessage(userMessage);
+            
+            // 获取聊天历史
+            List<ChatMessage> history = aiChatService.getChatHistory(finalSessionId, loginUser.getUserId(), 10);
+            
+            // 包装响应输出流，以便同时收集内容
+            final CopyOutputStream copyOutputStream = new CopyOutputStream(response.getOutputStream(), aiResponseContent);
+            
+            // 调用AI流式API
+            aiProvider.streamCompletion(
+                request.getPrompt(),
+                history,
+                request.getOptions(),
+                copyOutputStream
+            );
+            
+            // 处理完成后，保存AI回复
+            if (aiResponseContent.length() > 0) {
+                ChatMessage aiMessage = new ChatMessage();
+                aiMessage.setId(UUID.randomUUID().toString());
+                aiMessage.setSessionId(finalSessionId);
+                aiMessage.setContent(aiResponseContent.toString());
+                aiMessage.setRole("assistant");
+                aiMessage.setCreateTime(new Date());
+                aiChatService.saveChatMessage(aiMessage);
+            }
+        } catch (Exception e) {
+            log.error("AI流式聊天处理异常", e);
+            try {
+                response.getOutputStream().write(("错误: " + e.getMessage()).getBytes());
+                response.getOutputStream().flush();
+            } catch (Exception ex) {
+                // 忽略写入错误
+            }
         }
     }
 
@@ -114,6 +197,41 @@ public class AiChatController extends BaseController
         {
             log.error("删除会话异常", e);
             return R.fail("删除会话失败: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * 同时写入输出流和收集内容的输出流
+     */
+    private static class CopyOutputStream extends java.io.OutputStream {
+        private final java.io.OutputStream target;
+        private final StringBuilder collector;
+        
+        public CopyOutputStream(java.io.OutputStream target, StringBuilder collector) {
+            this.target = target;
+            this.collector = collector;
+        }
+        
+        @Override
+        public void write(int b) throws IOException {
+            target.write(b);
+            collector.append((char) b);
+        }
+        
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            target.write(b, off, len);
+            collector.append(new String(b, off, len));
+        }
+        
+        @Override
+        public void flush() throws IOException {
+            target.flush();
+        }
+        
+        @Override
+        public void close() throws IOException {
+            target.close();
         }
     }
 }

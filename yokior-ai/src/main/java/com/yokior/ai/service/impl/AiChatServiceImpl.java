@@ -116,6 +116,31 @@ public class AiChatServiceImpl implements AiChatService
         // 获取该会话的所有消息
         return chatMessageMapper.selectBySessionId(sessionId);
     }
+    
+    @Override
+    public List<ChatMessage> getChatHistory(String sessionId, Long userId, int count)
+    {
+        // 验证会话归属
+        ChatSession session = chatSessionMapper.selectById(sessionId);
+        if (session == null || !userId.equals(session.getUserId()))
+        {
+            throw new ServiceException("会话不存在或无权访问");
+        }
+
+        // 获取该会话的指定数量的消息
+        return chatMessageMapper.selectRecentBySessionId(sessionId, count);
+    }
+    
+    @Override
+    public void saveChatMessage(ChatMessage message)
+    {
+        if (message == null || StringUtils.isEmpty(message.getSessionId()))
+        {
+            throw new ServiceException("消息或会话ID不能为空");
+        }
+        
+        chatMessageMapper.insert(message);
+    }
 
     @Override
     public void deleteSession(String sessionId, Long userId)
