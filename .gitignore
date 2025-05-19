@@ -6,6 +6,9 @@
 项目开发用.md
 .vscode
 
+*.yml
+*.yaml
+
 .gradle
 /build/
 !gradle/wrapper/gradle-wrapper.jar

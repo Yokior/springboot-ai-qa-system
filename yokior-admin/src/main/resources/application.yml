@@ -140,7 +140,7 @@ ai:
 
   providers:
     deepseek:
-      apiKey: sk-c84863a4fd9447faaf198f979fe8fa7e
+      apiKey: ${DEEPSEEK_API_KEY}
       model: deepseek-chat
       endpoint: https://api.deepseek.com/chat/completions
       stream: false
