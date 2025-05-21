@@ -18,7 +18,7 @@
           </div>
         </div>
         <!-- 加载指示器 -->
-        <div v-if="loading" class="loading-message">
+        <div v-if="loading && !streamingResponse" class="loading-message">
           <div class="message-avatar">
             <el-avatar :size="40" :icon="'el-icon-s-platform'" :src="aiAvatar"></el-avatar>
           </div>
@@ -72,8 +72,9 @@
 import { parseTime } from '@/utils/yokior'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github.css'
-import marked from 'marked'
-import { sendChatMessage, createSession, deleteSession, getChatHistory } from '@/api/ai/index'
+import * as marked from 'marked'
+import { sendChatMessage, sendStreamChatMessage, createSession, deleteSession, getChatHistory } from '@/api/ai/index'
+import { getToken } from '@/utils/auth'
 
 export default {
   name: 'AiChat',
@@ -85,7 +86,9 @@ export default {
       userAvatar: '',
       aiAvatar: require('@/assets/avatar/ai-avatar.png'),
       sessionId: null, // 当前会话ID
-      error: null // 错误信息
+      error: null, // 错误信息
+      streamingResponse: false, // 是否正在接收流式响应
+      currentStreamingMessage: null // 当前正在接收的流式消息
     }
   },
   created() {
@@ -93,7 +96,7 @@ export default {
     this.userAvatar = this.getCache('userAvatar')
     
     // 配置 marked 解析器
-    marked.setOptions({
+    marked.marked.setOptions({
       highlight: function(code, lang) {
         const language = hljs.getLanguage(lang) ? lang : 'plaintext';
         return hljs.highlight(code, { language }).value;
@@ -102,10 +105,21 @@ export default {
       breaks: true
     });
     
-    // 创建新会话
-    this.createNewSession();
+    // 检查认证并创建会话
+    this.checkAuthAndCreateSession();
   },
   methods: {
+    // 检查认证并创建会话
+    checkAuthAndCreateSession() {
+      if (!getToken()) {
+        this.$message.error('您未登录或登录已过期，请重新登录');
+        return;
+      }
+      
+      // 创建新会话
+      this.createNewSession();
+    },
+    
     // 创建新会话
     createNewSession() {
       createSession().then(response => {
@@ -128,7 +142,18 @@ export default {
       this.loading = true;
       getChatHistory(this.sessionId).then(response => {
         if (response.code === 200) {
-          this.messages = response.data.messages || [];
+          this.messages = [];
+          const historyMessages = response.data.messages || [];
+          
+          // 将历史消息转换为前端消息格式
+          historyMessages.forEach(msg => {
+            this.messages.push({
+              type: msg.role === 'user' ? 'user' : 'ai',
+              content: msg.content,
+              time: new Date(msg.createTime)
+            });
+          });
+          
           this.$nextTick(() => {
             this.scrollToBottom();
           });
@@ -167,42 +192,81 @@ export default {
         this.scrollToBottom();
       });
       
-      // 发送请求到后端
+      // 设置加载状态
       this.loading = true;
-      sendChatMessage({
+      
+      // 使用流式API发送请求
+      this.sendStreamChatRequest(question);
+    },
+    
+    // 发送流式聊天请求
+    sendStreamChatRequest(question) {
+      // 检查认证状态
+      if (!getToken()) {
+        this.$message.error('您未登录或登录已过期，请重新登录');
+        this.loading = false;
+        return;
+      }
+      
+      // 初始化空的AI回复消息
+      const aiMessage = {
+        type: 'ai',
+        content: '',
+        time: new Date()
+      };
+      this.messages.push(aiMessage);
+      this.currentStreamingMessage = aiMessage;
+      this.streamingResponse = true;
+      
+      // 请求数据
+      const requestData = {
         prompt: question,
         sessionId: this.sessionId,
-        options: {
-          // 可选参数
-          // temperature: 0.7,
-          // maxTokens: 2000
-        }
-      }).then(response => {
-        if (response.code === 200) {
-          // 添加AI响应消息
-          this.messages.push({
-            type: 'ai',
-            content: response.data.content,
-            time: new Date()
-          });
-          
-          // 更新会话ID（如果后端返回了新的）
-          if (response.data.sessionId) {
-            this.sessionId = response.data.sessionId;
+        options: {}
+      };
+      
+      // 定义消息处理函数
+      const onMessage = (content) => {
+        try {
+          // 尝试解析JSON，有些服务器返回的是JSON格式
+          const jsonContent = JSON.parse(content);
+          if (jsonContent.choices && jsonContent.choices[0] && jsonContent.choices[0].delta) {
+            // 提取DeepSeek格式的内容
+            const chunk = jsonContent.choices[0].delta.content || '';
+            if (chunk) {
+              this.currentStreamingMessage.content += chunk;
+            }
+          } else if (jsonContent.content) {
+            // 直接使用content字段
+            this.currentStreamingMessage.content += jsonContent.content;
           }
-        } else {
-          this.handleError(response.msg || '获取AI回复失败');
+        } catch (e) {
+          // 不是JSON，直接添加原文本
+          this.currentStreamingMessage.content += content;
         }
-        this.loading = false;
         
         // 滚动到底部
         this.$nextTick(() => {
           this.scrollToBottom();
         });
-      }).catch(error => {
-        console.error('发送消息失败:', error);
-        this.handleError('网络错误，无法连接到服务器');
-      });
+      };
+      
+      // 定义错误处理函数
+      const onError = (error) => {
+        this.handleError('网络错误，无法连接到服务器: ' + error.message);
+        this.streamingResponse = false;
+        this.loading = false;
+      };
+      
+      // 定义完成回调函数
+      const onComplete = () => {
+        this.streamingResponse = false;
+        this.loading = false;
+        this.currentStreamingMessage = null;
+      };
+      
+      // 发送流式聊天请求
+      sendStreamChatMessage(requestData, onMessage, onError, onComplete);
     },
     
     // 处理错误
@@ -210,18 +274,24 @@ export default {
       this.error = errorMsg;
       this.$message.error(errorMsg);
       this.loading = false;
+      this.streamingResponse = false;
       
-      // 添加错误消息到聊天
-      this.messages.push({
-        type: 'ai',
-        content: `抱歉，出现了一个错误: ${errorMsg}`,
-        time: new Date()
-      });
+      // 如果当前有流式消息但内容为空，则添加错误信息
+      if (this.currentStreamingMessage && !this.currentStreamingMessage.content) {
+        this.currentStreamingMessage.content = `抱歉，出现了一个错误: ${errorMsg}`;
+      } else {
+        // 否则添加新的错误消息
+        this.messages.push({
+          type: 'ai',
+          content: `抱歉，出现了一个错误: ${errorMsg}`,
+          time: new Date()
+        });
+      }
     },
     
     // 格式化消息内容，支持Markdown
     formatMessage(content) {
-      return marked(content);
+      return marked.marked(content);
     },
     
     // 格式化时间

@@ -66,19 +66,30 @@ public class AiChatController extends BaseController
         response.setHeader("Cache-Control", "no-cache");
         response.setHeader("Connection", "keep-alive");
 
+        log.info("收到流式聊天请求: prompt={}, sessionId={}", 
+               request.getPrompt(), request.getSessionId());
+
         // 获取当前登录用户
         LoginUser loginUser = SecurityUtils.getLoginUser();
+        log.debug("当前用户: {}", loginUser.getUsername());
 
         // 消息内容收集器
         final StringBuilder aiResponseContent = new StringBuilder();
 
         try
         {
+            // 发送初始消息，确保连接建立
+            String initialMessage = "data: 正在思考...\n\n";
+            response.getOutputStream().write(initialMessage.getBytes());
+            response.getOutputStream().flush();
+            log.debug("已发送初始消息以建立连接");
+            
             // 获取或创建会话ID
             String sessionId = request.getSessionId();
             if (StringUtils.isEmpty(sessionId))
             {
                 sessionId = aiChatService.createSession(loginUser.getUserId());
+                log.debug("已创建新会话: {}", sessionId);
             }
 
             final String finalSessionId = sessionId;
@@ -91,12 +102,15 @@ public class AiChatController extends BaseController
             userMessage.setRole("user");
             userMessage.setCreateTime(new Date());
             aiChatService.saveChatMessage(userMessage);
+            log.debug("已保存用户消息: {}", userMessage.getId());
 
             // 获取聊天历史
             List<ChatMessage> history = aiChatService.getChatHistory(finalSessionId, loginUser.getUserId(), 10);
+            log.debug("获取到历史消息: {} 条", history.size());
 
             // 包装响应输出流，以便同时收集内容
             final CopyOutputStream copyOutputStream = new CopyOutputStream(response.getOutputStream(), aiResponseContent);
+            log.debug("准备调用AI流式接口");
 
 //            TODO: 添加用户options处理 选择不同的模型
 
@@ -107,23 +121,34 @@ public class AiChatController extends BaseController
                     request.getOptions(),
                     copyOutputStream
             );
+            
+            // 发送结束标记
+            String endMessage = "data: [DONE]\n\n";
+            response.getOutputStream().write(endMessage.getBytes());
+            response.getOutputStream().flush();
+            log.debug("已发送结束标记");
 
             // 处理完成后，保存AI回复
             if (aiResponseContent.length() > 0)
             {
                 // 处理收集到的内容，确保格式正确
                 String finalContent = aiResponseContent.toString();
+                log.debug("收集到的AI回复内容长度: {} 字符", finalContent.length());
 
                 // 创建AI回复的消息记录
                 ChatMessage aiMessage = new ChatMessage();
                 aiMessage.setId(UUID.randomUUID().toString());
                 aiMessage.setSessionId(finalSessionId);
                 aiMessage.setContent(finalContent);
-                aiMessage.setRole("system");
+                aiMessage.setRole("assistant");
                 aiMessage.setCreateTime(new Date());
                 aiChatService.saveChatMessage(aiMessage);
 
                 log.debug("保存AI回复到数据库, 长度: {} 字符", finalContent.length());
+            }
+            else
+            {
+                log.warn("AI回复内容为空，未保存到数据库");
             }
         }
         catch (Exception e)
@@ -131,12 +156,21 @@ public class AiChatController extends BaseController
             log.error("AI流式聊天处理异常", e);
             try
             {
-                response.getOutputStream().write(("错误: " + e.getMessage()).getBytes());
+                // 以SSE格式发送错误信息
+                String errorMessage = "data: {\"error\": \"" + e.getMessage().replace("\"", "\\\"") + "\"}\n\n";
+                response.getOutputStream().write(errorMessage.getBytes());
                 response.getOutputStream().flush();
+                
+                // 发送结束标记
+                String endMessage = "data: [DONE]\n\n";
+                response.getOutputStream().write(endMessage.getBytes());
+                response.getOutputStream().flush();
+                log.debug("已发送错误信息和结束标记");
             }
             catch (Exception ex)
             {
                 // 忽略写入错误
+                log.error("发送错误信息时发生异常", ex);
             }
         }
     }
