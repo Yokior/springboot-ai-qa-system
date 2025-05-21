@@ -56,11 +56,7 @@ public class TestAiController
 
         try {
             log.info("收到测试流式聊天请求: {}", request.getPrompt());
-            
-            // 先发送一个消息，确保响应流开始
-            String startMessage = "data: 正在思考...\n\n";
-            response.getOutputStream().write(startMessage.getBytes());
-            response.getOutputStream().flush();
+
             log.info("已发送开始信息");
             
             // 简单起见，不使用历史记录，直接调用AI流式接口

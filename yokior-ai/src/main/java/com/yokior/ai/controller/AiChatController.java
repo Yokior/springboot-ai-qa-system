@@ -78,11 +78,6 @@ public class AiChatController extends BaseController
 
         try
         {
-            // 发送初始消息，确保连接建立
-            String initialMessage = "data: 正在思考...\n\n";
-            response.getOutputStream().write(initialMessage.getBytes());
-            response.getOutputStream().flush();
-            log.debug("已发送初始消息以建立连接");
             
             // 获取或创建会话ID
             String sessionId = request.getSessionId();

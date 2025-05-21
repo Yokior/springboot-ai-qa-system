@@ -13,6 +13,7 @@ import com.yokior.common.exception.ServiceException;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.List;
@@ -46,6 +47,7 @@ public class AiChatServiceImpl implements AiChatService
 
     // 处理用户提问并返回回复
     @Override
+    @Transactional
     public ChatResponse processChat(ChatRequest request, Long userId)
     {
         // 检查会话是否存在，不存在则创建
@@ -143,6 +145,7 @@ public class AiChatServiceImpl implements AiChatService
     }
 
     @Override
+    @Transactional
     public void deleteSession(String sessionId, Long userId)
     {
         // 验证会话归属
