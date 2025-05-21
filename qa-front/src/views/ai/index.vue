@@ -1,61 +1,118 @@
 <template>
-  <div class="container">
-    <!-- 会话列表侧边栏 -->
-    <div class="sessions-sidebar">
+  <div class="chat-application">
+    <!-- 左侧会话列表 -->
+    <div class="sidebar">
       <div class="sidebar-header">
-        <h3>会话列表</h3>
-        <el-button type="primary" size="small" icon="el-icon-plus" @click="createNewSession" :disabled="loading">新会话</el-button>
+        <h2 class="sidebar-title">对话列表</h2>
+        <el-button 
+          type="primary" 
+          class="new-chat-btn" 
+          icon="el-icon-plus" 
+          size="small" 
+          @click="createNewSession" 
+          :disabled="loading">
+          新对话
+        </el-button>
       </div>
-      <div class="sessions-list">
-        <div 
-          v-for="session in sessionList" 
-          :key="session.id" 
-          :class="['session-item', sessionId === session.id ? 'active' : '']"
-          @click="switchSession(session.id)"
-        >
-          <div class="session-title">
-            <i class="el-icon-chat-line-square"></i>
-            <span>{{ session.title || '新对话' }}</span>
+      
+      <div class="search-box">
+        <i class="el-icon-search search-icon"></i>
+        <input 
+          type="text" 
+          placeholder="搜索对话..." 
+          class="search-input"
+          v-model="searchQuery">
+      </div>
+      
+      <div class="session-list">
+        <transition-group name="session-fade" tag="div">
+          <div 
+            v-for="session in filteredSessions" 
+            :key="session.id" 
+            :class="['session-item', sessionId === session.id ? 'active' : '']"
+            @click="switchSession(session.id)">
+            <div class="session-icon">
+              <i class="el-icon-chat-dot-round"></i>
+            </div>
+            <div class="session-info">
+              <div class="session-title">{{ session.title || '新对话' }}</div>
+              <div class="session-date">{{ formatDate(session.createTime) }}</div>
+            </div>
+            <div class="session-actions">
+              <div class="action-btn delete" @click.stop="confirmDeleteSession(session.id)">
+                <i class="el-icon-delete"></i>
+              </div>
+            </div>
           </div>
-          <div class="session-actions">
-            <el-tooltip content="删除会话" placement="top">
-              <i class="el-icon-delete" @click.stop="confirmDeleteSession(session.id)"></i>
-            </el-tooltip>
-          </div>
-        </div>
-        <div v-if="sessionList.length === 0" class="no-sessions">
-          <p>暂无会话记录</p>
+        </transition-group>
+        
+        <div v-if="filteredSessions.length === 0" class="empty-state">
+          <i class="el-icon-chat-line-square empty-icon"></i>
+          <p v-if="searchQuery">未找到符合"{{ searchQuery }}"的对话</p>
+          <p v-else>暂无对话记录</p>
+          <el-button type="primary" size="small" @click="createNewSession" :disabled="loading">
+            开始新对话
+          </el-button>
         </div>
       </div>
     </div>
 
-    <div class="chat-container">
-      <!-- 聊天历史记录 -->
-      <div class="chat-messages" ref="messagesContainer">
-        <div v-for="(message, index) in messages" :key="index" 
-             :class="['message', message.type === 'user' ? 'user-message' : 'ai-message']">
-          <div class="message-avatar">
-            <el-avatar :size="40" :icon="message.type === 'user' ? 'el-icon-user' : 'el-icon-s-platform'" 
-                      :src="message.type === 'user' ? userAvatar : aiAvatar"></el-avatar>
+    <!-- 右侧聊天区域 -->
+    <div class="chat-area">
+      <!-- 聊天头部 -->
+      <div class="chat-header">
+        <div class="current-session">
+          <h2 v-if="currentSession">{{ currentSession.title || '新对话' }}</h2>
+          <h2 v-else>AI 助手</h2>
+        </div>
+        <div class="header-actions">
+          <el-tooltip content="清空对话" placement="bottom">
+            <button 
+              class="action-button clear-btn" 
+              @click="clearCurrentChat" 
+              :disabled="loading || messages.length === 0">
+              <i class="el-icon-delete"></i>
+            </button>
+          </el-tooltip>
+        </div>
+      </div>
+      
+      <!-- 聊天消息区域 -->
+      <div class="messages-container" ref="messagesContainer">
+        <div class="welcome-screen" v-if="messages.length === 0 && !loading">
+          <div class="welcome-icon">
+            <i class="el-icon-s-platform"></i>
           </div>
-          <div class="message-content">
-            <div class="message-header">
-              <span class="sender-name">{{ message.type === 'user' ? '我' : 'AI 助手' }}</span>
+          <h2>欢迎使用 AI 助手</h2>
+          <p>有任何问题都可以向我询问</p>
+        </div>
+        
+        <div class="messages-wrapper">
+          <div 
+            v-for="(message, index) in messages" 
+            :key="index" 
+            :class="['message', message.type === 'user' ? 'outgoing' : 'incoming']">
+            <div class="avatar">
+              <el-avatar 
+                :size="36" 
+                :src="message.type === 'user' ? userAvatar : aiAvatar"
+                :icon="message.type === 'user' ? 'el-icon-user' : 'el-icon-s-platform'">
+              </el-avatar>
+            </div>
+            <div class="message-bubble">
+              <div class="message-content" v-html="formatMessage(message.content)"></div>
               <span class="message-time">{{ formatTime(message.time) }}</span>
             </div>
-            <div class="message-text" v-html="formatMessage(message.content)"></div>
           </div>
         </div>
+        
         <!-- 加载指示器 -->
-        <div v-if="loading && !streamingResponse" class="loading-message">
-          <div class="message-avatar">
-            <el-avatar :size="40" :icon="'el-icon-s-platform'" :src="aiAvatar"></el-avatar>
+        <div v-if="loading && !streamingResponse" class="typing-indicator">
+          <div class="avatar">
+            <el-avatar :size="36" :src="aiAvatar" icon="el-icon-s-platform"></el-avatar>
           </div>
-          <div class="message-content">
-            <div class="message-header">
-              <span class="sender-name">AI 助手</span>
-            </div>
-            <div class="loading-dots">
+          <div class="indicator-bubble">
+            <div class="typing-dots">
               <span></span>
               <span></span>
               <span></span>
@@ -63,35 +120,31 @@
           </div>
         </div>
       </div>
-
-      <!-- 提示输入区域 -->
-      <div class="prompt-area">
-        <el-input
-          type="textarea"
-          :rows="2"
-          placeholder="请输入您的问题..."
-          v-model="userInput"
-          :disabled="loading || !sessionId"
-          @keyup.ctrl.enter.native="sendMessage"
-        ></el-input>
-        <div class="action-buttons">
-          <el-tooltip content="清空对话" placement="top">
-            <el-button 
-              icon="el-icon-delete" 
-              circle 
-              :disabled="loading || messages.length === 0"
-              @click="clearCurrentChat">
-            </el-button>
-          </el-tooltip>
-          <el-button 
-            type="primary" 
-            :disabled="loading || !userInput.trim() || !sessionId" 
-            @click="sendMessage">
-            发送
+      
+      <!-- 底部输入区域 -->
+      <div class="composer">
+        <div class="input-container">
+          <el-input
+            type="textarea"
+            class="message-input"
+            placeholder="输入您的问题... (Ctrl + Enter 发送)"
+            v-model="userInput"
+            :rows="2"
+            :autosize="{ minRows: 1, maxRows: 6 }"
+            :disabled="loading || !sessionId"
+            @keyup.ctrl.enter.native="sendMessage"
+            resize="none"
+          ></el-input>
+          <button 
+            class="send-button" 
+            @click="sendMessage"
+            :disabled="loading || !userInput.trim() || !sessionId">
             <i class="el-icon-s-promotion"></i>
-          </el-button>
+          </button>
         </div>
-        <div class="tips">按 Ctrl + Enter 快速发送</div>
+        <div class="input-tips">
+          <span class="shortcut-tip">Ctrl + Enter 快速发送</span>
+        </div>
       </div>
     </div>
   </div>
@@ -116,9 +169,25 @@ export default {
       aiAvatar: require('@/assets/avatar/ai-avatar.png'),
       sessionId: null, // 当前会话ID
       sessionList: [], // 会话列表
+      searchQuery: '', // 搜索关键词
       error: null, // 错误信息
       streamingResponse: false, // 是否正在接收流式响应
       currentStreamingMessage: null // 当前正在接收的流式消息
+    }
+  },
+  computed: {
+    // 当前会话对象
+    currentSession() {
+      return this.sessionList.find(s => s.id === this.sessionId) || null;
+    },
+    // 过滤后的会话列表
+    filteredSessions() {
+      if (!this.searchQuery) return this.sessionList;
+      
+      const query = this.searchQuery.toLowerCase();
+      return this.sessionList.filter(session => 
+        (session.title || '新对话').toLowerCase().includes(query)
+      );
     }
   },
   created() {
@@ -536,60 +605,123 @@ export default {
     getCache(key) {
       const userInfo = this.$store.getters.userInfo;
       return userInfo && userInfo.avatar ? process.env.VUE_APP_BASE_API + userInfo.avatar : '';
+    },
+    
+    // 格式化日期
+    formatDate(dateString) {
+      if (!dateString) return '';
+      
+      const date = new Date(dateString);
+      const now = new Date();
+      const diff = now - date;
+      
+      // 今天的消息只显示时间
+      if (diff < 24 * 60 * 60 * 1000 && 
+          date.getDate() === now.getDate() &&
+          date.getMonth() === now.getMonth() &&
+          date.getFullYear() === now.getFullYear()) {
+        return parseTime(date, '{h}:{i}');
+      }
+      
+      // 一周内的消息显示星期几
+      if (diff < 7 * 24 * 60 * 60 * 1000) {
+        const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        return days[date.getDay()];
+      }
+      
+      // 其他情况显示完整日期
+      return parseTime(date, '{y}-{m}-{d}');
     }
   }
 }
 </script>
 
 <style lang="scss" scoped>
-.container {
+.chat-application {
   display: flex;
-  height: calc(100vh - 120px);
-  padding: 20px;
+  height: calc(100vh - 100px);
   background-color: #f5f7fa;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
 }
 
-.sessions-sidebar {
-  width: 250px;
-  margin-right: 20px;
+/* 侧边栏样式 */
+.sidebar {
+  width: 280px;
   background-color: #fff;
-  border-radius: 10px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  border-right: 1px solid #eaeaea;
 }
 
 .sidebar-header {
-  padding: 15px;
-  border-bottom: 1px solid #eee;
+  padding: 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.sidebar-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.new-chat-btn {
+  border-radius: 8px;
+  font-weight: 500;
+}
+
+.search-box {
+  padding: 12px 16px;
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 24px;
+  top: 22px;
+  color: #909399;
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 10px 10px 30px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: #f5f7fa;
+  transition: all 0.3s;
   
-  h3 {
-    margin: 0;
-    font-size: 16px;
-    color: #333;
+  &:focus {
+    outline: none;
+    border-color: #409EFF;
+    background-color: #fff;
+    box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
   }
 }
 
-.sessions-list {
+.session-list {
   flex: 1;
   overflow-y: auto;
-  padding: 10px 0;
+  padding: 10px;
 }
 
 .session-item {
-  padding: 10px 15px;
-  cursor: pointer;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #f5f5f5;
+  padding: 12px;
+  margin-bottom: 5px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
   
   &:hover {
-    background-color: #f9f9f9;
+    background-color: #f5f7fa;
     
     .session-actions {
       opacity: 1;
@@ -598,180 +730,414 @@ export default {
   
   &.active {
     background-color: #ecf5ff;
-    border-right: 3px solid #409EFF;
-  }
-}
-
-.session-title {
-  display: flex;
-  align-items: center;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  
-  i {
-    margin-right: 8px;
-    color: #909399;
-  }
-  
-  span {
-    font-size: 14px;
-    color: #606266;
-  }
-}
-
-.session-actions {
-  opacity: 0;
-  transition: opacity 0.2s;
-  
-  i {
-    font-size: 16px;
-    color: #909399;
-    margin-left: 8px;
     
-    &:hover {
-      color: #f56c6c;
+    .session-icon {
+      background-color: #409EFF;
+      color: white;
+    }
+    
+    .session-title {
+      color: #409EFF;
+      font-weight: 500;
     }
   }
 }
 
-.no-sessions {
-  padding: 20px;
-  text-align: center;
+.session-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background-color: #f0f2f5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+  color: #909399;
+  flex-shrink: 0;
+  transition: all 0.3s;
+  
+  i {
+    font-size: 18px;
+  }
+}
+
+.session-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.session-title {
+  font-size: 14px;
+  color: #303133;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.session-date {
+  font-size: 12px;
   color: #909399;
 }
 
-.chat-container {
+.session-actions {
+  display: flex;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.action-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  cursor: pointer;
+  
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+  
+  &.delete:hover {
+    background-color: rgba(245, 108, 108, 0.1);
+    color: #f56c6c;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #909399;
+  text-align: center;
+  
+  .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    color: #dcdfe6;
+  }
+  
+  p {
+    margin-bottom: 16px;
+  }
+}
+
+/* 聊天区域样式 */
+.chat-area {
   flex: 1;
   display: flex;
   flex-direction: column;
   background-color: #fff;
-  border-radius: 10px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  overflow: hidden;
 }
 
-.chat-messages {
+.chat-header {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #eaeaea;
+  
+  h2 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #303133;
+  }
+}
+
+.header-actions {
+  display: flex;
+}
+
+.action-button {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background-color: transparent;
+  border: none;
+  color: #606266;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-left: 8px;
+  
+  &:hover {
+    background-color: #f5f7fa;
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  &.clear-btn:hover {
+    color: #f56c6c;
+  }
+}
+
+.messages-container {
   flex: 1;
-  padding: 20px;
   overflow-y: auto;
-  background-color: #f9f9f9;
+  padding: 20px;
+  background-color: #f9fafc;
+}
+
+.welcome-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #606266;
+  text-align: center;
+  
+  .welcome-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background-color: #ecf5ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 16px;
+    
+    i {
+      font-size: 32px;
+      color: #409EFF;
+    }
+  }
+  
+  h2 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    color: #303133;
+  }
+  
+  p {
+    color: #909399;
+  }
+}
+
+.messages-wrapper {
+  padding-bottom: 10px;
 }
 
 .message {
   display: flex;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  
+  &.outgoing {
+    flex-direction: row-reverse;
+    
+    .message-bubble {
+      background-color: #ecf5ff;
+      border-radius: 16px 4px 16px 16px;
+      margin-left: 12px;
+      margin-right: 0;
+      
+      .message-time {
+        text-align: left;
+      }
+    }
+  }
+  
+  &.incoming .message-bubble {
+    background-color: #fff;
+    border-radius: 4px 16px 16px 16px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  }
 }
 
-.message-avatar {
+.avatar {
+  margin: 0 8px;
+}
+
+.message-bubble {
+  max-width: 80%;
+  padding: 6px 10px;
   margin-right: 12px;
-  flex-shrink: 0;
+  position: relative;
 }
 
 .message-content {
-  flex: 1;
-  background-color: #fff;
-  border-radius: 8px;
-  padding: 10px 15px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.user-message .message-content {
-  background-color: #e9f1ff;
-}
-
-.ai-message .message-content {
-  background-color: #fff;
-}
-
-.message-header {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.sender-name {
-  font-weight: bold;
-  color: #333;
+  color: #303133;
+  line-height: 1.4;
+  font-size: 14px;
+  word-break: break-word;
+  
+  :deep(pre) {
+    background-color: #f6f8fa;
+    border-radius: 6px;
+    padding: 10px;
+    margin: 6px 0;
+    overflow-x: auto;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    font-size: 13px;
+  }
+  
+  :deep(code) {
+    background-color: #f6f8fa;
+    padding: 1px 4px;
+    border-radius: 4px;
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+    font-size: 13px;
+  }
+  
+  :deep(p) {
+    margin: 4px 0;
+  }
+  
+  :deep(a) {
+    color: #409EFF;
+    text-decoration: none;
+    
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+  
+  :deep(ul), :deep(ol) {
+    padding-left: 20px;
+    margin: 8px 0;
+  }
 }
 
 .message-time {
-  font-size: 12px;
-  color: #999;
+  font-size: 11px;
+  color: #909399;
+  margin-top: 2px;
+  text-align: right;
 }
 
-.message-text {
-  color: #333;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  word-break: break-word;
+.typing-indicator {
+  display: flex;
+  margin-bottom: 16px;
+  
+  .indicator-bubble {
+    background-color: #fff;
+    padding: 14px 18px;
+    border-radius: 18px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+    margin-right: 12px;
+  }
 }
 
-.message-text :deep(pre) {
-  background-color: #f6f8fa;
-  border-radius: 5px;
-  padding: 10px;
-  overflow-x: auto;
-  font-family: 'Courier New', Courier, monospace;
+.typing-dots {
+  display: flex;
+  align-items: center;
+  
+  span {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-right: 4px;
+    background-color: #dcdfe6;
+    border-radius: 50%;
+    animation: typing-dot 1.4s infinite ease-in-out;
+    
+    &:nth-child(1) {
+      animation-delay: 0s;
+    }
+    
+    &:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+    
+    &:nth-child(3) {
+      animation-delay: 0.4s;
+      margin-right: 0;
+    }
+  }
 }
 
-.message-text :deep(code) {
-  background-color: #f6f8fa;
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-family: 'Courier New', Courier, monospace;
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
 }
 
-.prompt-area {
-  padding: 15px;
-  border-top: 1px solid #eee;
+.composer {
+  padding: 16px 20px;
+  border-top: 1px solid #eaeaea;
   background-color: #fff;
 }
 
-.action-buttons {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 10px;
-}
-
-.tips {
-  color: #999;
-  font-size: 12px;
-  text-align: right;
-  margin-top: 5px;
-}
-
-.loading-message {
-  display: flex;
-  margin-bottom: 20px;
-}
-
-.loading-dots {
+.input-container {
   display: flex;
   align-items: center;
+  position: relative;
 }
 
-.loading-dots span {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  margin-right: 3px;
-  background-color: #999;
+.message-input {
+  width: 100%;
+  border-radius: 12px;
+  resize: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  border: 1px solid #dcdfe6;
+  transition: all 0.3s;
+  
+  :deep(.el-textarea__inner) {
+    padding: 12px 45px 12px 16px;
+    resize: none;
+    font-size: 14px;
+    line-height: 1.5;
+    border-radius: 12px;
+    
+    &:focus {
+      border-color: #409EFF;
+      box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+    }
+  }
+}
+
+.send-button {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  animation: dot-pulse 1.5s infinite ease-in-out;
+  background-color: #409EFF;
+  color: white;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: all 0.2s;
+  z-index: 10;
+  
+  &:hover {
+    background-color: #66b1ff;
+  }
+  
+  &:disabled {
+    background-color: #a0cfff;
+    cursor: not-allowed;
+  }
 }
 
-.loading-dots span:nth-child(2) {
-  animation-delay: 0.2s;
+.input-tips {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #909399;
 }
 
-.loading-dots span:nth-child(3) {
-  animation-delay: 0.4s;
+.session-fade-enter-active, .session-fade-leave-active {
+  transition: all 0.3s;
 }
 
-@keyframes dot-pulse {
-  0% { transform: scale(0); }
-  50% { transform: scale(1); }
-  100% { transform: scale(0); }
+.session-fade-enter, .session-fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
 }
 </style> 
