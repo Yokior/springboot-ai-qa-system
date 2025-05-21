@@ -41,11 +41,8 @@ public class TestAiController
     /**
      * 发送流式聊天消息（测试用）
      * 仅请求AI并流式返回结果，不保存任何会话或消息
-     * {
-     *     "prompt": "你好"
-     * }
      */
-    @PostMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public void streamChat(@RequestBody ChatRequest request, HttpServletResponse response) throws IOException
     {
         // 设置响应头
@@ -53,6 +50,9 @@ public class TestAiController
         response.setCharacterEncoding("UTF-8");
         response.setHeader("Cache-Control", "no-cache");
         response.setHeader("Connection", "keep-alive");
+
+        // 消息内容收集器
+        final StringBuilder aiResponseContent = new StringBuilder();
 
         try {
             log.info("收到测试流式聊天请求: {}", request.getPrompt());
@@ -66,28 +66,9 @@ public class TestAiController
             // 简单起见，不使用历史记录，直接调用AI流式接口
             List<ChatMessage> emptyHistory = new ArrayList<>();
             
-            // 获取输出流并包装为带日志的输出流
-            final OutputStream originalOut = response.getOutputStream();
-            OutputStream loggingOut = new OutputStream() {
-                @Override
-                public void write(int b) throws IOException {
-                    originalOut.write(b);
-                    log.debug("写入单个字节: {}", (char)b);
-                }
-                
-                @Override
-                public void write(byte[] b, int off, int len) throws IOException {
-                    originalOut.write(b, off, len);
-                    String content = new String(b, off, len);
-                    log.debug("写入 [{}字节]: {}", len, content);
-                }
-                
-                @Override
-                public void flush() throws IOException {
-                    originalOut.flush();
-                    log.debug("刷新流");
-                }
-            };
+            // 创建同时记录和收集内容的输出流
+            final ContentCollectorOutputStream collectorStream = 
+                    new ContentCollectorOutputStream(response.getOutputStream());
             
             // 直接调用AI流式API
             log.info("开始调用AI流式API");
@@ -95,13 +76,21 @@ public class TestAiController
                     request.getPrompt(),
                     emptyHistory,
                     request.getOptions(),
-                    loggingOut
+                    collectorStream
             );
             
             // 发送结束标记
             String endMessage = "data: [DONE]\n\n";
             response.getOutputStream().write(endMessage.getBytes());
             response.getOutputStream().flush();
+            
+            // 记录收集到的内容
+            String collectedContent = collectorStream.getCollectedContent();
+            log.info("收集到的AI回复内容 ({}字符): {}", 
+                    collectedContent.length(),
+                    collectedContent.length() > 100 ? 
+                        collectedContent.substring(0, 100) + "..." : 
+                        collectedContent);
             
             log.info("测试流式聊天请求处理完成");
         } catch (Exception e) {
@@ -118,6 +107,76 @@ public class TestAiController
         }
     }
     
+    /**
+     * 用于收集内容的输出流包装类
+     */
+    private static class ContentCollectorOutputStream extends OutputStream {
+        private final OutputStream original;
+        private final StringBuilder content = new StringBuilder();
+        private final StringBuilder lineBuffer = new StringBuilder();
+        
+        public ContentCollectorOutputStream(OutputStream original) {
+            this.original = original;
+        }
+        
+        @Override
+        public void write(int b) throws IOException {
+            original.write(b);
+            
+            char c = (char) b;
+            lineBuffer.append(c);
+            
+            if (c == '\n') {
+                processLine(lineBuffer.toString());
+                lineBuffer.setLength(0);
+            }
+        }
+        
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            original.write(b, off, len);
+            
+            String text = new String(b, off, len);
+            for (int i = 0; i < text.length(); i++) {
+                char c = text.charAt(i);
+                lineBuffer.append(c);
+                
+                if (c == '\n') {
+                    processLine(lineBuffer.toString());
+                    lineBuffer.setLength(0);
+                }
+            }
+        }
+        
+        private void processLine(String line) {
+            line = line.trim();
+            
+            if (line.startsWith("data:")) {
+                String data = line.substring(5).trim();
+                if (!data.equals("[DONE]")) {
+                    content.append(data);
+                }
+            }
+        }
+        
+        @Override
+        public void flush() throws IOException {
+            original.flush();
+        }
+        
+        @Override
+        public void close() throws IOException {
+            if (lineBuffer.length() > 0) {
+                processLine(lineBuffer.toString());
+            }
+            original.close();
+        }
+        
+        public String getCollectedContent() {
+            return content.toString();
+        }
+    }
+
     /**
      * 简单的SSE格式测试
      */
