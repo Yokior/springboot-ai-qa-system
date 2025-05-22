@@ -20,6 +20,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 @RestController
 @RequestMapping("/api/ai")
 @Slf4j
@@ -135,7 +137,7 @@ public class AiChatController extends BaseController
                 aiMessage.setId(UUID.randomUUID().toString());
                 aiMessage.setSessionId(finalSessionId);
                 aiMessage.setContent(finalContent);
-                aiMessage.setRole("assistant");
+                aiMessage.setRole("system");
                 aiMessage.setCreateTime(new Date());
                 aiChatService.saveChatMessage(aiMessage);
 
@@ -248,6 +250,7 @@ public class AiChatController extends BaseController
         private final java.io.OutputStream target;
         private final StringBuilder collector;
         private StringBuilder lineBuffer = new StringBuilder();  // 用于临时缓存当前行
+        private final ObjectMapper objectMapper = new ObjectMapper();  // 用于解析JSON
 
         public CopyOutputStream(java.io.OutputStream target, StringBuilder collector)
         {
@@ -304,10 +307,26 @@ public class AiChatController extends BaseController
                 // 提取data后面的内容（去除前缀"data: "）
                 String content = line.substring(5).trim();
 
-                // 如果不是[DONE]标记，则添加到收集器
+                // 如果不是[DONE]标记，则提取实际内容
                 if (!content.equals("[DONE]"))
                 {
-                    collector.append(content);
+                    try {
+                        // 尝试解析JSON
+                        Map<String, Object> contentMap = objectMapper.readValue(content, Map.class);
+                        if (contentMap.containsKey("content")) {
+                            // 只提取content字段的值
+                            String textContent = (String) contentMap.get("content");
+                            // 直接追加文本内容，不带JSON包装
+                            collector.append(textContent);
+                        } else if (contentMap.containsKey("error")) {
+                            // 处理错误消息
+                            collector.append("[错误] " + contentMap.get("error"));
+                        }
+                    } catch (Exception e) {
+                        // JSON解析失败，作为纯文本处理
+                        log.warn("无法解析内容为JSON: {}", content);
+                        collector.append(content);
+                    }
                 }
             }
         }

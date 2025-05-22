@@ -151,13 +151,14 @@
 </template>
 
 <script>
-import { parseTime } from '@/utils/yokior'
-import hljs from 'highlight.js'
-import 'highlight.js/styles/github.css'
-import * as marked from 'marked'
-import { sendChatMessage, sendStreamChatMessage, createSession, deleteSession, getChatHistory } from '@/api/ai/index'
-import { getToken } from '@/utils/auth'
-import { getInfo } from '@/api/login'  // 引入getInfo接口
+import { marked } from 'marked';
+import hljs from 'highlight.js/lib/common';  // 改用common包，包含常用语言
+import 'highlight.js/styles/vs2015.css';  // 导入VS Code风格的代码高亮样式
+import { mapState } from 'vuex';
+import { sendChatMessage, sendStreamChatMessage, createSession, deleteSession, getChatHistory } from '@/api/ai/index';
+import { getToken } from '@/utils/auth';
+import { parseTime } from '@/utils/yokior';
+import { getInfo } from '@/api/login';  // 恢复getInfo导入
 
 export default {
   name: 'AiChat',
@@ -191,19 +192,257 @@ export default {
       );
     }
   },
+  // 正确定义watch属性，将它放在组件的顶层而不是methods中
+  watch: {
+    messages: {
+      deep: true,
+      handler() {
+        this.$nextTick(() => {
+          this.addCopyButtonsToCodeBlocks();
+        });
+      }
+    },
+    'currentStreamingMessage.content': function() {
+      if (this.streamingResponse) {
+        this.$nextTick(() => {
+          this.addCopyButtonsToCodeBlocks();
+        });
+      }
+    }
+  },
+  // 将生命周期钩子放在组件顶层
+  mounted() {
+    // 为整个文档添加事件委托来处理按钮点击
+    document.addEventListener('click', (e) => {
+      console.log('点击元素:', e.target);
+      
+      // 查找最近的按钮
+      let targetButton = null;
+      
+      // 检查目标元素和父元素
+      if (e.target.matches('.vs-code-copy-btn, .vs-code-corner-copy-btn') || 
+          e.target.closest('.vs-code-copy-btn, .vs-code-corner-copy-btn')) {
+        // 处理复制按钮点击
+        targetButton = e.target.matches('.vs-code-copy-btn, .vs-code-corner-copy-btn') 
+          ? e.target 
+          : e.target.closest('.vs-code-copy-btn, .vs-code-corner-copy-btn');
+        
+        console.log('复制按钮被点击:', targetButton);
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // 找到最近的代码容器
+        const container = targetButton.closest('.vs-code-container');
+        if (!container) {
+          console.error('找不到代码容器');
+          return;
+        }
+        
+        // 找到代码文本区域
+        const codeArea = container.querySelector('.vs-code-text');
+        if (!codeArea) {
+          console.error('找不到代码区域');
+          return;
+        }
+        
+        // 提取原始代码（移除HTML标签）
+        let codeText = '';
+        codeArea.querySelectorAll('.vs-code-line').forEach(line => {
+          // 创建临时元素解析HTML
+          const temp = document.createElement('div');
+          temp.innerHTML = line.innerHTML;
+          codeText += temp.textContent + '\n';
+        });
+        
+        console.log('提取的代码:', codeText);
+        
+        // 调用全局复制函数
+        window.copyCodeBlock(codeText.trim());
+        
+        // 更新按钮状态
+        const originalHtml = targetButton.innerHTML;
+        targetButton.innerHTML = targetButton.classList.contains('vs-code-corner-copy-btn') 
+          ? '<i class="el-icon-check"></i> 复制成功!' 
+          : '<i class="el-icon-check"></i>';
+          
+        // 添加成功样式
+        if (targetButton.classList.contains('vs-code-corner-copy-btn')) {
+          targetButton.classList.add('vs-code-button-copied');
+        }
+        
+        // 恢复原始状态
+        setTimeout(() => {
+          targetButton.innerHTML = originalHtml;
+          if (targetButton.classList.contains('vs-code-corner-copy-btn')) {
+            targetButton.classList.remove('vs-code-button-copied');
+          }
+        }, 2000);
+        
+        return;
+      }
+      
+      // 检查下载按钮
+      if (e.target.matches('.vs-code-download-btn') || 
+          e.target.closest('.vs-code-download-btn')) {
+        targetButton = e.target.matches('.vs-code-download-btn') 
+          ? e.target 
+          : e.target.closest('.vs-code-download-btn');
+        
+        console.log('下载按钮被点击:', targetButton);
+        
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // 找到最近的代码容器
+        const container = targetButton.closest('.vs-code-container');
+        if (!container) {
+          console.error('找不到代码容器');
+          return;
+        }
+        
+        // 找到代码文本区域
+        const codeArea = container.querySelector('.vs-code-text');
+        if (!codeArea) {
+          console.error('找不到代码区域');
+          return;
+        }
+        
+        // 提取原始代码（移除HTML标签）
+        let codeText = '';
+        codeArea.querySelectorAll('.vs-code-line').forEach(line => {
+          // 创建临时元素解析HTML
+          const temp = document.createElement('div');
+          temp.innerHTML = line.innerHTML;
+          codeText += temp.textContent + '\n';
+        });
+        
+        // 获取语言
+        let language = container.getAttribute('data-language') || '';
+        console.log('语言:', language, '代码长度:', codeText.length);
+        
+        // 调用全局下载函数
+        window.downloadCodeBlock(codeText.trim(), language);
+      }
+    });
+    
+    // 组件挂载后初始化代码块处理
+    this.$nextTick(() => {
+      this.addCopyButtonsToCodeBlocks();
+    });
+  },
+  updated() {
+    // 组件更新后处理代码块
+    this.addCopyButtonsToCodeBlocks();
+  },
   created() {
     // 获取用户头像
-    this.fetchUserAvatar()
+    this.fetchUserAvatar();
     
-    // 配置 marked 解析器
-    marked.marked.setOptions({
-      highlight: function(code, lang) {
-        const language = hljs.getLanguage(lang) ? lang : 'plaintext';
-        return hljs.highlight(code, { language }).value;
+    // 配置marked
+    marked.setOptions({
+      highlight: (code, lang) => {
+        try {
+          // 修正Java代码语言识别问题
+          if (lang === 'text' && code.includes('public class')) {
+            lang = 'java';
+          }
+          
+          if (lang && hljs.getLanguage(lang)) {
+            return hljs.highlight(code, { language: lang }).value;
+          } else if (code.length > 30) {
+            // 如果代码较长，尝试自动检测语言
+            return hljs.highlightAuto(code).value;
+          }
+          return code; // 短代码段或未识别的语言返回原始代码
+        } catch (error) {
+          console.warn('语法高亮失败:', error);
+          return code; // 错误时返回原始代码
+        }
       },
-      langPrefix: 'hljs language-',
-      breaks: true
+      gfm: true,
+      breaks: true,
+      smartLists: true
     });
+    
+    // 全局复制函数
+    window.copyCodeBlock = (text) => {
+      if (!text) {
+        this.$message.error('没有可复制的内容');
+        return;
+      }
+      
+      try {
+        // 创建临时文本区域
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        
+        textarea.focus();
+        textarea.select();
+        
+        const successful = document.execCommand('copy');
+        if (successful) {
+          this.$message.success('代码已复制到剪贴板');
+        } else {
+          this.$message.error('复制失败，请手动复制');
+        }
+        
+        document.body.removeChild(textarea);
+      } catch(err) {
+        console.error('复制失败:', err);
+        this.$message.error('复制失败，请手动复制');
+      }
+    };
+    
+    // 全局下载函数
+    window.downloadCodeBlock = (text, language) => {
+      if (!text) {
+        this.$message.error('没有可下载的内容');
+        return;
+      }
+      
+      try {
+        // 确定文件扩展名
+        const extensions = {
+          java: '.java',
+          javascript: '.js',
+          js: '.js',
+          typescript: '.ts',
+          ts: '.ts',
+          html: '.html',
+          css: '.css',
+          python: '.py',
+          // 其他扩展名...
+        };
+        
+        // 默认扩展名
+        const ext = extensions[language ? language.toLowerCase() : ''] || '.txt';
+        
+        // 创建Blob对象
+        const blob = new Blob([text], { type: 'text/plain' });
+        
+        // 创建下载链接
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `code-snippet${ext}`;
+        
+        // 触发点击
+        document.body.appendChild(a);
+        a.click();
+        
+        // 清理
+        setTimeout(() => {
+          document.body.removeChild(a);
+          this.$message.success(`代码已下载为 code-snippet${ext}`);
+        }, 100);
+      } catch(err) {
+        console.error('下载失败:', err);
+        this.$message.error('下载失败: ' + err.message);
+      }
+    };
     
     // 检查认证并初始化会话
     this.checkAuthAndInitSessions();
@@ -539,19 +778,26 @@ export default {
         try {
           // 尝试解析JSON，有些服务器返回的是JSON格式
           const jsonContent = JSON.parse(content);
+          
           if (jsonContent.choices && jsonContent.choices[0] && jsonContent.choices[0].delta) {
-            // 提取DeepSeek格式的内容
+            // 处理原生DeepSeek格式响应
             const chunk = jsonContent.choices[0].delta.content || '';
             if (chunk) {
               this.currentStreamingMessage.content += chunk;
             }
-          } else if (jsonContent.content) {
-            // 直接使用content字段
+          } else if (jsonContent.content !== undefined) {
+            // 处理后端自定义格式响应
             this.currentStreamingMessage.content += jsonContent.content;
+          } else if (typeof content === 'string' && content.trim()) {
+            // 处理纯文本响应
+            this.currentStreamingMessage.content += content;
           }
         } catch (e) {
-          // 不是JSON，直接添加原文本
-          this.currentStreamingMessage.content += content;
+          // 解析失败，作为普通文本处理
+          console.log('解析消息失败，按纯文本处理:', e.message);
+          if (typeof content === 'string' && content.trim()) {
+            this.currentStreamingMessage.content += content;
+          }
         }
         
         // 滚动到底部
@@ -600,7 +846,359 @@ export default {
     
     // 格式化消息内容，支持Markdown
     formatMessage(content) {
-      return marked.marked(content);
+      if (!content) return '';
+      
+      try {
+        // 预处理代码块
+        let processedContent = this.preprocessCodeBlocks ? this.preprocessCodeBlocks(content) : content;
+        
+        // 使用marked处理markdown
+        const html = marked(processedContent);
+        
+        // 创建一个临时元素来解析HTML
+        const tempElement = document.createElement('div');
+        tempElement.innerHTML = html;
+        
+        // 处理pre元素，应用VS Code风格
+        const preElements = tempElement.querySelectorAll('pre');
+        preElements.forEach(pre => {
+          const codeElement = pre.querySelector('code');
+          if (codeElement) {
+            this.buildVSCodeStyleBlock(pre, codeElement);
+          }
+        });
+        
+        // 返回处理后的HTML
+        return tempElement.innerHTML;
+      } catch (error) {
+        console.error('格式化消息出错:', error);
+        return content;
+      }
+    },
+    
+    // 复制文本到剪贴板
+    copyToClipboard(text) {
+      if (!text) {
+        this.$message.error('没有可复制的内容');
+        return;
+      }
+      
+      // 创建临时文本区域
+      const textarea = document.createElement('textarea');
+      textarea.value = text.trim();
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '-9999px';
+      document.body.appendChild(textarea);
+      
+      try {
+        // 选择文本并复制
+        textarea.select();
+        textarea.setSelectionRange(0, 99999);
+        const successful = document.execCommand('copy');
+        
+        if (successful) {
+          // 显示成功消息
+          this.$message({
+            message: '代码已复制到剪贴板',
+            type: 'success',
+            duration: 1500,
+            customClass: 'code-copy-message'
+          });
+          
+          // 显示复制成功动画
+          this.showCopyAnimation();
+        } else {
+          this.$message.error('复制失败，请手动复制');
+        }
+      } catch (err) {
+        console.error('复制失败:', err);
+        this.$message.error('复制失败: ' + err);
+      } finally {
+        // 移除临时文本区域
+        document.body.removeChild(textarea);
+      }
+    },
+    
+    // 显示复制成功动画
+    showCopyAnimation() {
+      // 创建动画元素
+      const animation = document.createElement('div');
+      animation.className = 'copy-success-animation';
+      animation.innerHTML = '<i class="el-icon-check"></i>';
+      document.body.appendChild(animation);
+      
+      // 使用setTimeout允许DOM渲染
+      setTimeout(() => {
+        animation.classList.add('show');
+      }, 10);
+      
+      // 动画结束后移除元素
+      setTimeout(() => {
+        animation.classList.remove('show');
+        setTimeout(() => {
+          if (document.body.contains(animation)) {
+            document.body.removeChild(animation);
+          }
+        }, 300);
+      }, 1500);
+    },
+    
+    // 预处理代码块
+    preprocessCodeBlocks(content) {
+      if (!content) return '';
+
+      // 已经包含Markdown代码块的不需要处理
+      if (content.includes('```')) return content;
+      
+      // 检查是否是Java样例代码（常见的错误情况）
+      if (content.includes('// HelloWorld.java') && content.includes('public class HelloWorld')) {
+        return "```java\n" + content + "\n```";
+      }
+      
+      let processedContent = content;
+      
+      // 常见编程语言的特征模式
+      const codePatterns = {
+        java: [
+          /public\s+class\s+\w+/,
+          /public\s+static\s+void\s+main/,
+          /import\s+java\./,
+          /public\s+static\s+void\s+\w+\s*\(/,
+          /private\s+\w+\s+\w+\s*\(/
+        ],
+        javascript: [
+          /function\s+\w+\s*\(/,
+          /const\s+\w+\s*=/,
+          /let\s+\w+\s*=/,
+          /var\s+\w+\s*=/,
+          /export\s+default/,
+          /import\s+.*\s+from/,
+          /^\s*\w+\.\w+\s*\(/m
+        ],
+        python: [
+          /def\s+\w+\s*\(/,
+          /import\s+\w+/,
+          /from\s+\w+\s+import/,
+          /class\s+\w+\s*\(/,
+          /class\s+\w+:/
+        ],
+        html: [
+          /<html/i,
+          /<body/i,
+          /<div/i,
+          /<script/i,
+          /<\/\w+>/i
+        ],
+        css: [
+          /\w+\s*{\s*[\w\-]+\s*:/,
+          /\.\w+\s*{/,
+          /#\w+\s*{/,
+          /@media\s+/,
+          /@import\s+/
+        ],
+        sql: [
+          /SELECT\s+.*\s+FROM/i,
+          /INSERT\s+INTO/i,
+          /UPDATE\s+.*\s+SET/i,
+          /DELETE\s+FROM/i,
+          /CREATE\s+TABLE/i
+        ]
+      };
+      
+      // 检测代码语言
+      let detectedLanguage = null;
+      let highestMatches = 0;
+      
+      Object.entries(codePatterns).forEach(([lang, patterns]) => {
+        const matches = patterns.filter(pattern => pattern.test(content)).length;
+        if (matches > highestMatches) {
+          highestMatches = matches;
+          detectedLanguage = lang;
+        }
+      });
+      
+      // 如果匹配度不够高，可能不是代码
+      if (highestMatches < 2) {
+        return content;
+      }
+      
+      // 处理代码块
+      if (detectedLanguage) {
+        try {
+          // 通用格式化（添加换行和缩进）
+          processedContent = this.formatCodeByLanguage(processedContent, detectedLanguage);
+          
+          // 检测是否有多个代码块（用"---"分隔）
+          if (content.includes('---')) {
+            return this.processSplitCodeSections(content, codePatterns);
+          } else {
+            // 将格式化后的代码包装在Markdown代码块中
+            processedContent = "```" + detectedLanguage + "\n" + processedContent + "\n```";
+          }
+        } catch (e) {
+          console.error('代码格式化失败:', e);
+        }
+      }
+
+      return processedContent;
+    },
+    
+    // 根据编程语言格式化代码
+    formatCodeByLanguage(code, language) {
+      switch(language) {
+        case 'java':
+          return this.formatJavaCode(code);
+        case 'javascript':
+          return this.formatJavascriptCode(code);
+        case 'python':
+          return this.formatPythonCode(code);
+        case 'html':
+          return this.formatHtmlCode(code);
+        case 'css':
+          return this.formatCssCode(code);
+        case 'sql':
+          return this.formatSqlCode(code);
+        default:
+          return code;
+      }
+    },
+    
+    // 格式化Java代码
+    formatJavaCode(code) {
+      return code
+        .replace(/public/g, "\npublic ")
+        .replace(/private/g, "\nprivate ")
+        .replace(/protected/g, "\nprotected ")
+        .replace(/class\s+/g, "class ")
+        .replace(/for\s*\(/g, "for (")
+        .replace(/if\s*\(/g, "if (")
+        .replace(/else\s*{/g, "else {")
+        .replace(/\)\s*{/g, ") {")
+        .replace(/;\s*/g, ";\n")
+        .replace(/}\s*/g, "}\n")
+        .replace(/{\s*/g, "{\n  ")
+        .replace(/\s{2,}/g, "  ")
+        .replace(/import\s+/g, "import ")
+        .replace(/package\s+/g, "package ");
+    },
+    
+    // 格式化JavaScript代码
+    formatJavascriptCode(code) {
+      return code
+        .replace(/function\s+/g, "\nfunction ")
+        .replace(/const\s+/g, "\nconst ")
+        .replace(/let\s+/g, "\nlet ")
+        .replace(/var\s+/g, "\nvar ")
+        .replace(/for\s*\(/g, "for (")
+        .replace(/if\s*\(/g, "if (")
+        .replace(/else\s*{/g, "else {")
+        .replace(/\)\s*{/g, ") {")
+        .replace(/;\s*/g, ";\n")
+        .replace(/}\s*/g, "}\n")
+        .replace(/{\s*/g, "{\n  ")
+        .replace(/\s{2,}/g, "  ")
+        .replace(/import\s+/g, "import ")
+        .replace(/export\s+/g, "export ");
+    },
+    
+    // 格式化Python代码
+    formatPythonCode(code) {
+      return code
+        .replace(/def\s+/g, "\ndef ")
+        .replace(/class\s+/g, "\nclass ")
+        .replace(/import\s+/g, "\nimport ")
+        .replace(/from\s+/g, "\nfrom ")
+        .replace(/:\s*/g, ":\n  ")
+        .replace(/if\s+/g, "\nif ")
+        .replace(/elif\s+/g, "\nelif ")
+        .replace(/else\s*:/g, "\nelse:")
+        .replace(/for\s+/g, "\nfor ")
+        .replace(/while\s+/g, "\nwhile ")
+        .replace(/try\s*:/g, "\ntry:")
+        .replace(/except\s+/g, "\nexcept ")
+        .replace(/finally\s*:/g, "\nfinally:")
+        .replace(/\n\s*\n/g, "\n\n");
+    },
+    
+    // 格式化HTML代码
+    formatHtmlCode(code) {
+      return code
+        .replace(/</g, "\n<")
+        .replace(/>/g, ">\n")
+        .replace(/\n\s*\n/g, "\n");
+    },
+    
+    // 格式化CSS代码
+    formatCssCode(code) {
+      return code
+        .replace(/{/g, " {\n  ")
+        .replace(/}/g, "\n}\n")
+        .replace(/;/g, ";\n  ")
+        .replace(/\n\s*\n/g, "\n");
+    },
+    
+    // 格式化SQL代码
+    formatSqlCode(code) {
+      return code
+        .replace(/SELECT/ig, "\nSELECT")
+        .replace(/FROM/ig, "\nFROM")
+        .replace(/WHERE/ig, "\nWHERE")
+        .replace(/ORDER BY/ig, "\nORDER BY")
+        .replace(/GROUP BY/ig, "\nGROUP BY")
+        .replace(/HAVING/ig, "\nHAVING")
+        .replace(/JOIN/ig, "\nJOIN")
+        .replace(/INSERT/ig, "\nINSERT")
+        .replace(/UPDATE/ig, "\nUPDATE")
+        .replace(/DELETE/ig, "\nDELETE")
+        .replace(/CREATE/ig, "\nCREATE")
+        .replace(/DROP/ig, "\nDROP")
+        .replace(/ALTER/ig, "\nALTER")
+        .replace(/;/g, ";\n");
+    },
+    
+    // 处理分段代码块
+    processSplitCodeSections(content, codePatterns) {
+      const sections = content.split('---');
+      
+      // 处理每个部分
+      return sections.map(section => {
+        // 检测代码语言
+        let sectionLanguage = null;
+        let highestMatches = 0;
+        
+        Object.entries(codePatterns).forEach(([lang, patterns]) => {
+          const matches = patterns.filter(pattern => pattern.test(section)).length;
+          if (matches > highestMatches) {
+            highestMatches = matches;
+            sectionLanguage = lang;
+          }
+        });
+        
+        if (highestMatches < 2) {
+          return section; // 可能不是代码
+        }
+        
+        // 查找可能的标题
+        const titleMatch = section.match(/#{1,6}\s*(.+?)(?:\n|$)/);
+        const title = titleMatch ? titleMatch[0] : '';
+        
+        // 分离标题和代码
+        let code = titleMatch ? section.replace(titleMatch[0], '') : section;
+        
+        // 格式化代码
+        if (sectionLanguage) {
+          try {
+            code = this.formatCodeByLanguage(code, sectionLanguage);
+            return title + "\n```" + sectionLanguage + "\n" + code.trim() + "\n```";
+          } catch (e) {
+            console.error('部分代码格式化失败:', e);
+            return section;
+          }
+        } else {
+          return section;
+        }
+      }).join("\n\n");
     },
     
     // 格式化时间
@@ -646,6 +1244,563 @@ export default {
       
       // 其他情况显示完整日期
       return parseTime(date, '{y}-{m}-{d}');
+    },
+    
+    // 为代码块添加工具栏、复制按钮和行号 - 全新实现
+    addCopyButtonsToCodeBlocks() {
+      // 注入样式表
+      this.injectCodeBlockStyles();
+      
+      // 确保DOM已经渲染完成
+      setTimeout(() => {
+        // 选择所有的pre元素
+        const preElements = document.querySelectorAll('.message-content pre');
+        
+        // 为每个pre元素添加工具栏和行号
+        preElements.forEach((pre) => {
+          // 如果已经处理过，跳过
+          if (pre.classList.contains('vs-code-processed')) return;
+          
+          // 标记为已处理
+          pre.classList.add('vs-code-processed');
+          
+          // 获取代码元素
+          const codeElement = pre.querySelector('code');
+          if (!codeElement) return;
+          
+          // 重新构建整个代码块结构
+          this.buildVSCodeStyleBlock(pre, codeElement);
+        });
+      }, 100);
+    },
+    
+    // 构建VS Code风格的代码块
+    buildVSCodeStyleBlock(pre, codeElement) {
+      // 确保首先注入样式
+      this.injectCodeBlockStyles();
+      
+      // 获取原始代码和语言
+      const code = codeElement.textContent;
+      let language = '';
+      
+      // 从class中提取语言
+      if (codeElement.className) {
+        const match = codeElement.className.match(/language-(\w+)/);
+        if (match) {
+          language = match[1];
+        }
+      }
+
+      // 获取高亮后的HTML
+      const highlightedHtml = codeElement.innerHTML;
+      
+      // 统计代码行数
+      const lineCount = code.split('\n').length;
+      
+      // 创建主容器
+      const container = document.createElement('div');
+      container.className = 'vs-code-container';
+      if (language) {
+        container.classList.add(`language-${language}`);
+        container.setAttribute('data-language', language);
+      }
+      
+      // 创建头部（包含语言标签和工具栏）
+      const header = document.createElement('div');
+      header.className = 'vs-code-header';
+      
+      // 语言标签
+      const langLabel = document.createElement('div');
+      langLabel.className = 'vs-code-lang';
+      langLabel.textContent = language ? language.toUpperCase() : 'TEXT';
+      header.appendChild(langLabel);
+      
+      // 工具栏 - 使用简单的HTML字符串
+      header.innerHTML += `
+        <div class="vs-code-toolbar">
+          <button class="vs-code-btn vs-code-copy-btn" title="复制代码">
+            <i class="el-icon-document-copy"></i>
+          </button>
+          <button class="vs-code-btn vs-code-download-btn" title="下载代码">
+            <i class="el-icon-download"></i>
+          </button>
+        </div>
+      `;
+      
+      container.appendChild(header);
+      
+      // 创建内容区域（行号+代码）
+      const content = document.createElement('div');
+      content.className = 'vs-code-content';
+      
+      // 创建行号区域
+      const lineNumbers = document.createElement('div');
+      lineNumbers.className = 'vs-code-line-numbers';
+      
+      // 添加行号
+      for (let i = 1; i <= lineCount; i++) {
+        const lineNumber = document.createElement('div');
+        lineNumber.className = 'vs-code-line-number';
+        lineNumber.textContent = i;
+        lineNumbers.appendChild(lineNumber);
+      }
+      
+      content.appendChild(lineNumbers);
+      
+      // 创建代码文本区域
+      const textArea = document.createElement('div');
+      textArea.className = 'vs-code-text';
+      
+      // 分割高亮后的HTML为行
+      const lines = this.splitHighlightedCode(highlightedHtml, lineCount);
+      
+      // 添加每一行代码
+      lines.forEach(line => {
+        const codeLine = document.createElement('div');
+        codeLine.className = 'vs-code-line';
+        codeLine.innerHTML = line || ' '; // 确保空行也显示
+        textArea.appendChild(codeLine);
+      });
+      
+      content.appendChild(textArea);
+      container.appendChild(content);
+      
+      // 添加右上角的复制按钮 - 使用简单的HTML
+      const cornerCopyBtn = document.createElement('button');
+      cornerCopyBtn.className = 'vs-code-corner-copy-btn';
+      cornerCopyBtn.innerHTML = '<i class="el-icon-document-copy"></i> 复制代码';
+      cornerCopyBtn.title = '复制代码';
+      container.appendChild(cornerCopyBtn);
+      
+      // 替换原来的pre标签
+      pre.parentNode.replaceChild(container, pre);
+    },
+    
+    // 将高亮后的HTML分割为行
+    splitHighlightedCode(html, lineCount) {
+      // 如果html为空，返回空行数组
+      if (!html.trim()) {
+        return Array(lineCount).fill('');
+      }
+      
+      // 将HTML按换行符分割
+      let lines = html.split('\n');
+      
+      // 调整行数以匹配原始代码的行数
+      if (lines.length < lineCount) {
+        // 如果行数不足，添加空行
+        lines = lines.concat(Array(lineCount - lines.length).fill(''));
+      } else if (lines.length > lineCount) {
+        // 如果行数过多，截断多余的行
+        lines = lines.slice(0, lineCount);
+      }
+      
+      return lines;
+    },
+    
+    // 复制代码到剪贴板
+    copyCodeToClipboard(code, container) {
+      if (!code || typeof code !== 'string') {
+        this.$message.error('没有可复制的内容');
+        return;
+      }
+      
+      try {
+        // 现代浏览器API - navigator.clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code.trim())
+            .then(() => {
+              // 添加复制成功的动画效果
+              container.classList.add('vs-code-copied');
+              setTimeout(() => {
+                container.classList.remove('vs-code-copied');
+              }, 1000);
+              
+              // 显示提示信息
+              this.$message.success('代码已复制到剪贴板');
+            })
+            .catch(err => {
+              console.error('使用Clipboard API复制失败:', err);
+              // 回退到传统方法
+              this.fallbackCopy(code, container);
+            });
+        } else {
+          // 回退到传统方法
+          this.fallbackCopy(code, container);
+        }
+      } catch (error) {
+        console.error('复制失败:', error);
+        this.$message.error('复制失败: ' + error.message);
+      }
+    },
+    
+    // 兼容老浏览器的复制方法
+    fallbackCopy(code, container) {
+      // 创建临时文本区域
+      const textarea = document.createElement('textarea');
+      textarea.value = code.trim();
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      // 确保元素在视区内，某些浏览器要求
+      textarea.style.top = '0';
+      textarea.style.left = '0';
+      
+      document.body.appendChild(textarea);
+      
+      try {
+        // 选择文本
+        textarea.focus();
+        textarea.select();
+        
+        // 尝试复制
+        const successful = document.execCommand('copy');
+        
+        if (successful) {
+          // 添加复制成功的动画效果
+          container.classList.add('vs-code-copied');
+          setTimeout(() => {
+            container.classList.remove('vs-code-copied');
+          }, 1000);
+          
+          // 显示提示信息
+          this.$message.success('代码已复制到剪贴板');
+        } else {
+          this.$message.error('复制失败，请手动复制');
+        }
+      } catch (err) {
+        console.error('execCommand复制失败:', err);
+        this.$message.error('复制失败，请手动复制');
+      } finally {
+        // 移除临时文本区域
+        document.body.removeChild(textarea);
+      }
+    },
+    
+    // 下载代码文件
+    downloadCode(code, language) {
+      if (!code || typeof code !== 'string') {
+        this.$message.error('没有可下载的内容');
+        return;
+      }
+      
+      try {
+        // 确定文件扩展名
+        const extensions = {
+          java: '.java',
+          javascript: '.js',
+          js: '.js',
+          typescript: '.ts',
+          ts: '.ts',
+          html: '.html',
+          css: '.css',
+          python: '.py',
+          py: '.py',
+          ruby: '.rb',
+          php: '.php',
+          go: '.go',
+          rust: '.rs',
+          c: '.c',
+          cpp: '.cpp',
+          'c++': '.cpp',
+          csharp: '.cs',
+          'c#': '.cs',
+          swift: '.swift',
+          kotlin: '.kt',
+          scala: '.scala',
+          perl: '.pl',
+          bash: '.sh',
+          shell: '.sh',
+          sql: '.sql',
+          json: '.json',
+          xml: '.xml',
+          yaml: '.yml',
+          markdown: '.md',
+          md: '.md'
+        };
+        
+        // 默认扩展名
+        const ext = extensions[language ? language.toLowerCase() : ''] || '.txt';
+        
+        // 创建Blob对象
+        const blob = new Blob([code.trim()], { type: 'text/plain' });
+        
+        // 创建下载链接
+        const a = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = `code-snippet${ext}`;
+        
+        // 添加到DOM以便在Firefox等浏览器触发下载
+        document.body.appendChild(a);
+        
+        // 模拟点击
+        a.click();
+        
+        // 给浏览器一些时间来处理下载
+        setTimeout(() => {
+          // 清理
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          // 显示提示信息
+          this.$message.success(`代码已下载为 code-snippet${ext}`);
+        }, 100);
+      } catch (error) {
+        console.error('下载失败:', error);
+        this.$message.error('下载失败: ' + error.message);
+      }
+    },
+    
+    // 注入代码块样式表
+    injectCodeBlockStyles() {
+      // 检查是否已注入
+      if (document.getElementById('vs-code-styles')) return;
+      
+      // 创建样式元素
+      const styleElement = document.createElement('style');
+      styleElement.id = 'vs-code-styles';
+      
+      // VS Code风格的CSS样式
+      const css = `
+        /* 覆盖原有样式 */
+        .message-content pre {
+          padding: 0 !important;
+          margin: 15px 0 !important;
+          overflow: hidden !important;
+          background: none !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        
+        /* 特定语言样式覆盖 - Java */
+        .vs-code-container[data-language="java"] .hljs-keyword {
+          color: #569cd6 !important;
+          font-weight: bold !important;
+        }
+        
+        .vs-code-container[data-language="java"] .hljs-class {
+          color: #4ec9b0 !important;
+        }
+        
+        .vs-code-container[data-language="java"] .hljs-string {
+          color: #ce9178 !important;
+        }
+        
+        .vs-code-container[data-language="java"] .hljs-comment {
+          color: #6a9955 !important;
+          font-style: italic !important;
+        }
+        
+        /* VS Code样式容器 */
+        .vs-code-container {
+          background-color: #1e1e1e;
+          border-radius: 6px;
+          overflow: hidden;
+          font-family: Consolas, Monaco, monospace;
+          font-size: 14px;
+          margin: 0;
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+          border: 1px solid #333;
+          position: relative;
+        }
+        
+        /* 代码标题栏 */
+        .vs-code-header {
+          background-color: #2d2d2d;
+          color: #cccccc;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 5px 10px;
+          border-bottom: 1px solid #3e3e3e;
+          height: 30px;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        /* 语言标签 */
+        .vs-code-lang {
+          font-size: 12px;
+          color: #cccccc;
+          opacity: 0.8;
+        }
+        
+        /* 工具栏 */
+        .vs-code-toolbar {
+          display: flex;
+        }
+        
+        /* 按钮样式 */
+        .vs-code-btn {
+          background: transparent;
+          border: none;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #cccccc;
+          opacity: 0.7;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s;
+          margin-left: 4px;
+          font-size: 14px;
+        }
+        
+        /* 按钮悬停效果 */
+        .vs-code-btn:hover {
+          opacity: 1;
+          background-color: #3e3e3e;
+        }
+        
+        /* 右上角复制按钮 */
+        .vs-code-corner-copy-btn {
+          position: absolute;
+          top: 45px;
+          right: 15px;
+          z-index: 100;
+          background-color: rgba(0, 122, 204, 0.8);
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          padding: 6px 12px;
+          font-size: 13px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          opacity: 0;
+          transition: all 0.2s ease;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* 显示右上角复制按钮（当鼠标悬停在代码块上时） */
+        .vs-code-container:hover .vs-code-corner-copy-btn {
+          opacity: 1;
+        }
+        
+        /* 右上角复制按钮悬停效果 */
+        .vs-code-corner-copy-btn:hover {
+          background-color: rgba(0, 122, 204, 1);
+          transform: translateY(-1px);
+          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* 复制按钮复制成功状态 */
+        .vs-code-button-copied {
+          background-color: rgba(58, 166, 74, 0.9) !important;
+          color: white !important;
+        }
+        
+        /* 代码内容区域 */
+        .vs-code-content {
+          display: flex;
+          padding: 0;
+          overflow-x: auto;
+          background-color: #1e1e1e;
+        }
+        
+        /* 行号区域 */
+        .vs-code-line-numbers {
+          padding: 12px 8px;
+          text-align: right;
+          min-width: 40px;
+          border-right: 1px solid #404040;
+          color: #858585;
+          font-size: 12px;
+          line-height: 1.5;
+          user-select: none;
+          background-color: #1e1e1e;
+        }
+        
+        /* 单行行号 */
+        .vs-code-line-number {
+          height: 20px;
+          font-family: Consolas, Monaco, monospace;
+        }
+        
+        /* 代码文本区域 */
+        .vs-code-text {
+          flex: 1;
+          padding: 12px 16px;
+          color: #d4d4d4;
+          overflow-x: auto;
+          white-space: pre;
+          font-family: Consolas, Monaco, monospace;
+          font-size: 14px;
+          line-height: 1.5;
+          background-color: #1e1e1e;
+        }
+        
+        /* 代码行 */
+        .vs-code-line {
+          height: 20px;
+          white-space: pre;
+          font-family: Consolas, Monaco, monospace;
+        }
+        
+        /* 复制成功动画 */
+        .vs-code-copied {
+          animation: vs-code-copy-success 1s ease;
+        }
+        
+        @keyframes vs-code-copy-success {
+          0% { box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2); }
+          50% { box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.4); }
+          100% { box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2); }
+        }
+        
+        /* 语法高亮 - VS Code暗色主题 */
+        .vs-code-text .hljs-keyword { color: #569cd6; font-weight: bold; }
+        .vs-code-text .hljs-built_in { color: #4ec9b0; }
+        .vs-code-text .hljs-type { color: #4ec9b0; }
+        .vs-code-text .hljs-literal { color: #569cd6; }
+        .vs-code-text .hljs-number { color: #b5cea8; }
+        .vs-code-text .hljs-regexp { color: #d16969; }
+        .vs-code-text .hljs-string { color: #ce9178; }
+        .vs-code-text .hljs-subst { color: #d4d4d4; }
+        .vs-code-text .hljs-symbol { color: #d4d4d4; }
+        .vs-code-text .hljs-class { color: #4ec9b0; }
+        .vs-code-text .hljs-function { color: #dcdcaa; }
+        .vs-code-text .hljs-title { color: #dcdcaa; }
+        .vs-code-text .hljs-params { color: #9cdcfe; }
+        .vs-code-text .hljs-comment { color: #6a9955; font-style: italic; }
+        .vs-code-text .hljs-doctag { color: #608b4e; }
+        .vs-code-text .hljs-meta { color: #9cdcfe; }
+        .vs-code-text .hljs-section { color: gold; }
+        .vs-code-text .hljs-name { color: #569cd6; }
+        .vs-code-text .hljs-tag { color: #569cd6; }
+        .vs-code-text .hljs-attr { color: #9cdcfe; }
+        .vs-code-text .hljs-bullet { color: #d4d4d4; }
+        .vs-code-text .hljs-code { color: #d4d4d4; }
+        .vs-code-text .hljs-emphasis { color: #d4d4d4; font-style: italic; }
+        .vs-code-text .hljs-formula { color: #d4d4d4; }
+        .vs-code-text .hljs-link { color: #9cdcfe; }
+        .vs-code-text .hljs-quote { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-tag { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-id { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-class { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-attr { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-pseudo { color: #d4d4d4; }
+        .vs-code-text .hljs-template-tag { color: #d4d4d4; }
+        .vs-code-text .hljs-template-variable { color: #d4d4d4; }
+        .vs-code-text .hljs-addition { color: #d4d4d4; }
+        .vs-code-text .hljs-deletion { color: #d4d4d4; }
+        
+        /* Java特定颜色 */
+        .language-java .vs-code-text .hljs-keyword { color: #569cd6; font-weight: bold; }
+        .language-java .vs-code-text .hljs-class { color: #4ec9b0; }
+        .language-java .vs-code-text .hljs-title { color: #4ec9b0; }
+        .language-java .vs-code-text .hljs-function { color: #dcdcaa; }
+        .language-java .vs-code-text .hljs-string { color: #ce9178; }
+        .language-java .vs-code-text .hljs-comment { color: #6a9955; }
+        .language-java .vs-code-text .hljs-number { color: #b5cea8; }
+        .language-java .vs-code-text .hljs-params { color: #9cdcfe; }
+      `;
+      
+      styleElement.textContent = css;
+      document.head.appendChild(styleElement);
     }
   }
 }
@@ -659,6 +1814,153 @@ export default {
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+/* 复制成功动画 */
+.copy-success-animation {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(0.5) !important;
+  width: 80px !important;
+  height: 80px !important;
+  background-color: rgba(82, 196, 26, 0.9) !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  z-index: 9999 !important;
+  opacity: 0 !important;
+  transition: all 0.3s ease !important;
+  box-shadow: 0 5px 20px rgba(82, 196, 26, 0.4) !important;
+}
+
+.copy-success-animation.show {
+  opacity: 1 !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+}
+
+.copy-success-animation i {
+  color: white !important;
+  font-size: 36px !important;
+  animation: pulse 1s ease-in-out !important;
+}
+
+/* 让代码块内的复制按钮默认隐藏，鼠标悬停时显示 */
+.message-content >>> pre .code-copy-button {
+  opacity: 0 !important;
+  transition: opacity 0.2s !important;
+}
+
+.message-content >>> pre:hover .code-copy-button {
+  opacity: 0.8 !important;
+}
+
+/* 代码块主样式 - VS Code风格 */
+.message-content >>> pre {
+  position: relative !important;
+  background-color: #1e1e1e !important; /* VS Code暗色主题背景色 */
+  color: #d4d4d4 !important;
+  border-radius: 8px !important;
+  margin: 15px 0 !important;
+  padding: 0 !important; /* 移除内边距，让顶部标签栏能够延伸 */
+  border: none !important;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2) !important;
+  overflow: hidden !important;
+  max-width: 100% !important;
+  margin-bottom: 15px !important;
+}
+
+/* 顶部语言标签栏 */
+.message-content >>> .code-lang-label {
+  position: relative !important;
+  display: flex !important; /* 使用flex布局，便于放置工具栏 */
+  justify-content: space-between !important; /* 语言名称左侧，工具栏右侧 */
+  align-items: center !important;
+  width: 100% !important;
+  height: 30px !important; /* 固定高度 */
+  background-color: #2d2d2d !important;
+  color: #d4d4d4 !important;
+  font-size: 12px !important;
+  padding: 0 10px !important;
+  text-align: left !important;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+  border-bottom: 1px solid #3e3e3e !important;
+  z-index: 5 !important;
+}
+
+/* 调整工具栏位置 */
+.message-content >>> .code-toolbar {
+  position: static !important; /* 修改为static，避免absolute定位问题 */
+  display: flex !important;
+  align-items: center !important;
+  margin-left: auto !important; /* 将工具栏推到右侧 */
+}
+
+/* 调整复制按钮和下载按钮样式 */
+.message-content >>> .code-copy-button,
+.message-content >>> .code-download-button {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 28px !important;
+  height: 28px !important;
+  background-color: transparent !important;
+  border: none !important;
+  border-radius: 4px !important;
+  color: #d4d4d4 !important;
+  font-size: 14px !important;
+  cursor: pointer !important;
+  opacity: 0.7 !important;
+  transition: all 0.2s !important;
+  margin: 0 2px !important;
+}
+
+.message-content >>> .code-copy-button:hover,
+.message-content >>> .code-download-button:hover {
+  opacity: 1 !important;
+  background-color: #3e3e3e !important;
+}
+
+/* 行号样式 */
+.message-content >>> pre code::before {
+  content: attr(data-line-numbers) !important;
+  position: absolute !important;
+  left: 0 !important;
+  top: 12px !important;
+  width: 40px !important;
+  padding-right: 8px !important;
+  text-align: right !important;
+  color: #858585 !important;
+  font-size: 12px !important;
+  font-family: Consolas, Monaco, monospace !important;
+  line-height: 1.5 !important;
+  border-right: 1px solid #404040 !important;
+  user-select: none !important;
+  pointer-events: none !important;
+  white-space: pre !important;
+  z-index: 2 !important;
+}
+
+/* 代码区域样式 */
+.message-content >>> pre code {
+  font-family: Consolas, Monaco, monospace !important;
+  font-size: 14px !important;
+  line-height: 1.5 !important;
+  padding: 12px 16px 12px 50px !important; /* 左侧留出行号空间 */
+  color: #d4d4d4 !important;
+  background-color: transparent !important;
+  overflow-x: auto !important;
+  white-space: pre !important;
+  display: block !important;
+}
+
+/* 添加行高亮效果 */
+.message-content >>> pre code .highlighted-line {
+  background-color: rgba(255, 255, 255, 0.07) !important;
+  display: block !important;
+  margin: 0 -16px 0 -50px !important;
+  padding: 0 16px 0 50px !important;
 }
 
 /* 侧边栏样式 */
@@ -1154,5 +2456,204 @@ export default {
 .session-fade-enter, .session-fade-leave-to {
   opacity: 0;
   transform: translateY(10px);
+}
+
+/* 代码高亮样式 */
+.message-content >>> .hljs {
+  border-radius: 6px !important;
+  background-color: #f8f9fa !important;
+  color: #24292e !important;
+  display: block !important;
+}
+
+.message-content >>> .hljs-keyword {
+  color: #569cd6 !important; /* 蓝色 - class, public, static */
+}
+
+.message-content >>> .hljs-class, 
+.message-content >>> .hljs-title {
+  color: #4ec9b0 !important; /* 浅绿色 - 类名 */
+}
+
+.message-content >>> .hljs-function {
+  color: #dcdcaa !important; /* 黄色 - 方法名 */
+}
+
+.message-content >>> .hljs-string {
+  color: #ce9178 !important; /* 橙色 - 字符串 */
+}
+
+.message-content >>> .hljs-comment {
+  color: #6a9955 !important; /* 绿色 - 注释 */
+}
+
+.message-content >>> .hljs-number {
+  color: #b5cea8 !important; /* 淡绿色 - 数字 */
+}
+
+.message-content >>> .hljs-params {
+  color: #9cdcfe !important; /* 淡蓝色 - 参数 */
+}
+
+.message-content >>> .hljs-variable {
+  color: #9cdcfe !important; /* 淡蓝色 - 变量 */
+}
+
+.message-content >>> .hljs-operator {
+  color: #d4d4d4 !important; /* 白色 - 操作符 */
+}
+
+.message-content >>> .hljs-punctuation {
+  color: #d4d4d4 !important; /* 白色 - 标点符号 */
+}
+
+.message-content >>> .hljs-property {
+  color: #9cdcfe !important; /* 淡蓝色 - 属性 */
+}
+
+.message-content >>> .hljs-tag {
+  color: #569cd6 !important; /* 蓝色 - 标签 */
+}
+
+.message-content >>> .hljs-attr {
+  color: #9cdcfe !important; /* 淡蓝色 - 属性名 */
+}
+
+/* 确保复制成功消息样式 */
+.code-copy-message {
+  background-color: #f0f9eb !important;
+  border-color: #e1f3d8 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.5); opacity: 0; }
+  50% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* 修复代码块内容超出容器的问题 */
+.message-content >>> pre {
+  position: relative !important;
+  max-width: calc(100% - 10px) !important;
+  margin: 10px 5px !important;
+  white-space: pre-wrap !important;
+  word-break: break-all !important;
+  overflow-wrap: break-word !important;
+}
+
+/* 确保代码块内的语言标签和复制按钮位置正确 */
+.message-content >>> pre .code-copy-button,
+.message-content >>> pre .code-lang-label {
+  position: absolute !important;
+  z-index: 5 !important;
+}
+
+/* 确保按钮位于语言标签之上 */
+.message-content >>> pre .code-copy-button {
+  z-index: 6 !important;
+}
+
+/* 覆盖其他可能影响按钮的样式 */
+.message-content * >>> button.code-copy-button {
+  position: absolute !important;
+  top: 8px !important;
+  right: 8px !important;
+  border: 1px solid #e0e0e0 !important;
+  background-color: rgba(255, 255, 255, 0.8) !important; 
+}
+
+/* 顶部工具栏样式 */
+.message-content >>> pre {
+  position: relative !important;
+}
+
+/* 顶部工具栏右侧按钮区域 */
+.message-content >>> .code-toolbar {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  display: flex !important;
+  padding: 2px !important;
+}
+
+/* 复制按钮放在顶部工具栏中 */
+.message-content >>> .code-copy-button {
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  margin: 2px !important;
+  width: 24px !important;
+  height: 24px !important;
+  border-radius: 4px !important;
+}
+
+/* 复制成功效果 */
+.message-content >>> pre.copied {
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.5) !important;
+  animation: success-pulse 1s ease !important;
+}
+
+@keyframes success-pulse {
+  0% { box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1) !important; }
+  50% { box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.4) !important; }
+  100% { box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2) !important; }
+}
+
+/* 代码下载按钮 */
+.message-content >>> .code-download-button {
+  width: 24px !important;
+  height: 24px !important;
+  border: none !important;
+  background-color: transparent !important;
+  color: #d4d4d4 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0.6 !important;
+  cursor: pointer !important;
+  margin: 2px !important;
+  border-radius: 4px !important;
+}
+
+.message-content >>> .code-download-button:hover {
+  opacity: 1 !important;
+  background-color: #404040 !important;
+}
+
+/* Java特定语法高亮 */
+.message-content >>> pre.language-java .hljs-keyword {
+  color: #569cd6 !important; /* 关键字蓝色 */
+}
+
+.message-content >>> pre.language-java .hljs-type {
+  color: #4ec9b0 !important; /* 类型名称绿色 */
+}
+
+.message-content >>> pre.language-java .hljs-class {
+  color: #4ec9b0 !important; /* 类名绿色 */
+}
+
+.message-content >>> pre.language-java .hljs-title {
+  color: #4ec9b0 !important; /* 类名绿色 */
+}
+
+.message-content >>> pre.language-java .hljs-function {
+  color: #dcdcaa !important; /* 方法名黄色 */
+}
+
+.message-content >>> pre.language-java .hljs-built_in {
+  color: #569cd6 !important; /* 内置对象蓝色 */
+}
+
+.message-content >>> pre.language-java .hljs-meta {
+  color: #569cd6 !important; /* 元信息蓝色 */
+}
+
+/* 确保图标正确显示 */
+.message-content >>> .code-copy-button i,
+.message-content >>> .code-download-button i {
+  font-size: 16px !important;
+  line-height: 1 !important;
 }
 </style> 

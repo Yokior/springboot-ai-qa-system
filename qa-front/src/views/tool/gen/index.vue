@@ -173,14 +173,8 @@
 import { listTable, previewTable, delTable, genCode, synchDb } from "@/api/tool/gen"
 import importTable from "./importTable"
 import createTable from "./createTable"
-import hljs from "highlight.js/lib/highlight"
-import "highlight.js/styles/github-gist.css"
-hljs.registerLanguage("java", require("highlight.js/lib/languages/java"))
-hljs.registerLanguage("xml", require("highlight.js/lib/languages/xml"))
-hljs.registerLanguage("html", require("highlight.js/lib/languages/xml"))
-hljs.registerLanguage("vue", require("highlight.js/lib/languages/xml"))
-hljs.registerLanguage("javascript", require("highlight.js/lib/languages/javascript"))
-hljs.registerLanguage("sql", require("highlight.js/lib/languages/sql"))
+import hljs from "highlight.js/lib/common"
+import "highlight.js/styles/github.css"
 
 export default {
   name: "Gen",
@@ -305,8 +299,17 @@ export default {
     highlightedCode(code, key) {
       const vmName = key.substring(key.lastIndexOf("/") + 1, key.indexOf(".vm"))
       var language = vmName.substring(vmName.indexOf(".") + 1, vmName.length)
-      const result = hljs.highlight(language, code || "", true)
-      return result.value || '&nbsp;'
+      try {
+        if (language && hljs.getLanguage(language)) {
+          const result = hljs.highlight(code || "", { language: language });
+          return result.value || '&nbsp;';
+        } else {
+          return hljs.highlightAuto(code || "").value || '&nbsp;';
+        }
+      } catch (error) {
+        console.warn('语法高亮失败:', error);
+        return code || '&nbsp;'; // 错误时返回原始代码
+      }
     },
     /** 复制代码成功 */
     clipboardSuccess() {

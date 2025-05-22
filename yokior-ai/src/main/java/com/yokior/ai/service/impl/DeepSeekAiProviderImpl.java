@@ -247,8 +247,10 @@ public class DeepSeekAiProviderImpl implements AiProvider
                                 {
                                     String chunk = (String) delta.get("content");
 
-                                    // 以SSE格式发送内容
-                                    String formattedContent = "data: " + chunk + "\n\n";
+                                    // 以SSE格式发送内容，包装为单独的消息对象
+                                    Map<String, Object> messageObject = new HashMap<>();
+                                    messageObject.put("content", chunk);
+                                    String formattedContent = "data: " + objectMapper.writeValueAsString(messageObject) + "\n\n";
                                     output.write(formattedContent.getBytes());
                                     output.flush();
 
@@ -260,7 +262,7 @@ public class DeepSeekAiProviderImpl implements AiProvider
                         {
                             log.warn("解析SSE响应失败: {}", e.getMessage());
                             // 如果解析失败，尝试直接发送原始行
-                            String safeLine = "data: " + content.replace("\n", "") + "\n\n";
+                            String safeLine = "data: " + objectMapper.writeValueAsString(content) + "\n\n";
                             output.write(safeLine.getBytes());
                             output.flush();
                         }
@@ -359,8 +361,12 @@ public class DeepSeekAiProviderImpl implements AiProvider
         {
             if (!paragraph.trim().isEmpty())
             {
+                // 创建与流式响应格式一致的消息对象
+                Map<String, Object> messageObject = new HashMap<>();
+                messageObject.put("content", paragraph);
+                
                 // 格式化为SSE格式并发送
-                String formatted = "data: " + paragraph + "\n\n";
+                String formatted = "data: " + objectMapper.writeValueAsString(messageObject) + "\n\n";
                 output.write(formatted.getBytes());
                 output.flush();
                 log.debug("模拟流输出块: {}", paragraph);
