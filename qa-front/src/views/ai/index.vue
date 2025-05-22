@@ -157,6 +157,7 @@ import 'highlight.js/styles/github.css'
 import * as marked from 'marked'
 import { sendChatMessage, sendStreamChatMessage, createSession, deleteSession, getChatHistory } from '@/api/ai/index'
 import { getToken } from '@/utils/auth'
+import { getInfo } from '@/api/login'  // 引入getInfo接口
 
 export default {
   name: 'AiChat',
@@ -191,8 +192,8 @@ export default {
     }
   },
   created() {
-    // 设置用户头像
-    this.userAvatar = this.getCache('userAvatar')
+    // 获取用户头像
+    this.fetchUserAvatar()
     
     // 配置 marked 解析器
     marked.marked.setOptions({
@@ -208,6 +209,20 @@ export default {
     this.checkAuthAndInitSessions();
   },
   methods: {
+    // 获取用户头像
+    fetchUserAvatar() {
+      if (getToken()) {
+        getInfo().then(res => {
+          if (res.code === 200 && res.user && res.user.avatar) {
+            // 设置用户头像
+            this.userAvatar = process.env.VUE_APP_BASE_API + res.user.avatar;
+          }
+        }).catch(err => {
+          console.error('获取用户信息失败:', err);
+        });
+      }
+    },
+    
     // 检查认证并初始化会话
     checkAuthAndInitSessions() {
       if (!getToken()) {
@@ -601,7 +616,7 @@ export default {
       }
     },
     
-    // 获取缓存中的用户头像
+    // 获取缓存中的用户头像 (保留此方法作为备用)
     getCache(key) {
       const userInfo = this.$store.getters.userInfo;
       return userInfo && userInfo.avatar ? process.env.VUE_APP_BASE_API + userInfo.avatar : '';
