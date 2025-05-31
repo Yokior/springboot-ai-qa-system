@@ -79,7 +79,7 @@ public class AiChatServiceImpl implements AiChatService
 
         // 获取聊天历史上下文(可选)
         List<ChatMessage> history = chatMessageMapper.selectRecentBySessionId(
-                sessionId, 10); // 获取最近10条消息作为上下文
+                sessionId, 6); // 获取最近10条消息作为上下文
 
         // 调用AI服务获取回复
         String aiResponse = aiProvider.getCompletion(

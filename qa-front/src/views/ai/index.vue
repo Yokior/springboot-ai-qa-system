@@ -780,17 +780,10 @@ export default {
         return;
       }
       
-      // 初始化空的AI回复消息
-      const aiMessage = {
-        type: 'ai',
-        content: '',
-        time: new Date()
-      };
-      this.messages.push(aiMessage);
-      this.currentStreamingMessage = aiMessage;
-      this.streamingResponse = true;
-      
-      // 请求数据
+      // 确保在请求开始时，currentStreamingMessage 为 null 并且没有预先添加AI消息
+      // this.currentStreamingMessage = null; // 应该在 onComplete 或 onError 中被设为null，或者在切换会话时
+                                          // 确保没有在这里错误地初始化或添加消息到 this.messages
+
       const requestData = {
         prompt: question,
         sessionId: this.sessionId,
@@ -799,32 +792,44 @@ export default {
       
       // 定义消息处理函数
       const onMessage = (content) => {
-        try {
-          // 尝试解析JSON，有些服务器返回的是JSON格式
-          const jsonContent = JSON.parse(content);
+        if (!this.streamingResponse) { 
+          this.streamingResponse = true; // 首先改变状态，这将隐藏打字动画
           
-          if (jsonContent.choices && jsonContent.choices[0] && jsonContent.choices[0].delta) {
-            // 处理原生DeepSeek格式响应
-            const chunk = jsonContent.choices[0].delta.content || '';
-            if (chunk) {
-              this.currentStreamingMessage.content += chunk;
-            }
-          } else if (jsonContent.content !== undefined) {
-            // 处理后端自定义格式响应
-            this.currentStreamingMessage.content += jsonContent.content;
-          } else if (typeof content === 'string' && content.trim()) {
-            // 处理纯文本响应
-            this.currentStreamingMessage.content += content;
-          }
-        } catch (e) {
-          // 解析失败，作为普通文本处理
-          console.log('解析消息失败，按纯文本处理:', e.message);
-          if (typeof content === 'string' && content.trim()) {
-            this.currentStreamingMessage.content += content;
-          }
+          // 仅在此时创建并添加新的AI消息对象到messages数组
+          const aiMessage = {
+            type: 'ai',
+            content: '',
+            time: new Date() // 时间戳为第一条回复到达的时间
+          };
+          this.messages.push(aiMessage);
+          this.currentStreamingMessage = aiMessage; // 设置当前正在流式处理的消息
         }
         
-        // 滚动到底部
+        // 确保 currentStreamingMessage 存在才尝试添加内容
+        if (this.currentStreamingMessage) {
+          try {
+            const jsonContent = JSON.parse(content);
+            if (jsonContent.choices && jsonContent.choices[0] && jsonContent.choices[0].delta) {
+              const chunk = jsonContent.choices[0].delta.content || '';
+              if (chunk) {
+                this.currentStreamingMessage.content += chunk;
+              }
+            } else if (jsonContent.content !== undefined) {
+              this.currentStreamingMessage.content += jsonContent.content;
+            } else if (typeof content === 'string' && content.trim()) {
+              this.currentStreamingMessage.content += content;
+            }
+          } catch (e) {
+            if (typeof content === 'string' && content.trim()) {
+              this.currentStreamingMessage.content += content;
+            }
+          }
+        } else {
+          // 如果 currentStreamingMessage 因为某些原因仍为null (理论上不应发生在此流程中)
+          // 可以考虑记录一个警告或错误
+          console.warn('currentStreamingMessage is null when trying to append content.');
+        }
+        
         this.$nextTick(() => {
           this.scrollToBottom();
         });
@@ -2356,51 +2361,64 @@ export default {
   text-align: right;
 }
 
+/* START OF REVISED TYPING INDICATOR STYLES */
+/* Ensure to remove or replace any existing .typing-indicator, .typing-dots, and @keyframes typing-dot styles */
 .typing-indicator {
   display: flex;
-  margin-bottom: 16px;
-  
+  align-items: flex-start; /* Align avatar and bubble to the top */
+  margin-bottom: 16px; /* Consistent with .message margin */
+
+  /* .avatar class is globally styled (e.g., margin: 0 8px;), which provides spacing */
+
   .indicator-bubble {
-    background-color: #fff;
-    padding: 14px 18px;
-    border-radius: 18px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-    margin-right: 12px;
+    background-color: #fff; /* Matches incoming message bubble background */
+    padding: 10px 15px;    /* Adjusted padding for a compact look for dots */
+    border-radius: 4px 16px 16px 16px; /* Matches incoming message bubble border-radius */
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04); /* Matches incoming message bubble shadow */
+    display: flex; /* Needed if dots container needs to align items, though typing-dots is also flex */
+    align-items: center; /* Vertically center dots if bubble is taller than dots */
   }
 }
 
 .typing-dots {
   display: flex;
-  align-items: center;
-  
+  align-items: center; /* Vertically center the dots themselves */
+
   span {
     display: inline-block;
     width: 8px;
     height: 8px;
     margin-right: 4px;
-    background-color: #dcdfe6;
+    background-color: #c0c4cc; /* Element UI secondary text color, good for dots */
     border-radius: 50%;
-    animation: typing-dot 1.4s infinite ease-in-out;
-    
+    animation: typing-dot-animation 1.4s infinite ease-in-out; /* Using a unique animation name */
+
     &:nth-child(1) {
       animation-delay: 0s;
     }
-    
+
     &:nth-child(2) {
       animation-delay: 0.2s;
     }
-    
+
     &:nth-child(3) {
       animation-delay: 0.4s;
-      margin-right: 0;
+      margin-right: 0; /* No margin for the last dot */
     }
   }
 }
 
-@keyframes typing-dot {
-  0%, 60%, 100% { transform: translateY(0); }
-  30% { transform: translateY(-6px); }
+@keyframes typing-dot-animation { /* Definition for the unique animation name */
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.7; /* Slight opacity variation for effect */
+  }
+  30% {
+    transform: translateY(-5px); /* Animation jump height */
+    opacity: 1;
+  }
 }
+/* END OF REVISED TYPING INDICATOR STYLES */
 
 .composer {
   padding: 16px 20px;

@@ -91,7 +91,11 @@ public class AiChatController extends BaseController
 
             final String finalSessionId = sessionId;
 
-            // 保存用户消息
+            // 获取聊天历史
+            List<ChatMessage> history = aiChatService.getChatHistory(finalSessionId, loginUser.getUserId(), 10);
+            log.debug("获取到历史消息: {} 条", history.size());
+
+            // 保存用户消息 在聊天历史后面再保存 防止出现重复
             ChatMessage userMessage = new ChatMessage();
             userMessage.setId(UUID.randomUUID().toString());
             userMessage.setSessionId(finalSessionId);
@@ -100,10 +104,6 @@ public class AiChatController extends BaseController
             userMessage.setCreateTime(new Date());
             aiChatService.saveChatMessage(userMessage);
             log.debug("已保存用户消息: {}", userMessage.getId());
-
-            // 获取聊天历史
-            List<ChatMessage> history = aiChatService.getChatHistory(finalSessionId, loginUser.getUserId(), 10);
-            log.debug("获取到历史消息: {} 条", history.size());
 
             // 包装响应输出流，以便同时收集内容
             final CopyOutputStream copyOutputStream = new CopyOutputStream(response.getOutputStream(), aiResponseContent);

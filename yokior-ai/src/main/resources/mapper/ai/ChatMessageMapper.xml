@@ -49,7 +49,7 @@
 
     <select id="selectRecentBySessionId" resultMap="ChatMessageResult">
         <include refid="selectChatMessageVo"/>
-        where session_id = #{sessionId} order by create_time desc limit #{count}
+        where session_id = #{sessionId} order by create_time limit #{count}
     </select>
 
     <delete id="deleteBySessionId" parameterType="String">
