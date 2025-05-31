@@ -69,4 +69,12 @@ public interface ChatSessionMapper
      * @return 影响行数
      */
     int updateTitle(@Param("id") String id, @Param("title") String title);
+
+    /**
+     * 根据用户ID获取会话列表
+     *
+     * @param userId 用户ID
+     * @return 种子会话列表
+     */
+    List<String> getSeedListByUserId(@Param("userId") Long userId);
 }

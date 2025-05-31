@@ -161,4 +161,17 @@ public class AiChatServiceImpl implements AiChatService
         // 删除会话
         chatSessionMapper.deleteById(sessionId);
     }
+
+    /**
+     * 根据用户id获取用户会话列表
+     * @param userId 用户ID
+     * @return 会话列表
+     */
+    @Override
+    public List<String> getSessionListByUserId(Long userId)
+    {
+        List<String> sessionList = chatSessionMapper.getSeedListByUserId(userId);
+
+        return sessionList;
+    }
 }

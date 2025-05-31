@@ -242,6 +242,20 @@ public class AiChatController extends BaseController
         }
     }
 
+
+    /*
+     * 根据用户id获取seesion列表
+     */
+    @GetMapping("/sessions")
+    public R<List<String>> getSessionList()
+    {
+        Long userId = SecurityUtils.getUserId();
+
+        List<String> sessionList = aiChatService.getSessionListByUserId(userId);
+
+        return R.ok(sessionList);
+    }
+
     /**
      * 同时写入输出流和收集内容的输出流
      */

@@ -155,7 +155,7 @@ import { marked } from 'marked';
 import hljs from 'highlight.js/lib/common';  // 改用common包，包含常用语言
 import 'highlight.js/styles/vs2015.css';  // 导入VS Code风格的代码高亮样式
 import { mapState } from 'vuex';
-import { sendChatMessage, sendStreamChatMessage, createSession, deleteSession, getChatHistory } from '@/api/ai/index';
+import { sendChatMessage, sendStreamChatMessage, createSession, deleteSession, getChatHistory, getUserSessions } from '@/api/ai/index';
 import { getToken } from '@/utils/auth';
 import { parseTime } from '@/utils/yokior';
 import { getInfo } from '@/api/login';  // 恢复getInfo导入
@@ -466,6 +466,8 @@ export default {
     checkAuthAndInitSessions() {
       if (!getToken()) {
         this.$message.error('您未登录或登录已过期，请重新登录');
+        // 可以选择跳转到登录页
+        // this.$router.push('/login'); 
         return;
       }
       
@@ -476,46 +478,51 @@ export default {
     // 加载会话列表
     loadSessionList() {
       this.loading = true;
-      
-      // 这里应该有一个获取会话列表的API，暂时使用本地存储模拟
-      setTimeout(() => {
-        try {
-          // 重置状态
-          this.messages = [];
-          this.currentStreamingMessage = null;
-          this.streamingResponse = false;
+      this.messages = []; // 清空消息
+      this.currentStreamingMessage = null;
+      this.streamingResponse = false;
+
+      getUserSessions().then(response => {
+        if (response.code === 200 && response.data) {
+          const sessionIds = response.data;
+          // 将会话ID列表转换为前端的会话对象列表
+          // createTime 初始设为当前时间，后续由 loadChatHistory 更新为更准确的时间
+          this.sessionList = sessionIds.map(id => ({
+            id: id,
+            title: '新对话', 
+            createTime: new Date().toISOString() 
+          })).sort((a, b) => new Date(b.createTime) - new Date(a.createTime)); // 可选：按临时时间初步排序
+
+          const lastSessionId = localStorage.getItem('ai-chat-last-session');
           
-          // 尝试从本地存储获取会话列表
-          const savedSessions = localStorage.getItem('ai-chat-sessions');
-          if (savedSessions) {
-            this.sessionList = JSON.parse(savedSessions);
-            
-            // 获取上次使用的会话ID
-            const lastSessionId = localStorage.getItem('ai-chat-last-session');
-            if (lastSessionId && this.sessionList.some(s => s.id === lastSessionId)) {
-              // 设置当前会话ID，但不立即加载(避免重复加载)
-              this.sessionId = lastSessionId;
-              this.loadChatHistory();
-            } else if (this.sessionList.length > 0) {
-              // 如果没有上次使用的会话ID或它不存在，使用列表中的第一个会话
-              this.sessionId = this.sessionList[0].id;
-              this.loadChatHistory();
-            } else {
-              // 如果没有任何会话，创建一个新会话
-              this.loading = false; // 先重置加载状态再创建
-              this.createNewSession();
-            }
+          if (lastSessionId && this.sessionList.some(s => s.id === lastSessionId)) {
+            this.sessionId = lastSessionId;
+            this.loadChatHistory(); // loadChatHistory 会处理 loading 状态
+          } else if (this.sessionList.length > 0) {
+            // 如果没有上次会话ID或无效，则加载列表中的第一个
+            this.sessionId = this.sessionList[0].id;
+            localStorage.setItem('ai-chat-last-session', this.sessionId); // 更新最后会话ID
+            this.loadChatHistory(); // loadChatHistory 会处理 loading 状态
           } else {
-            // 如果本地没有存储会话列表，创建一个新会话
-            this.loading = false; // 先重置加载状态再创建
+            // 如果没有会话列表，则创建一个新会话
+            this.loading = false; // 先重置加载状态
             this.createNewSession();
           }
-        } catch (error) {
-          console.error('加载会话列表失败:', error);
+        } else {
+          this.$message.error(response.msg || '获取会话列表失败');
           this.loading = false;
+          this.sessionList = []; // 清空列表
+          // 获取列表失败时也尝试创建一个新会话
           this.createNewSession();
         }
-      }, 500);
+      }).catch(error => {
+        console.error('加载会话列表失败:', error);
+        this.$message.error('无法连接到服务器获取会话列表，请尝试刷新或稍后再试');
+        this.loading = false;
+        this.sessionList = []; // 清空列表
+        // 网络错误时也尝试创建一个新会话
+        this.createNewSession();
+      });
     },
     
     // 切换会话
@@ -559,7 +566,7 @@ export default {
           };
           
           this.sessionList.unshift(newSession);
-          this.saveSessionList();
+          // this.saveSessionList(); // 移除对localStorage的保存
           
           // 设置为当前会话
           this.sessionId = newSessionId;
@@ -601,17 +608,20 @@ export default {
         const index = this.sessionList.findIndex(s => s.id === sessionId);
         if (index !== -1) {
           this.sessionList.splice(index, 1);
-          this.saveSessionList();
+          // this.saveSessionList(); // 移除对localStorage的保存
         }
         
         // 如果删除的是当前会话，切换到另一个会话
         if (this.sessionId === sessionId) {
+          localStorage.removeItem('ai-chat-last-session'); // 清除被删除的会话ID
           if (this.sessionList.length > 0) {
-            this.switchSession(this.sessionList[0].id);
+            // 切换到列表中的第一个会话
+            this.switchSession(this.sessionList[0].id); 
           } else {
+            // 如果没有其他会话了，则创建一个新的
             this.sessionId = null;
             this.messages = [];
-            this.loading = false;
+            this.createNewSession(); // 创建新会话会设置loading=false
           }
         } else {
           this.loading = false;
@@ -625,10 +635,10 @@ export default {
       });
     },
     
-    // 保存会话列表到本地存储
-    saveSessionList() {
-      localStorage.setItem('ai-chat-sessions', JSON.stringify(this.sessionList));
-    },
+    // 保存会话列表到本地存储 (此方法不再需要，将被移除)
+    // saveSessionList() {
+    //   localStorage.setItem('ai-chat-sessions', JSON.stringify(this.sessionList));
+    // },
     
     // 更新会话标题
     updateSessionTitle(sessionId, firstMessage) {
@@ -643,7 +653,7 @@ export default {
           title = title.substring(0, 20) + '...';
         }
         session.title = title;
-        this.saveSessionList();
+        // this.saveSessionList(); // 移除对localStorage的保存
       }
     },
     
@@ -672,11 +682,24 @@ export default {
             });
           });
           
-          // 更新会话标题
-          if (historyMessages.length > 0) {
+          // 更新会话标题和可能的创建时间
+          const currentSessionInList = this.sessionList.find(s => s.id === this.sessionId);
+          if (currentSessionInList && historyMessages.length > 0) {
+            // 使用第一条消息的创建时间更新会话的 createTime，使其更准确
+            if (historyMessages[0].createTime) {
+              // 只有当初始的createTime是占位符时才更新，或者总是更新
+              // 这里我们假设如果后端有createTime就用它
+              currentSessionInList.createTime = new Date(historyMessages[0].createTime).toISOString();
+            }
+
             const firstUserMessage = historyMessages.find(msg => msg.role === 'user');
             if (firstUserMessage) {
               this.updateSessionTitle(this.sessionId, firstUserMessage.content);
+            } else if (currentSessionInList.title === '新对话' && historyMessages[0] && historyMessages[0].content) {
+              // 如果没有用户消息，但有AI消息，且标题是默认的，可以尝试用AI消息更新
+              let aiTitle = historyMessages[0].content.substring(0, 20);
+              if (historyMessages[0].content.length > 20) aiTitle += "...";
+              this.updateSessionTitle(this.sessionId, `AI: ${aiTitle}`);
             }
           }
           
@@ -703,14 +726,15 @@ export default {
         cancelButtonText: '取消',
         type: 'warning'
       }).then(() => {
-        this.messages = [];
+        // 清空API目前没有，这里只清空前端messages和重置标题
+        this.messages = []; 
         this.$message.success('对话内容已清空');
         
         // 重置会话标题
         const session = this.sessionList.find(s => s.id === this.sessionId);
         if (session) {
           session.title = '新对话';
-          this.saveSessionList();
+          // this.saveSessionList(); // 移除对localStorage的保存
         }
       }).catch(() => {});
     },

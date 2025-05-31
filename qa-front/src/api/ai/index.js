@@ -135,4 +135,12 @@ export function deleteSession(sessionId) {
     url: `/api/ai/sessions/${sessionId}`,
     method: 'delete'
   })
+}
+
+// 获取用户会话列表
+export function getUserSessions() {
+  return request({
+    url: '/api/ai/sessions',
+    method: 'get'
+  });
 } 

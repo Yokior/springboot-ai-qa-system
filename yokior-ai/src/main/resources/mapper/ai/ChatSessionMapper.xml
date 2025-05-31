@@ -67,6 +67,12 @@
         where id = #{id} and user_id = #{userId}
     </select>
 
+    <select id="getSeedListByUserId" resultType="java.lang.String">
+        select id
+        from chat_session
+        where user_id = #{userId} and status = '0'
+    </select>
+
     <update id="updateTitle">
         update chat_session set title = #{title}, update_time = now() where id = #{id}
     </update>

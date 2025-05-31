@@ -63,4 +63,12 @@ public interface AiChatService
      * @param userId    用户ID
      */
     void deleteSession(String sessionId, Long userId);
+
+    /**
+     * 根据用户id获取用户会话列表
+     *
+     * @param userId 用户ID
+     * @return 会话列表
+     */
+    List<String> getSessionListByUserId(Long userId);
 }
