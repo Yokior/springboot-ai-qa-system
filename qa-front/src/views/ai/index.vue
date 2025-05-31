@@ -61,9 +61,14 @@
     <div class="chat-area">
       <!-- 聊天头部 -->
       <div class="chat-header">
-        <div class="current-session">
-          <h2 v-if="currentSession">{{ currentSession.title || '新对话' }}</h2>
-          <h2 v-else>AI 助手</h2>
+        <div class="session-details">
+          <h2 class="session-title-text">{{ currentSession ? currentSession.title || '新对话' : 'AI 助手' }}</h2>
+          <div class="knowledge-base-selector">
+            <span class="kb-label"><i class="el-icon-notebook-2"></i> 知识库:</span>
+            <el-select v-model="selectedTeamId" @change="handleTeamChange" placeholder="选择知识库" size="small" class="team-select-dropdown">
+              <el-option v-for="team in teamList" :key="team.teamId" :label="team.name" :value="String(team.teamId)"></el-option>
+            </el-select>
+          </div>
         </div>
         <div class="header-actions">
           <el-tooltip content="清空对话" placement="bottom">
@@ -159,6 +164,7 @@ import { sendChatMessage, sendStreamChatMessage, createSession, deleteSession, g
 import { getToken } from '@/utils/auth';
 import { parseTime } from '@/utils/yokior';
 import { getInfo } from '@/api/login';  // 恢复getInfo导入
+import { listMy_team } from '@/api/team/my_team'; // Corrected import
 
 export default {
   name: 'AiChat',
@@ -174,7 +180,9 @@ export default {
       searchQuery: '', // 搜索关键词
       error: null, // 错误信息
       streamingResponse: false, // 是否正在接收流式响应
-      currentStreamingMessage: null // 当前正在接收的流式消息
+      currentStreamingMessage: null, // 当前正在接收的流式消息
+      selectedTeamId: null, // + 新增：当前选择的团队ID
+      teamList: [] // + 新增：团队列表
     }
   },
   computed: {
@@ -190,6 +198,10 @@ export default {
       return this.sessionList.filter(session => 
         (session.title || '新对话').toLowerCase().includes(query)
       );
+    },
+    // + 新增：当前选中的团队对象
+    currentSelectedTeam() {
+      return this.teamList.find(team => team.teamId === this.selectedTeamId) || null;
     }
   },
   // 正确定义watch属性，将它放在组件的顶层而不是methods中
@@ -209,87 +221,36 @@ export default {
         });
       }
     }
+    // Removed watcher for selectedTeamId
   },
   // 将生命周期钩子放在组件顶层
   mounted() {
     // 为整个文档添加事件委托来处理按钮点击
     document.addEventListener('click', (e) => {
-      console.log('点击元素:', e.target);
+      // console.log('点击元素:', e.target); // Debugging line, consider removing for production
       
       // 查找最近的按钮
       let targetButton = null;
-      
-      // 检查目标元素和父元素
+      let actionType = null;
+
+      // 检查是否点击了复制按钮 (包括标题栏和右上角)
       if (e.target.matches('.vs-code-copy-btn, .vs-code-corner-copy-btn') || 
           e.target.closest('.vs-code-copy-btn, .vs-code-corner-copy-btn')) {
-        // 处理复制按钮点击
         targetButton = e.target.matches('.vs-code-copy-btn, .vs-code-corner-copy-btn') 
           ? e.target 
           : e.target.closest('.vs-code-copy-btn, .vs-code-corner-copy-btn');
-        
-        console.log('复制按钮被点击:', targetButton);
-        
-        e.preventDefault();
-        e.stopPropagation();
-        
-        // 找到最近的代码容器
-        const container = targetButton.closest('.vs-code-container');
-        if (!container) {
-          console.error('找不到代码容器');
-          return;
-        }
-        
-        // 找到代码文本区域
-        const codeArea = container.querySelector('.vs-code-text');
-        if (!codeArea) {
-          console.error('找不到代码区域');
-          return;
-        }
-        
-        // 提取原始代码（移除HTML标签）
-        let codeText = '';
-        codeArea.querySelectorAll('.vs-code-line').forEach(line => {
-          // 创建临时元素解析HTML
-          const temp = document.createElement('div');
-          temp.innerHTML = line.innerHTML;
-          codeText += temp.textContent + '\n';
-        });
-        
-        console.log('提取的代码:', codeText);
-        
-        // 调用全局复制函数
-        window.copyCodeBlock(codeText.trim());
-        
-        // 更新按钮状态
-        const originalHtml = targetButton.innerHTML;
-        targetButton.innerHTML = targetButton.classList.contains('vs-code-corner-copy-btn') 
-          ? '<i class="el-icon-check"></i> 复制成功!' 
-          : '<i class="el-icon-check"></i>';
-          
-        // 添加成功样式
-        if (targetButton.classList.contains('vs-code-corner-copy-btn')) {
-          targetButton.classList.add('vs-code-button-copied');
-        }
-        
-        // 恢复原始状态
-        setTimeout(() => {
-          targetButton.innerHTML = originalHtml;
-          if (targetButton.classList.contains('vs-code-corner-copy-btn')) {
-            targetButton.classList.remove('vs-code-button-copied');
-          }
-        }, 2000);
-        
-        return;
-      }
-      
-      // 检查下载按钮
-      if (e.target.matches('.vs-code-download-btn') || 
-          e.target.closest('.vs-code-download-btn')) {
-        targetButton = e.target.matches('.vs-code-download-btn') 
-          ? e.target 
+        actionType = 'copy';
+      } 
+      // 检查是否点击了下载按钮
+      else if (e.target.matches('.vs-code-download-btn') || e.target.closest('.vs-code-download-btn')) {
+        targetButton = e.target.matches('.vs-code-download-btn')
+          ? e.target
           : e.target.closest('.vs-code-download-btn');
-        
-        console.log('下载按钮被点击:', targetButton);
+        actionType = 'download';
+      }
+
+      if (targetButton && actionType) {
+        // console.log(`${actionType}按钮被点击:`, targetButton); // Debugging line
         
         e.preventDefault();
         e.stopPropagation();
@@ -297,39 +258,44 @@ export default {
         // 找到最近的代码容器
         const container = targetButton.closest('.vs-code-container');
         if (!container) {
-          console.error('找不到代码容器');
+          // console.warn('未找到.vs-code-container'); // Debugging line
           return;
         }
+
+        // 从data-original-code属性获取原始代码
+        const originalCode = container.dataset.originalCode;
+        const language = container.dataset.language || '';
         
-        // 找到代码文本区域
-        const codeArea = container.querySelector('.vs-code-text');
-        if (!codeArea) {
-          console.error('找不到代码区域');
+        if (!originalCode) {
+          // console.warn('未在.vs-code-container上找到data-original-code'); // Debugging line
+          this.$message.error('无法获取代码内容');
           return;
         }
-        
-        // 提取原始代码（移除HTML标签）
-        let codeText = '';
-        codeArea.querySelectorAll('.vs-code-line').forEach(line => {
-          // 创建临时元素解析HTML
-          const temp = document.createElement('div');
-          temp.innerHTML = line.innerHTML;
-          codeText += temp.textContent + '\n';
-        });
-        
-        // 获取语言
-        let language = container.getAttribute('data-language') || '';
-        console.log('语言:', language, '代码长度:', codeText.length);
-        
-        // 调用全局下载函数
-        window.downloadCodeBlock(codeText.trim(), language);
+
+        if (actionType === 'copy') {
+          this.copyCodeToClipboard(originalCode, container); // Pass container for animation
+        } else if (actionType === 'download') {
+          this.downloadCode(originalCode, language);
+        }
       }
     });
-    
-    // 组件挂载后初始化代码块处理
-    this.$nextTick(() => {
-      this.addCopyButtonsToCodeBlocks();
+
+
+    // 获取用户信息，包括头像
+    getInfo().then(res => {
+      if (res.user && res.user.avatar) {
+        this.userAvatar = process.env.VUE_APP_BASE_API + res.user.avatar;
+      } else {
+        // 如果没有头像，可以使用默认图标或一个占位符图片
+        this.userAvatar = ''; // 或者 this.userAvatar = require('@/assets/avatar/default-user.png');
+      }
+    }).catch(error => {
+      console.error("获取用户信息失败:", error);
+      this.userAvatar = ''; // 出错时也设置默认
     });
+
+    this.checkAuthAndInitSessions();
+    this.fetchTeamList(); // + 新增：在组件挂载时获取团队列表
   },
   updated() {
     // 组件更新后处理代码块
@@ -337,33 +303,10 @@ export default {
   },
   created() {
     // 获取用户头像
-    this.fetchUserAvatar();
+    // this.fetchUserAvatar(); // 移到 mounted
     
     // 配置marked
-    marked.setOptions({
-      highlight: (code, lang) => {
-        try {
-          // 修正Java代码语言识别问题
-          if (lang === 'text' && code.includes('public class')) {
-            lang = 'java';
-          }
-          
-          if (lang && hljs.getLanguage(lang)) {
-            return hljs.highlight(code, { language: lang }).value;
-          } else if (code.length > 30) {
-            // 如果代码较长，尝试自动检测语言
-            return hljs.highlightAuto(code).value;
-          }
-          return code; // 短代码段或未识别的语言返回原始代码
-        } catch (error) {
-          console.warn('语法高亮失败:', error);
-          return code; // 错误时返回原始代码
-        }
-      },
-      gfm: true,
-      breaks: true,
-      smartLists: true
-    });
+    // marked.setOptions({...}); // 移到 mounted
     
     // 全局复制函数
     window.copyCodeBlock = (text) => {
@@ -446,6 +389,8 @@ export default {
     
     // 检查认证并初始化会话
     this.checkAuthAndInitSessions();
+    
+    // this.fetchTeamList(); // + 新增：获取团队列表 - 移到 mounted
   },
   methods: {
     // 获取用户头像
@@ -742,6 +687,11 @@ export default {
     // 发送消息
     sendMessage() {
       if (!this.userInput.trim() || this.loading || !this.sessionId) return;
+      // + 新增：检查是否已选择团队
+      if (!this.selectedTeamId) {
+        this.$message.warning('请先选择一个知识库（团队）才能提问');
+        return;
+      }
       
       // 添加用户消息
       const userMessage = {
@@ -779,6 +729,12 @@ export default {
         this.loading = false;
         return;
       }
+      // + 新增：检查是否已选择团队
+      if (!this.selectedTeamId) {
+        this.$message.error('发送失败，请先选择一个知识库（团队）');
+        this.loading = false; // 确保重置加载状态
+        return;
+      }
       
       // 确保在请求开始时，currentStreamingMessage 为 null 并且没有预先添加AI消息
       // this.currentStreamingMessage = null; // 应该在 onComplete 或 onError 中被设为null，或者在切换会话时
@@ -787,7 +743,8 @@ export default {
       const requestData = {
         prompt: question,
         sessionId: this.sessionId,
-        options: {}
+        teamId: this.selectedTeamId, // + 新增：将选中的团队ID发送给后端
+        options: {} // 如果后端需要其他参数，可以在这里添加
       };
       
       // 定义消息处理函数
@@ -1830,6 +1787,3885 @@ export default {
       
       styleElement.textContent = css;
       document.head.appendChild(styleElement);
+    },
+    // + 新增：获取团队列表
+    fetchTeamList() {
+      listMy_team().then(response => { // Corrected function call
+        if (response.code === 200) {
+          if (response.rows && response.rows.length > 0) {
+            this.teamList = response.rows;
+            // 尝试从localStorage获取上次选择的团队ID
+            const lastSelectedTeamId = localStorage.getItem('ai-chat-last-selected-team');
+            if (lastSelectedTeamId && this.teamList.some(team => String(team.teamId) === String(lastSelectedTeamId))) {
+              this.selectedTeamId = String(lastSelectedTeamId); // 确保使用字符串进行比较和赋值
+            } else {
+              // 确保 this.teamList[0] 存在
+              if (this.teamList.length > 0 && this.teamList[0]) {
+                this.selectedTeamId = String(this.teamList[0].teamId); // 默认选择第一个团队, 确保是字符串
+                localStorage.setItem('ai-chat-last-selected-team', this.selectedTeamId);
+              } else {
+                // 如果 teamList 为空数组或者第一个元素是 undefined/null
+                this.selectedTeamId = null;
+                // 这种情况理论上已经被外层的 else if (response.rows && response.rows.length > 0) 覆盖
+                // 但作为防御性编程保留
+                this.$message.warning('获取到的团队列表为空，AI问答功能可能无法使用或受限。');
+              }
+            }
+          } else { // code === 200 但是 rows 为空或不存在
+            this.teamList = [];
+            this.selectedTeamId = null; // 没有团队则设为null
+            this.$message.warning('您尚未加入任何团队，AI问答功能可能无法使用或受限。');
+          }
+        } else { // code !== 200，请求本身失败
+          this.teamList = [];
+          this.selectedTeamId = null;
+          this.$message.error(response.msg || '获取团队列表失败');
+        }
+      }).catch(error => {
+        this.teamList = [];
+        this.selectedTeamId = null;
+        console.error('获取团队列表失败:', error);
+        this.$message.error('无法连接到服务器获取团队列表，请稍后再试。');
+      });
+    },
+    // 检查认证并初始化会话
+    checkAuthAndInitSessions() {
+      if (!getToken()) {
+        this.$message.error('您未登录或登录已过期，请重新登录');
+        // 可以选择跳转到登录页
+        // this.$router.push('/login'); 
+        return;
+      }
+      
+      // 加载会话列表
+      this.loadSessionList();
+    },
+    
+    // 切换会话
+    switchSession(sessionId) {
+      if (this.sessionId === sessionId || this.loading) return;
+      
+      // 重置状态
+      this.messages = [];
+      this.currentStreamingMessage = null;
+      this.streamingResponse = false;
+      
+      this.sessionId = sessionId;
+      this.loading = true;
+      
+      // 保存最后使用的会话ID
+      localStorage.setItem('ai-chat-last-session', sessionId);
+      
+      // 加载会话消息
+      this.loadChatHistory();
+    },
+    
+    // 创建新会话
+    createNewSession() {
+      if (this.loading) return;
+      
+      // 先重置当前状态
+      this.messages = [];
+      this.currentStreamingMessage = null;
+      this.streamingResponse = false;
+      
+      this.loading = true;
+      createSession().then(response => {
+        if (response.code === 200) {
+          const newSessionId = response.data.sessionId;
+          
+          // 添加到会话列表
+          const newSession = {
+            id: newSessionId,
+            title: '新对话',
+            createTime: new Date().toISOString()
+          };
+          
+          this.sessionList.unshift(newSession);
+          // this.saveSessionList(); // 移除对localStorage的保存
+          
+          // 设置为当前会话
+          this.sessionId = newSessionId;
+          
+          // 保存最后使用的会话ID
+          localStorage.setItem('ai-chat-last-session', newSessionId);
+          
+          this.$message.success('已创建新会话');
+          this.loading = false;
+        } else {
+          this.$message.error(response.msg || '创建会话失败');
+          this.loading = false;
+        }
+      }).catch(error => {
+        console.error('创建会话失败:', error);
+        this.$message.error('无法连接到服务器，请稍后再试');
+        this.loading = false;
+      });
+    },
+    
+    // 确认删除会话
+    confirmDeleteSession(sessionId) {
+      this.$confirm('确定要删除这个会话吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.deleteSessionById(sessionId);
+      }).catch(() => {});
+    },
+    
+    // 删除会话
+    deleteSessionById(sessionId) {
+      if (this.loading) return;
+      
+      this.loading = true;
+      deleteSession(sessionId).then(() => {
+        // 从会话列表中移除
+        const index = this.sessionList.findIndex(s => s.id === sessionId);
+        if (index !== -1) {
+          this.sessionList.splice(index, 1);
+          // this.saveSessionList(); // 移除对localStorage的保存
+        }
+        
+        // 如果删除的是当前会话，切换到另一个会话
+        if (this.sessionId === sessionId) {
+          localStorage.removeItem('ai-chat-last-session'); // 清除被删除的会话ID
+          if (this.sessionList.length > 0) {
+            // 切换到列表中的第一个会话
+            this.switchSession(this.sessionList[0].id); 
+          } else {
+            // 如果没有其他会话了，则创建一个新的
+            this.sessionId = null;
+            this.messages = [];
+            this.createNewSession(); // 创建新会话会设置loading=false
+          }
+        } else {
+          this.loading = false;
+        }
+        
+        this.$message.success('会话已删除');
+      }).catch(error => {
+        console.error('删除会话失败:', error);
+        this.$message.error('删除会话失败，请稍后再试');
+        this.loading = false;
+      });
+    },
+    
+    // 保存会话列表到本地存储 (此方法不再需要，将被移除)
+    // saveSessionList() {
+    //   localStorage.setItem('ai-chat-sessions', JSON.stringify(this.sessionList));
+    // },
+    
+    // 更新会话标题
+    updateSessionTitle(sessionId, firstMessage) {
+      // 使用第一条用户消息作为会话标题
+      if (!firstMessage || !sessionId) return;
+      
+      const session = this.sessionList.find(s => s.id === sessionId);
+      if (session && session.title === '新对话') {
+        // 截取前20个字符作为标题
+        let title = firstMessage.trim();
+        if (title.length > 20) {
+          title = title.substring(0, 20) + '...';
+        }
+        session.title = title;
+        // this.saveSessionList(); // 移除对localStorage的保存
+      }
+    },
+    
+    // 加载聊天历史
+    loadChatHistory() {
+      if (!this.sessionId) {
+        this.loading = false;
+        return;
+      }
+      
+      // 重置当前状态
+      this.messages = [];
+      this.currentStreamingMessage = null;
+      this.streamingResponse = false;
+      
+      getChatHistory(this.sessionId).then(response => {
+        if (response.code === 200) {
+          const historyMessages = response.data.messages || [];
+          
+          // 将历史消息转换为前端消息格式
+          historyMessages.forEach(msg => {
+            this.messages.push({
+              type: msg.role === 'user' ? 'user' : 'ai',
+              content: msg.content,
+              time: new Date(msg.createTime)
+            });
+          });
+          
+          // 更新会话标题和可能的创建时间
+          const currentSessionInList = this.sessionList.find(s => s.id === this.sessionId);
+          if (currentSessionInList && historyMessages.length > 0) {
+            // 使用第一条消息的创建时间更新会话的 createTime，使其更准确
+            if (historyMessages[0].createTime) {
+              // 只有当初始的createTime是占位符时才更新，或者总是更新
+              // 这里我们假设如果后端有createTime就用它
+              currentSessionInList.createTime = new Date(historyMessages[0].createTime).toISOString();
+            }
+
+            const firstUserMessage = historyMessages.find(msg => msg.role === 'user');
+            if (firstUserMessage) {
+              this.updateSessionTitle(this.sessionId, firstUserMessage.content);
+            } else if (currentSessionInList.title === '新对话' && historyMessages[0] && historyMessages[0].content) {
+              // 如果没有用户消息，但有AI消息，且标题是默认的，可以尝试用AI消息更新
+              let aiTitle = historyMessages[0].content.substring(0, 20);
+              if (historyMessages[0].content.length > 20) aiTitle += "...";
+              this.updateSessionTitle(this.sessionId, `AI: ${aiTitle}`);
+            }
+          }
+          
+          this.$nextTick(() => {
+            this.scrollToBottom();
+          });
+        } else {
+          this.$message.error(response.msg || '获取聊天历史失败');
+        }
+        this.loading = false;
+      }).catch(error => {
+        console.error('获取聊天历史失败:', error);
+        this.$message.error('无法连接到服务器，请稍后再试');
+        this.loading = false;
+      });
+    },
+    
+    // 清空当前对话
+    clearCurrentChat() {
+      if (!this.sessionId || this.messages.length === 0) return;
+      
+      this.$confirm('确定要清空当前对话内容吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        // 清空API目前没有，这里只清空前端messages和重置标题
+        this.messages = []; 
+        this.$message.success('对话内容已清空');
+        
+        // 重置会话标题
+        const session = this.sessionList.find(s => s.id === this.sessionId);
+        if (session) {
+          session.title = '新对话';
+          // this.saveSessionList(); // 移除对localStorage的保存
+        }
+      }).catch(() => {});
+    },
+    
+    // 发送消息
+    sendMessage() {
+      if (!this.userInput.trim() || this.loading || !this.sessionId) return;
+      // + 新增：检查是否已选择团队
+      if (!this.selectedTeamId) {
+        this.$message.warning('请先选择一个知识库（团队）才能提问');
+        return;
+      }
+      
+      // 添加用户消息
+      const userMessage = {
+        type: 'user',
+        content: this.userInput,
+        time: new Date()
+      };
+      this.messages.push(userMessage);
+      
+      // 更新会话标题（如果是第一条消息）
+      if (this.messages.length === 1 || (this.messages.length === 2 && this.messages[0].type === 'ai')) {
+        this.updateSessionTitle(this.sessionId, this.userInput);
+      }
+      
+      const question = this.userInput;
+      this.userInput = '';
+      
+      // 滚动到底部
+      this.$nextTick(() => {
+        this.scrollToBottom();
+      });
+      
+      // 设置加载状态
+      this.loading = true;
+      
+      // 使用流式API发送请求
+      this.sendStreamChatRequest(question);
+    },
+    
+    // 发送流式聊天请求
+    sendStreamChatRequest(question) {
+      // 检查认证状态
+      if (!getToken()) {
+        this.$message.error('您未登录或登录已过期，请重新登录');
+        this.loading = false;
+        return;
+      }
+      // + 新增：检查是否已选择团队
+      if (!this.selectedTeamId) {
+        this.$message.error('发送失败，请先选择一个知识库（团队）');
+        this.loading = false; // 确保重置加载状态
+        return;
+      }
+      
+      // 确保在请求开始时，currentStreamingMessage 为 null 并且没有预先添加AI消息
+      // this.currentStreamingMessage = null; // 应该在 onComplete 或 onError 中被设为null，或者在切换会话时
+                                          // 确保没有在这里错误地初始化或添加消息到 this.messages
+
+      const requestData = {
+        prompt: question,
+        sessionId: this.sessionId,
+        teamId: this.selectedTeamId, // + 新增：将选中的团队ID发送给后端
+        options: {} // 如果后端需要其他参数，可以在这里添加
+      };
+      
+      // 定义消息处理函数
+      const onMessage = (content) => {
+        if (!this.streamingResponse) { 
+          this.streamingResponse = true; // 首先改变状态，这将隐藏打字动画
+          
+          // 仅在此时创建并添加新的AI消息对象到messages数组
+          const aiMessage = {
+            type: 'ai',
+            content: '',
+            time: new Date() // 时间戳为第一条回复到达的时间
+          };
+          this.messages.push(aiMessage);
+          this.currentStreamingMessage = aiMessage; // 设置当前正在流式处理的消息
+        }
+        
+        // 确保 currentStreamingMessage 存在才尝试添加内容
+        if (this.currentStreamingMessage) {
+          try {
+            const jsonContent = JSON.parse(content);
+            if (jsonContent.choices && jsonContent.choices[0] && jsonContent.choices[0].delta) {
+              const chunk = jsonContent.choices[0].delta.content || '';
+              if (chunk) {
+                this.currentStreamingMessage.content += chunk;
+              }
+            } else if (jsonContent.content !== undefined) {
+              this.currentStreamingMessage.content += jsonContent.content;
+            } else if (typeof content === 'string' && content.trim()) {
+              this.currentStreamingMessage.content += content;
+            }
+          } catch (e) {
+            if (typeof content === 'string' && content.trim()) {
+              this.currentStreamingMessage.content += content;
+            }
+          }
+        } else {
+          // 如果 currentStreamingMessage 因为某些原因仍为null (理论上不应发生在此流程中)
+          // 可以考虑记录一个警告或错误
+          console.warn('currentStreamingMessage is null when trying to append content.');
+        }
+        
+        this.$nextTick(() => {
+          this.scrollToBottom();
+        });
+      };
+      
+      // 定义错误处理函数
+      const onError = (error) => {
+        this.handleError('网络错误，无法连接到服务器: ' + error.message);
+        this.streamingResponse = false;
+        this.loading = false;
+      };
+      
+      // 定义完成回调函数
+      const onComplete = () => {
+        this.streamingResponse = false;
+        this.loading = false;
+        this.currentStreamingMessage = null;
+      };
+      
+      // 发送流式聊天请求
+      sendStreamChatMessage(requestData, onMessage, onError, onComplete);
+    },
+    
+    // 处理错误
+    handleError(errorMsg) {
+      this.error = errorMsg;
+      this.$message.error(errorMsg);
+      this.loading = false;
+      this.streamingResponse = false;
+      
+      // 如果当前有流式消息但内容为空，则添加错误信息
+      if (this.currentStreamingMessage && !this.currentStreamingMessage.content) {
+        this.currentStreamingMessage.content = `抱歉，出现了一个错误: ${errorMsg}`;
+      } else {
+        // 否则添加新的错误消息
+        this.messages.push({
+          type: 'ai',
+          content: `抱歉，出现了一个错误: ${errorMsg}`,
+          time: new Date()
+        });
+      }
+    },
+    
+    // 格式化消息内容，支持Markdown
+    formatMessage(content) {
+      if (!content) return '';
+      
+      try {
+        // 预处理代码块
+        let processedContent = this.preprocessCodeBlocks ? this.preprocessCodeBlocks(content) : content;
+        
+        // 使用marked处理markdown
+        const html = marked(processedContent);
+        
+        // 创建一个临时元素来解析HTML
+        const tempElement = document.createElement('div');
+        tempElement.innerHTML = html;
+        
+        // 处理pre元素，应用VS Code风格
+        const preElements = tempElement.querySelectorAll('pre');
+        preElements.forEach(pre => {
+          const codeElement = pre.querySelector('code');
+          if (codeElement) {
+            this.buildVSCodeStyleBlock(pre, codeElement);
+          }
+        });
+        
+        // 返回处理后的HTML
+        return tempElement.innerHTML;
+      } catch (error) {
+        console.error('格式化消息出错:', error);
+        return content;
+      }
+    },
+    
+    // 复制文本到剪贴板
+    copyToClipboard(text) {
+      if (!text) {
+        this.$message.error('没有可复制的内容');
+        return;
+      }
+      
+      // 创建临时文本区域
+      const textarea = document.createElement('textarea');
+      textarea.value = text.trim();
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '-9999px';
+      document.body.appendChild(textarea);
+      
+      try {
+        // 选择文本并复制
+        textarea.select();
+        textarea.setSelectionRange(0, 99999);
+        const successful = document.execCommand('copy');
+        
+        if (successful) {
+          // 显示成功消息
+          this.$message({
+            message: '代码已复制到剪贴板',
+            type: 'success',
+            duration: 1500,
+            customClass: 'code-copy-message'
+          });
+          
+          // 显示复制成功动画
+          this.showCopyAnimation();
+        } else {
+          this.$message.error('复制失败，请手动复制');
+        }
+      } catch (err) {
+        console.error('复制失败:', err);
+        this.$message.error('复制失败: ' + err);
+      } finally {
+        // 移除临时文本区域
+        document.body.removeChild(textarea);
+      }
+    },
+    
+    // 显示复制成功动画
+    showCopyAnimation() {
+      // 创建动画元素
+      const animation = document.createElement('div');
+      animation.className = 'copy-success-animation';
+      animation.innerHTML = '<i class="el-icon-check"></i>';
+      document.body.appendChild(animation);
+      
+      // 使用setTimeout允许DOM渲染
+      setTimeout(() => {
+        animation.classList.add('show');
+      }, 10);
+      
+      // 动画结束后移除元素
+      setTimeout(() => {
+        animation.classList.remove('show');
+        setTimeout(() => {
+          if (document.body.contains(animation)) {
+            document.body.removeChild(animation);
+          }
+        }, 300);
+      }, 1500);
+    },
+    
+    // 预处理代码块
+    preprocessCodeBlocks(content) {
+      if (!content) return '';
+
+      // 已经包含Markdown代码块的不需要处理
+      if (content.includes('```')) return content;
+      
+      // 检查是否是Java样例代码（常见的错误情况）
+      if (content.includes('// HelloWorld.java') && content.includes('public class HelloWorld')) {
+        return "```java\n" + content + "\n```";
+      }
+      
+      let processedContent = content;
+      
+      // 常见编程语言的特征模式
+      const codePatterns = {
+        java: [
+          /public\s+class\s+\w+/,
+          /public\s+static\s+void\s+main/,
+          /import\s+java\./,
+          /public\s+static\s+void\s+\w+\s*\(/,
+          /private\s+\w+\s+\w+\s*\(/
+        ],
+        javascript: [
+          /function\s+\w+\s*\(/,
+          /const\s+\w+\s*=/,
+          /let\s+\w+\s*=/,
+          /var\s+\w+\s*=/,
+          /export\s+default/,
+          /import\s+.*\s+from/,
+          /^\s*\w+\.\w+\s*\(/m
+        ],
+        python: [
+          /def\s+\w+\s*\(/,
+          /import\s+\w+/,
+          /from\s+\w+\s+import/,
+          /class\s+\w+\s*\(/,
+          /class\s+\w+:/
+        ],
+        html: [
+          /<html/i,
+          /<body/i,
+          /<div/i,
+          /<script/i,
+          /<\/\w+>/i
+        ],
+        css: [
+          /\w+\s*{\s*[\w\-]+\s*:/,
+          /\.\w+\s*{/,
+          /#\w+\s*{/,
+          /@media\s+/,
+          /@import\s+/
+        ],
+        sql: [
+          /SELECT\s+.*\s+FROM/i,
+          /INSERT\s+INTO/i,
+          /UPDATE\s+.*\s+SET/i,
+          /DELETE\s+FROM/i,
+          /CREATE\s+TABLE/i
+        ]
+      };
+      
+      // 检测代码语言
+      let detectedLanguage = null;
+      let highestMatches = 0;
+      
+      Object.entries(codePatterns).forEach(([lang, patterns]) => {
+        const matches = patterns.filter(pattern => pattern.test(content)).length;
+        if (matches > highestMatches) {
+          highestMatches = matches;
+          detectedLanguage = lang;
+        }
+      });
+      
+      // 如果匹配度不够高，可能不是代码
+      if (highestMatches < 2) {
+        return content;
+      }
+      
+      // 处理代码块
+      if (detectedLanguage) {
+        try {
+          // 通用格式化（添加换行和缩进）
+          processedContent = this.formatCodeByLanguage(processedContent, detectedLanguage);
+          
+          // 检测是否有多个代码块（用"---"分隔）
+          if (content.includes('---')) {
+            return this.processSplitCodeSections(content, codePatterns);
+          } else {
+            // 将格式化后的代码包装在Markdown代码块中
+            processedContent = "```" + detectedLanguage + "\n" + processedContent + "\n```";
+          }
+        } catch (e) {
+          console.error('代码格式化失败:', e);
+        }
+      }
+
+      return processedContent;
+    },
+    
+    // 根据编程语言格式化代码
+    formatCodeByLanguage(code, language) {
+      switch(language) {
+        case 'java':
+          return this.formatJavaCode(code);
+        case 'javascript':
+          return this.formatJavascriptCode(code);
+        case 'python':
+          return this.formatPythonCode(code);
+        case 'html':
+          return this.formatHtmlCode(code);
+        case 'css':
+          return this.formatCssCode(code);
+        case 'sql':
+          return this.formatSqlCode(code);
+        default:
+          return code;
+      }
+    },
+    
+    // 格式化Java代码
+    formatJavaCode(code) {
+      return code
+        .replace(/public/g, "\npublic ")
+        .replace(/private/g, "\nprivate ")
+        .replace(/protected/g, "\nprotected ")
+        .replace(/class\s+/g, "class ")
+        .replace(/for\s*\(/g, "for (")
+        .replace(/if\s*\(/g, "if (")
+        .replace(/else\s*{/g, "else {")
+        .replace(/\)\s*{/g, ") {")
+        .replace(/;\s*/g, ";\n")
+        .replace(/}\s*/g, "}\n")
+        .replace(/{\s*/g, "{\n  ")
+        .replace(/\s{2,}/g, "  ")
+        .replace(/import\s+/g, "import ")
+        .replace(/package\s+/g, "package ");
+    },
+    
+    // 格式化JavaScript代码
+    formatJavascriptCode(code) {
+      return code
+        .replace(/function\s+/g, "\nfunction ")
+        .replace(/const\s+/g, "\nconst ")
+        .replace(/let\s+/g, "\nlet ")
+        .replace(/var\s+/g, "\nvar ")
+        .replace(/for\s*\(/g, "for (")
+        .replace(/if\s*\(/g, "if (")
+        .replace(/else\s*{/g, "else {")
+        .replace(/\)\s*{/g, ") {")
+        .replace(/;\s*/g, ";\n")
+        .replace(/}\s*/g, "}\n")
+        .replace(/{\s*/g, "{\n  ")
+        .replace(/\s{2,}/g, "  ")
+        .replace(/import\s+/g, "import ")
+        .replace(/export\s+/g, "export ");
+    },
+    
+    // 格式化Python代码
+    formatPythonCode(code) {
+      return code
+        .replace(/def\s+/g, "\ndef ")
+        .replace(/class\s+/g, "\nclass ")
+        .replace(/import\s+/g, "\nimport ")
+        .replace(/from\s+/g, "\nfrom ")
+        .replace(/:\s*/g, ":\n  ")
+        .replace(/if\s+/g, "\nif ")
+        .replace(/elif\s+/g, "\nelif ")
+        .replace(/else\s*:/g, "\nelse:")
+        .replace(/for\s+/g, "\nfor ")
+        .replace(/while\s+/g, "\nwhile ")
+        .replace(/try\s*:/g, "\ntry:")
+        .replace(/except\s+/g, "\nexcept ")
+        .replace(/finally\s*:/g, "\nfinally:")
+        .replace(/\n\s*\n/g, "\n\n");
+    },
+    
+    // 格式化HTML代码
+    formatHtmlCode(code) {
+      return code
+        .replace(/</g, "\n<")
+        .replace(/>/g, ">\n")
+        .replace(/\n\s*\n/g, "\n");
+    },
+    
+    // 格式化CSS代码
+    formatCssCode(code) {
+      return code
+        .replace(/{/g, " {\n  ")
+        .replace(/}/g, "\n}\n")
+        .replace(/;/g, ";\n  ")
+        .replace(/\n\s*\n/g, "\n");
+    },
+    
+    // 格式化SQL代码
+    formatSqlCode(code) {
+      return code
+        .replace(/SELECT/ig, "\nSELECT")
+        .replace(/FROM/ig, "\nFROM")
+        .replace(/WHERE/ig, "\nWHERE")
+        .replace(/ORDER BY/ig, "\nORDER BY")
+        .replace(/GROUP BY/ig, "\nGROUP BY")
+        .replace(/HAVING/ig, "\nHAVING")
+        .replace(/JOIN/ig, "\nJOIN")
+        .replace(/INSERT/ig, "\nINSERT")
+        .replace(/UPDATE/ig, "\nUPDATE")
+        .replace(/DELETE/ig, "\nDELETE")
+        .replace(/CREATE/ig, "\nCREATE")
+        .replace(/DROP/ig, "\nDROP")
+        .replace(/ALTER/ig, "\nALTER")
+        .replace(/;/g, ";\n");
+    },
+    
+    // 处理分段代码块
+    processSplitCodeSections(content, codePatterns) {
+      const sections = content.split('---');
+      
+      // 处理每个部分
+      return sections.map(section => {
+        // 检测代码语言
+        let sectionLanguage = null;
+        let highestMatches = 0;
+        
+        Object.entries(codePatterns).forEach(([lang, patterns]) => {
+          const matches = patterns.filter(pattern => pattern.test(section)).length;
+          if (matches > highestMatches) {
+            highestMatches = matches;
+            sectionLanguage = lang;
+          }
+        });
+        
+        if (highestMatches < 2) {
+          return section; // 可能不是代码
+        }
+        
+        // 查找可能的标题
+        const titleMatch = section.match(/#{1,6}\s*(.+?)(?:\n|$)/);
+        const title = titleMatch ? titleMatch[0] : '';
+        
+        // 分离标题和代码
+        let code = titleMatch ? section.replace(titleMatch[0], '') : section;
+        
+        // 格式化代码
+        if (sectionLanguage) {
+          try {
+            code = this.formatCodeByLanguage(code, sectionLanguage);
+            return title + "\n```" + sectionLanguage + "\n" + code.trim() + "\n```";
+          } catch (e) {
+            console.error('部分代码格式化失败:', e);
+            return section;
+          }
+        } else {
+          return section;
+        }
+      }).join("\n\n");
+    },
+    
+    // 格式化时间
+    formatTime(time) {
+      return parseTime(time, '{h}:{i}');
+    },
+    
+    // 滚动到聊天窗口底部
+    scrollToBottom() {
+      const container = this.$refs.messagesContainer;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    },
+    
+    // 获取缓存中的用户头像 (保留此方法作为备用)
+    getCache(key) {
+      const userInfo = this.$store.getters.userInfo;
+      return userInfo && userInfo.avatar ? process.env.VUE_APP_BASE_API + userInfo.avatar : '';
+    },
+    
+    // 格式化日期
+    formatDate(dateString) {
+      if (!dateString) return '';
+      
+      const date = new Date(dateString);
+      const now = new Date();
+      const diff = now - date;
+      
+      // 今天的消息只显示时间
+      if (diff < 24 * 60 * 60 * 1000 && 
+          date.getDate() === now.getDate() &&
+          date.getMonth() === now.getMonth() &&
+          date.getFullYear() === now.getFullYear()) {
+        return parseTime(date, '{h}:{i}');
+      }
+      
+      // 一周内的消息显示星期几
+      if (diff < 7 * 24 * 60 * 60 * 1000) {
+        const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        return days[date.getDay()];
+      }
+      
+      // 其他情况显示完整日期
+      return parseTime(date, '{y}-{m}-{d}');
+    },
+    
+    // 为代码块添加工具栏、复制按钮和行号 - 全新实现
+    addCopyButtonsToCodeBlocks() {
+      // 注入样式表
+      this.injectCodeBlockStyles();
+      
+      // 确保DOM已经渲染完成
+      setTimeout(() => {
+        // 选择所有的pre元素
+        const preElements = document.querySelectorAll('.message-content pre');
+        
+        // 为每个pre元素添加工具栏和行号
+        preElements.forEach((pre) => {
+          // 如果已经处理过，跳过
+          if (pre.classList.contains('vs-code-processed')) return;
+          
+          // 标记为已处理
+          pre.classList.add('vs-code-processed');
+          
+          // 获取代码元素
+          const codeElement = pre.querySelector('code');
+          if (!codeElement) return;
+          
+          // 重新构建整个代码块结构
+          this.buildVSCodeStyleBlock(pre, codeElement);
+        });
+      }, 100);
+    },
+    
+    // 构建VS Code风格的代码块
+    buildVSCodeStyleBlock(pre, codeElement) {
+      // 确保首先注入样式
+      this.injectCodeBlockStyles();
+      
+      // 获取原始代码和语言
+      const code = codeElement.textContent;
+      let language = '';
+      
+      // 从class中提取语言
+      if (codeElement.className) {
+        const match = codeElement.className.match(/language-(\w+)/);
+        if (match) {
+          language = match[1];
+        }
+      }
+
+      // 获取高亮后的HTML
+      const highlightedHtml = codeElement.innerHTML;
+      
+      // 统计代码行数
+      const lineCount = code.split('\n').length;
+      
+      // 创建主容器
+      const container = document.createElement('div');
+      container.className = 'vs-code-container';
+      if (language) {
+        container.classList.add(`language-${language}`);
+        container.setAttribute('data-language', language);
+      }
+      
+      // 创建头部（包含语言标签和工具栏）
+      const header = document.createElement('div');
+      header.className = 'vs-code-header';
+      
+      // 语言标签
+      const langLabel = document.createElement('div');
+      langLabel.className = 'vs-code-lang';
+      langLabel.textContent = language ? language.toUpperCase() : 'TEXT';
+      header.appendChild(langLabel);
+      
+      // 工具栏 - 使用简单的HTML字符串
+      header.innerHTML += `
+        <div class="vs-code-toolbar">
+          <button class="vs-code-btn vs-code-copy-btn" title="复制代码">
+            <i class="el-icon-document-copy"></i>
+          </button>
+          <button class="vs-code-btn vs-code-download-btn" title="下载代码">
+            <i class="el-icon-download"></i>
+          </button>
+        </div>
+      `;
+      
+      container.appendChild(header);
+      
+      // 创建内容区域（行号+代码）
+      const content = document.createElement('div');
+      content.className = 'vs-code-content';
+      
+      // 创建行号区域
+      const lineNumbers = document.createElement('div');
+      lineNumbers.className = 'vs-code-line-numbers';
+      
+      // 添加行号
+      for (let i = 1; i <= lineCount; i++) {
+        const lineNumber = document.createElement('div');
+        lineNumber.className = 'vs-code-line-number';
+        lineNumber.textContent = i;
+        lineNumbers.appendChild(lineNumber);
+      }
+      
+      content.appendChild(lineNumbers);
+      
+      // 创建代码文本区域
+      const textArea = document.createElement('div');
+      textArea.className = 'vs-code-text';
+      
+      // 分割高亮后的HTML为行
+      const lines = this.splitHighlightedCode(highlightedHtml, lineCount);
+      
+      // 添加每一行代码
+      lines.forEach(line => {
+        const codeLine = document.createElement('div');
+        codeLine.className = 'vs-code-line';
+        codeLine.innerHTML = line || ' '; // 确保空行也显示
+        textArea.appendChild(codeLine);
+      });
+      
+      content.appendChild(textArea);
+      container.appendChild(content);
+      
+      // 添加右上角的复制按钮 - 使用简单的HTML
+      const cornerCopyBtn = document.createElement('button');
+      cornerCopyBtn.className = 'vs-code-corner-copy-btn';
+      cornerCopyBtn.innerHTML = '<i class="el-icon-document-copy"></i> 复制代码';
+      cornerCopyBtn.title = '复制代码';
+      container.appendChild(cornerCopyBtn);
+      
+      // 替换原来的pre标签
+      pre.parentNode.replaceChild(container, pre);
+    },
+    
+    // 将高亮后的HTML分割为行
+    splitHighlightedCode(html, lineCount) {
+      // 如果html为空，返回空行数组
+      if (!html.trim()) {
+        return Array(lineCount).fill('');
+      }
+      
+      // 将HTML按换行符分割
+      let lines = html.split('\n');
+      
+      // 调整行数以匹配原始代码的行数
+      if (lines.length < lineCount) {
+        // 如果行数不足，添加空行
+        lines = lines.concat(Array(lineCount - lines.length).fill(''));
+      } else if (lines.length > lineCount) {
+        // 如果行数过多，截断多余的行
+        lines = lines.slice(0, lineCount);
+      }
+      
+      return lines;
+    },
+    
+    // 复制代码到剪贴板
+    copyCodeToClipboard(code, container) {
+      if (!code || typeof code !== 'string') {
+        this.$message.error('没有可复制的内容');
+        return;
+      }
+      
+      try {
+        // 现代浏览器API - navigator.clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code.trim())
+            .then(() => {
+              // 添加复制成功的动画效果
+              container.classList.add('vs-code-copied');
+              setTimeout(() => {
+                container.classList.remove('vs-code-copied');
+              }, 1000);
+              
+              // 显示提示信息
+              this.$message.success('代码已复制到剪贴板');
+            })
+            .catch(err => {
+              console.error('使用Clipboard API复制失败:', err);
+              // 回退到传统方法
+              this.fallbackCopy(code, container);
+            });
+        } else {
+          // 回退到传统方法
+          this.fallbackCopy(code, container);
+        }
+      } catch (error) {
+        console.error('复制失败:', error);
+        this.$message.error('复制失败: ' + error.message);
+      }
+    },
+    
+    // 兼容老浏览器的复制方法
+    fallbackCopy(code, container) {
+      // 创建临时文本区域
+      const textarea = document.createElement('textarea');
+      textarea.value = code.trim();
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      // 确保元素在视区内，某些浏览器要求
+      textarea.style.top = '0';
+      textarea.style.left = '0';
+      
+      document.body.appendChild(textarea);
+      
+      try {
+        // 选择文本
+        textarea.focus();
+        textarea.select();
+        
+        // 尝试复制
+        const successful = document.execCommand('copy');
+        
+        if (successful) {
+          // 添加复制成功的动画效果
+          container.classList.add('vs-code-copied');
+          setTimeout(() => {
+            container.classList.remove('vs-code-copied');
+          }, 1000);
+          
+          // 显示提示信息
+          this.$message.success('代码已复制到剪贴板');
+        } else {
+          this.$message.error('复制失败，请手动复制');
+        }
+      } catch (err) {
+        console.error('execCommand复制失败:', err);
+        this.$message.error('复制失败，请手动复制');
+      } finally {
+        // 移除临时文本区域
+        document.body.removeChild(textarea);
+      }
+    },
+    
+    // 下载代码文件
+    downloadCode(code, language) {
+      if (!code || typeof code !== 'string') {
+        this.$message.error('没有可下载的内容');
+        return;
+      }
+      
+      try {
+        // 确定文件扩展名
+        const extensions = {
+          java: '.java',
+          javascript: '.js',
+          js: '.js',
+          typescript: '.ts',
+          ts: '.ts',
+          html: '.html',
+          css: '.css',
+          python: '.py',
+          py: '.py',
+          ruby: '.rb',
+          php: '.php',
+          go: '.go',
+          rust: '.rs',
+          c: '.c',
+          cpp: '.cpp',
+          'c++': '.cpp',
+          csharp: '.cs',
+          'c#': '.cs',
+          swift: '.swift',
+          kotlin: '.kt',
+          scala: '.scala',
+          perl: '.pl',
+          bash: '.sh',
+          shell: '.sh',
+          sql: '.sql',
+          json: '.json',
+          xml: '.xml',
+          yaml: '.yml',
+          markdown: '.md',
+          md: '.md'
+        };
+        
+        // 默认扩展名
+        const ext = extensions[language ? language.toLowerCase() : ''] || '.txt';
+        
+        // 创建Blob对象
+        const blob = new Blob([code.trim()], { type: 'text/plain' });
+        
+        // 创建下载链接
+        const a = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = `code-snippet${ext}`;
+        
+        // 添加到DOM以便在Firefox等浏览器触发下载
+        document.body.appendChild(a);
+        
+        // 模拟点击
+        a.click();
+        
+        // 给浏览器一些时间来处理下载
+        setTimeout(() => {
+          // 清理
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          // 显示提示信息
+          this.$message.success(`代码已下载为 code-snippet${ext}`);
+        }, 100);
+      } catch (error) {
+        console.error('下载失败:', error);
+        this.$message.error('下载失败: ' + error.message);
+      }
+    },
+    
+    // 注入代码块样式表
+    injectCodeBlockStyles() {
+      // 检查是否已注入
+      if (document.getElementById('vs-code-styles')) return;
+      
+      // 创建样式元素
+      const styleElement = document.createElement('style');
+      styleElement.id = 'vs-code-styles';
+      
+      // VS Code风格的CSS样式
+      const css = `
+        /* 覆盖原有样式 */
+        .message-content pre {
+          padding: 0 !important;
+          margin: 15px 0 !important;
+          overflow: hidden !important;
+          background: none !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        
+        /* 特定语言样式覆盖 - Java */
+        .vs-code-container[data-language="java"] .hljs-keyword {
+          color: #569cd6 !important;
+          font-weight: bold !important;
+        }
+        
+        .vs-code-container[data-language="java"] .hljs-class {
+          color: #4ec9b0 !important;
+        }
+        
+        .vs-code-container[data-language="java"] .hljs-string {
+          color: #ce9178 !important;
+        }
+        
+        .vs-code-container[data-language="java"] .hljs-comment {
+          color: #6a9955 !important;
+          font-style: italic !important;
+        }
+        
+        /* VS Code样式容器 */
+        .vs-code-container {
+          background-color: #1e1e1e;
+          border-radius: 6px;
+          overflow: hidden;
+          font-family: Consolas, Monaco, monospace;
+          font-size: 14px;
+          margin: 0;
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+          border: 1px solid #333;
+          position: relative;
+        }
+        
+        /* 代码标题栏 */
+        .vs-code-header {
+          background-color: #2d2d2d;
+          color: #cccccc;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 5px 10px;
+          border-bottom: 1px solid #3e3e3e;
+          height: 30px;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        /* 语言标签 */
+        .vs-code-lang {
+          font-size: 12px;
+          color: #cccccc;
+          opacity: 0.8;
+        }
+        
+        /* 工具栏 */
+        .vs-code-toolbar {
+          display: flex;
+        }
+        
+        /* 按钮样式 */
+        .vs-code-btn {
+          background: transparent;
+          border: none;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #cccccc;
+          opacity: 0.7;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s;
+          margin-left: 4px;
+          font-size: 14px;
+        }
+        
+        /* 按钮悬停效果 */
+        .vs-code-btn:hover {
+          opacity: 1;
+          background-color: #3e3e3e;
+        }
+        
+        /* 右上角复制按钮 */
+        .vs-code-corner-copy-btn {
+          position: absolute;
+          top: 45px;
+          right: 15px;
+          z-index: 100;
+          background-color: rgba(0, 122, 204, 0.8);
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          padding: 6px 12px;
+          font-size: 13px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          opacity: 0;
+          transition: all 0.2s ease;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* 显示右上角复制按钮（当鼠标悬停在代码块上时） */
+        .vs-code-container:hover .vs-code-corner-copy-btn {
+          opacity: 1;
+        }
+        
+        /* 右上角复制按钮悬停效果 */
+        .vs-code-corner-copy-btn:hover {
+          background-color: rgba(0, 122, 204, 1);
+          transform: translateY(-1px);
+          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* 复制按钮复制成功状态 */
+        .vs-code-button-copied {
+          background-color: rgba(58, 166, 74, 0.9) !important;
+          color: white !important;
+        }
+        
+        /* 代码内容区域 */
+        .vs-code-content {
+          display: flex;
+          padding: 0;
+          overflow-x: auto;
+          background-color: #1e1e1e;
+        }
+        
+        /* 行号区域 */
+        .vs-code-line-numbers {
+          padding: 12px 8px;
+          text-align: right;
+          min-width: 40px;
+          border-right: 1px solid #404040;
+          color: #858585;
+          font-size: 12px;
+          line-height: 1.5;
+          user-select: none;
+          background-color: #1e1e1e;
+        }
+        
+        /* 单行行号 */
+        .vs-code-line-number {
+          height: 20px;
+          font-family: Consolas, Monaco, monospace;
+        }
+        
+        /* 代码文本区域 */
+        .vs-code-text {
+          flex: 1;
+          padding: 12px 16px;
+          color: #d4d4d4;
+          overflow-x: auto;
+          white-space: pre;
+          font-family: Consolas, Monaco, monospace;
+          font-size: 14px;
+          line-height: 1.5;
+          background-color: #1e1e1e;
+        }
+        
+        /* 代码行 */
+        .vs-code-line {
+          height: 20px;
+          white-space: pre;
+          font-family: Consolas, Monaco, monospace;
+        }
+        
+        /* 复制成功动画 */
+        .vs-code-copied {
+          animation: vs-code-copy-success 1s ease;
+        }
+        
+        @keyframes vs-code-copy-success {
+          0% { box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2); }
+          50% { box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.4); }
+          100% { box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2); }
+        }
+        
+        /* 语法高亮 - VS Code暗色主题 */
+        .vs-code-text .hljs-keyword { color: #569cd6; font-weight: bold; }
+        .vs-code-text .hljs-built_in { color: #4ec9b0; }
+        .vs-code-text .hljs-type { color: #4ec9b0; }
+        .vs-code-text .hljs-literal { color: #569cd6; }
+        .vs-code-text .hljs-number { color: #b5cea8; }
+        .vs-code-text .hljs-regexp { color: #d16969; }
+        .vs-code-text .hljs-string { color: #ce9178; }
+        .vs-code-text .hljs-subst { color: #d4d4d4; }
+        .vs-code-text .hljs-symbol { color: #d4d4d4; }
+        .vs-code-text .hljs-class { color: #4ec9b0; }
+        .vs-code-text .hljs-function { color: #dcdcaa; }
+        .vs-code-text .hljs-title { color: #dcdcaa; }
+        .vs-code-text .hljs-params { color: #9cdcfe; }
+        .vs-code-text .hljs-comment { color: #6a9955; font-style: italic; }
+        .vs-code-text .hljs-doctag { color: #608b4e; }
+        .vs-code-text .hljs-meta { color: #9cdcfe; }
+        .vs-code-text .hljs-section { color: gold; }
+        .vs-code-text .hljs-name { color: #569cd6; }
+        .vs-code-text .hljs-tag { color: #569cd6; }
+        .vs-code-text .hljs-attr { color: #9cdcfe; }
+        .vs-code-text .hljs-bullet { color: #d4d4d4; }
+        .vs-code-text .hljs-code { color: #d4d4d4; }
+        .vs-code-text .hljs-emphasis { color: #d4d4d4; font-style: italic; }
+        .vs-code-text .hljs-formula { color: #d4d4d4; }
+        .vs-code-text .hljs-link { color: #9cdcfe; }
+        .vs-code-text .hljs-quote { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-tag { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-id { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-class { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-attr { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-pseudo { color: #d4d4d4; }
+        .vs-code-text .hljs-template-tag { color: #d4d4d4; }
+        .vs-code-text .hljs-template-variable { color: #d4d4d4; }
+        .vs-code-text .hljs-addition { color: #d4d4d4; }
+        .vs-code-text .hljs-deletion { color: #d4d4d4; }
+        
+        /* Java特定颜色 */
+        .language-java .vs-code-text .hljs-keyword { color: #569cd6; font-weight: bold; }
+        .language-java .vs-code-text .hljs-class { color: #4ec9b0; }
+        .language-java .vs-code-text .hljs-title { color: #4ec9b0; }
+        .language-java .vs-code-text .hljs-function { color: #dcdcaa; }
+        .language-java .vs-code-text .hljs-string { color: #ce9178; }
+        .language-java .vs-code-text .hljs-comment { color: #6a9955; }
+        .language-java .vs-code-text .hljs-number { color: #b5cea8; }
+        .language-java .vs-code-text .hljs-params { color: #9cdcfe; }
+      `;
+      
+      styleElement.textContent = css;
+      document.head.appendChild(styleElement);
+    },
+    // + 新增：获取团队列表
+    fetchTeamList() {
+      listMy_team().then(response => { // Corrected function call
+        if (response.code === 200) {
+          if (response.rows && response.rows.length > 0) {
+            this.teamList = response.rows;
+            // 尝试从localStorage获取上次选择的团队ID
+            const lastSelectedTeamId = localStorage.getItem('ai-chat-last-selected-team');
+            if (lastSelectedTeamId && this.teamList.some(team => String(team.teamId) === String(lastSelectedTeamId))) {
+              this.selectedTeamId = String(lastSelectedTeamId); // 确保使用字符串进行比较和赋值
+            } else {
+              // 确保 this.teamList[0] 存在
+              if (this.teamList.length > 0 && this.teamList[0]) {
+                this.selectedTeamId = String(this.teamList[0].teamId); // 默认选择第一个团队, 确保是字符串
+                localStorage.setItem('ai-chat-last-selected-team', this.selectedTeamId);
+              } else {
+                // 如果 teamList 为空数组或者第一个元素是 undefined/null
+                this.selectedTeamId = null;
+                // 这种情况理论上已经被外层的 else if (response.rows && response.rows.length > 0) 覆盖
+                // 但作为防御性编程保留
+                this.$message.warning('获取到的团队列表为空，AI问答功能可能无法使用或受限。');
+              }
+            }
+          } else { // code === 200 但是 rows 为空或不存在
+            this.teamList = [];
+            this.selectedTeamId = null; // 没有团队则设为null
+            this.$message.warning('您尚未加入任何团队，AI问答功能可能无法使用或受限。');
+          }
+        } else { // code !== 200，请求本身失败
+          this.teamList = [];
+          this.selectedTeamId = null;
+          this.$message.error(response.msg || '获取团队列表失败');
+        }
+      }).catch(error => {
+        this.teamList = [];
+        this.selectedTeamId = null;
+        console.error('获取团队列表失败:', error);
+        this.$message.error('无法连接到服务器获取团队列表，请稍后再试。');
+      });
+    },
+    // 检查认证并初始化会话
+    checkAuthAndInitSessions() {
+      if (!getToken()) {
+        this.$message.error('您未登录或登录已过期，请重新登录');
+        // 可以选择跳转到登录页
+        // this.$router.push('/login'); 
+        return;
+      }
+      
+      // 加载会话列表
+      this.loadSessionList();
+    },
+    
+    // 切换会话
+    switchSession(sessionId) {
+      if (this.sessionId === sessionId || this.loading) return;
+      
+      // 重置状态
+      this.messages = [];
+      this.currentStreamingMessage = null;
+      this.streamingResponse = false;
+      
+      this.sessionId = sessionId;
+      this.loading = true;
+      
+      // 保存最后使用的会话ID
+      localStorage.setItem('ai-chat-last-session', sessionId);
+      
+      // 加载会话消息
+      this.loadChatHistory();
+    },
+    
+    // 创建新会话
+    createNewSession() {
+      if (this.loading) return;
+      
+      // 先重置当前状态
+      this.messages = [];
+      this.currentStreamingMessage = null;
+      this.streamingResponse = false;
+      
+      this.loading = true;
+      createSession().then(response => {
+        if (response.code === 200) {
+          const newSessionId = response.data.sessionId;
+          
+          // 添加到会话列表
+          const newSession = {
+            id: newSessionId,
+            title: '新对话',
+            createTime: new Date().toISOString()
+          };
+          
+          this.sessionList.unshift(newSession);
+          // this.saveSessionList(); // 移除对localStorage的保存
+          
+          // 设置为当前会话
+          this.sessionId = newSessionId;
+          
+          // 保存最后使用的会话ID
+          localStorage.setItem('ai-chat-last-session', newSessionId);
+          
+          this.$message.success('已创建新会话');
+          this.loading = false;
+        } else {
+          this.$message.error(response.msg || '创建会话失败');
+          this.loading = false;
+        }
+      }).catch(error => {
+        console.error('创建会话失败:', error);
+        this.$message.error('无法连接到服务器，请稍后再试');
+        this.loading = false;
+      });
+    },
+    
+    // 确认删除会话
+    confirmDeleteSession(sessionId) {
+      this.$confirm('确定要删除这个会话吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.deleteSessionById(sessionId);
+      }).catch(() => {});
+    },
+    
+    // 删除会话
+    deleteSessionById(sessionId) {
+      if (this.loading) return;
+      
+      this.loading = true;
+      deleteSession(sessionId).then(() => {
+        // 从会话列表中移除
+        const index = this.sessionList.findIndex(s => s.id === sessionId);
+        if (index !== -1) {
+          this.sessionList.splice(index, 1);
+          // this.saveSessionList(); // 移除对localStorage的保存
+        }
+        
+        // 如果删除的是当前会话，切换到另一个会话
+        if (this.sessionId === sessionId) {
+          localStorage.removeItem('ai-chat-last-session'); // 清除被删除的会话ID
+          if (this.sessionList.length > 0) {
+            // 切换到列表中的第一个会话
+            this.switchSession(this.sessionList[0].id); 
+          } else {
+            // 如果没有其他会话了，则创建一个新的
+            this.sessionId = null;
+            this.messages = [];
+            this.createNewSession(); // 创建新会话会设置loading=false
+          }
+        } else {
+          this.loading = false;
+        }
+        
+        this.$message.success('会话已删除');
+      }).catch(error => {
+        console.error('删除会话失败:', error);
+        this.$message.error('删除会话失败，请稍后再试');
+        this.loading = false;
+      });
+    },
+    
+    // 保存会话列表到本地存储 (此方法不再需要，将被移除)
+    // saveSessionList() {
+    //   localStorage.setItem('ai-chat-sessions', JSON.stringify(this.sessionList));
+    // },
+    
+    // 更新会话标题
+    updateSessionTitle(sessionId, firstMessage) {
+      // 使用第一条用户消息作为会话标题
+      if (!firstMessage || !sessionId) return;
+      
+      const session = this.sessionList.find(s => s.id === sessionId);
+      if (session && session.title === '新对话') {
+        // 截取前20个字符作为标题
+        let title = firstMessage.trim();
+        if (title.length > 20) {
+          title = title.substring(0, 20) + '...';
+        }
+        session.title = title;
+        // this.saveSessionList(); // 移除对localStorage的保存
+      }
+    },
+    
+    // 加载聊天历史
+    loadChatHistory() {
+      if (!this.sessionId) {
+        this.loading = false;
+        return;
+      }
+      
+      // 重置当前状态
+      this.messages = [];
+      this.currentStreamingMessage = null;
+      this.streamingResponse = false;
+      
+      getChatHistory(this.sessionId).then(response => {
+        if (response.code === 200) {
+          const historyMessages = response.data.messages || [];
+          
+          // 将历史消息转换为前端消息格式
+          historyMessages.forEach(msg => {
+            this.messages.push({
+              type: msg.role === 'user' ? 'user' : 'ai',
+              content: msg.content,
+              time: new Date(msg.createTime)
+            });
+          });
+          
+          // 更新会话标题和可能的创建时间
+          const currentSessionInList = this.sessionList.find(s => s.id === this.sessionId);
+          if (currentSessionInList && historyMessages.length > 0) {
+            // 使用第一条消息的创建时间更新会话的 createTime，使其更准确
+            if (historyMessages[0].createTime) {
+              // 只有当初始的createTime是占位符时才更新，或者总是更新
+              // 这里我们假设如果后端有createTime就用它
+              currentSessionInList.createTime = new Date(historyMessages[0].createTime).toISOString();
+            }
+
+            const firstUserMessage = historyMessages.find(msg => msg.role === 'user');
+            if (firstUserMessage) {
+              this.updateSessionTitle(this.sessionId, firstUserMessage.content);
+            } else if (currentSessionInList.title === '新对话' && historyMessages[0] && historyMessages[0].content) {
+              // 如果没有用户消息，但有AI消息，且标题是默认的，可以尝试用AI消息更新
+              let aiTitle = historyMessages[0].content.substring(0, 20);
+              if (historyMessages[0].content.length > 20) aiTitle += "...";
+              this.updateSessionTitle(this.sessionId, `AI: ${aiTitle}`);
+            }
+          }
+          
+          this.$nextTick(() => {
+            this.scrollToBottom();
+          });
+        } else {
+          this.$message.error(response.msg || '获取聊天历史失败');
+        }
+        this.loading = false;
+      }).catch(error => {
+        console.error('获取聊天历史失败:', error);
+        this.$message.error('无法连接到服务器，请稍后再试');
+        this.loading = false;
+      });
+    },
+    
+    // 清空当前对话
+    clearCurrentChat() {
+      if (!this.sessionId || this.messages.length === 0) return;
+      
+      this.$confirm('确定要清空当前对话内容吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        // 清空API目前没有，这里只清空前端messages和重置标题
+        this.messages = []; 
+        this.$message.success('对话内容已清空');
+        
+        // 重置会话标题
+        const session = this.sessionList.find(s => s.id === this.sessionId);
+        if (session) {
+          session.title = '新对话';
+          // this.saveSessionList(); // 移除对localStorage的保存
+        }
+      }).catch(() => {});
+    },
+    
+    // 发送消息
+    sendMessage() {
+      if (!this.userInput.trim() || this.loading || !this.sessionId) return;
+      // + 新增：检查是否已选择团队
+      if (!this.selectedTeamId) {
+        this.$message.warning('请先选择一个知识库（团队）才能提问');
+        return;
+      }
+      
+      // 添加用户消息
+      const userMessage = {
+        type: 'user',
+        content: this.userInput,
+        time: new Date()
+      };
+      this.messages.push(userMessage);
+      
+      // 更新会话标题（如果是第一条消息）
+      if (this.messages.length === 1 || (this.messages.length === 2 && this.messages[0].type === 'ai')) {
+        this.updateSessionTitle(this.sessionId, this.userInput);
+      }
+      
+      const question = this.userInput;
+      this.userInput = '';
+      
+      // 滚动到底部
+      this.$nextTick(() => {
+        this.scrollToBottom();
+      });
+      
+      // 设置加载状态
+      this.loading = true;
+      
+      // 使用流式API发送请求
+      this.sendStreamChatRequest(question);
+    },
+    
+    // 发送流式聊天请求
+    sendStreamChatRequest(question) {
+      // 检查认证状态
+      if (!getToken()) {
+        this.$message.error('您未登录或登录已过期，请重新登录');
+        this.loading = false;
+        return;
+      }
+      // + 新增：检查是否已选择团队
+      if (!this.selectedTeamId) {
+        this.$message.error('发送失败，请先选择一个知识库（团队）');
+        this.loading = false; // 确保重置加载状态
+        return;
+      }
+      
+      // 确保在请求开始时，currentStreamingMessage 为 null 并且没有预先添加AI消息
+      // this.currentStreamingMessage = null; // 应该在 onComplete 或 onError 中被设为null，或者在切换会话时
+                                          // 确保没有在这里错误地初始化或添加消息到 this.messages
+
+      const requestData = {
+        prompt: question,
+        sessionId: this.sessionId,
+        teamId: this.selectedTeamId, // + 新增：将选中的团队ID发送给后端
+        options: {} // 如果后端需要其他参数，可以在这里添加
+      };
+      
+      // 定义消息处理函数
+      const onMessage = (content) => {
+        if (!this.streamingResponse) { 
+          this.streamingResponse = true; // 首先改变状态，这将隐藏打字动画
+          
+          // 仅在此时创建并添加新的AI消息对象到messages数组
+          const aiMessage = {
+            type: 'ai',
+            content: '',
+            time: new Date() // 时间戳为第一条回复到达的时间
+          };
+          this.messages.push(aiMessage);
+          this.currentStreamingMessage = aiMessage; // 设置当前正在流式处理的消息
+        }
+        
+        // 确保 currentStreamingMessage 存在才尝试添加内容
+        if (this.currentStreamingMessage) {
+          try {
+            const jsonContent = JSON.parse(content);
+            if (jsonContent.choices && jsonContent.choices[0] && jsonContent.choices[0].delta) {
+              const chunk = jsonContent.choices[0].delta.content || '';
+              if (chunk) {
+                this.currentStreamingMessage.content += chunk;
+              }
+            } else if (jsonContent.content !== undefined) {
+              this.currentStreamingMessage.content += jsonContent.content;
+            } else if (typeof content === 'string' && content.trim()) {
+              this.currentStreamingMessage.content += content;
+            }
+          } catch (e) {
+            if (typeof content === 'string' && content.trim()) {
+              this.currentStreamingMessage.content += content;
+            }
+          }
+        } else {
+          // 如果 currentStreamingMessage 因为某些原因仍为null (理论上不应发生在此流程中)
+          // 可以考虑记录一个警告或错误
+          console.warn('currentStreamingMessage is null when trying to append content.');
+        }
+        
+        this.$nextTick(() => {
+          this.scrollToBottom();
+        });
+      };
+      
+      // 定义错误处理函数
+      const onError = (error) => {
+        this.handleError('网络错误，无法连接到服务器: ' + error.message);
+        this.streamingResponse = false;
+        this.loading = false;
+      };
+      
+      // 定义完成回调函数
+      const onComplete = () => {
+        this.streamingResponse = false;
+        this.loading = false;
+        this.currentStreamingMessage = null;
+      };
+      
+      // 发送流式聊天请求
+      sendStreamChatMessage(requestData, onMessage, onError, onComplete);
+    },
+    
+    // 处理错误
+    handleError(errorMsg) {
+      this.error = errorMsg;
+      this.$message.error(errorMsg);
+      this.loading = false;
+      this.streamingResponse = false;
+      
+      // 如果当前有流式消息但内容为空，则添加错误信息
+      if (this.currentStreamingMessage && !this.currentStreamingMessage.content) {
+        this.currentStreamingMessage.content = `抱歉，出现了一个错误: ${errorMsg}`;
+      } else {
+        // 否则添加新的错误消息
+        this.messages.push({
+          type: 'ai',
+          content: `抱歉，出现了一个错误: ${errorMsg}`,
+          time: new Date()
+        });
+      }
+    },
+    
+    // 格式化消息内容，支持Markdown
+    formatMessage(content) {
+      if (!content) return '';
+      
+      try {
+        // 预处理代码块
+        let processedContent = this.preprocessCodeBlocks ? this.preprocessCodeBlocks(content) : content;
+        
+        // 使用marked处理markdown
+        const html = marked(processedContent);
+        
+        // 创建一个临时元素来解析HTML
+        const tempElement = document.createElement('div');
+        tempElement.innerHTML = html;
+        
+        // 处理pre元素，应用VS Code风格
+        const preElements = tempElement.querySelectorAll('pre');
+        preElements.forEach(pre => {
+          const codeElement = pre.querySelector('code');
+          if (codeElement) {
+            this.buildVSCodeStyleBlock(pre, codeElement);
+          }
+        });
+        
+        // 返回处理后的HTML
+        return tempElement.innerHTML;
+      } catch (error) {
+        console.error('格式化消息出错:', error);
+        return content;
+      }
+    },
+    
+    // 复制文本到剪贴板
+    copyToClipboard(text) {
+      if (!text) {
+        this.$message.error('没有可复制的内容');
+        return;
+      }
+      
+      // 创建临时文本区域
+      const textarea = document.createElement('textarea');
+      textarea.value = text.trim();
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '-9999px';
+      document.body.appendChild(textarea);
+      
+      try {
+        // 选择文本并复制
+        textarea.select();
+        textarea.setSelectionRange(0, 99999);
+        const successful = document.execCommand('copy');
+        
+        if (successful) {
+          // 显示成功消息
+          this.$message({
+            message: '代码已复制到剪贴板',
+            type: 'success',
+            duration: 1500,
+            customClass: 'code-copy-message'
+          });
+          
+          // 显示复制成功动画
+          this.showCopyAnimation();
+        } else {
+          this.$message.error('复制失败，请手动复制');
+        }
+      } catch (err) {
+        console.error('复制失败:', err);
+        this.$message.error('复制失败: ' + err);
+      } finally {
+        // 移除临时文本区域
+        document.body.removeChild(textarea);
+      }
+    },
+    
+    // 显示复制成功动画
+    showCopyAnimation() {
+      // 创建动画元素
+      const animation = document.createElement('div');
+      animation.className = 'copy-success-animation';
+      animation.innerHTML = '<i class="el-icon-check"></i>';
+      document.body.appendChild(animation);
+      
+      // 使用setTimeout允许DOM渲染
+      setTimeout(() => {
+        animation.classList.add('show');
+      }, 10);
+      
+      // 动画结束后移除元素
+      setTimeout(() => {
+        animation.classList.remove('show');
+        setTimeout(() => {
+          if (document.body.contains(animation)) {
+            document.body.removeChild(animation);
+          }
+        }, 300);
+      }, 1500);
+    },
+    
+    // 预处理代码块
+    preprocessCodeBlocks(content) {
+      if (!content) return '';
+
+      // 已经包含Markdown代码块的不需要处理
+      if (content.includes('```')) return content;
+      
+      // 检查是否是Java样例代码（常见的错误情况）
+      if (content.includes('// HelloWorld.java') && content.includes('public class HelloWorld')) {
+        return "```java\n" + content + "\n```";
+      }
+      
+      let processedContent = content;
+      
+      // 常见编程语言的特征模式
+      const codePatterns = {
+        java: [
+          /public\s+class\s+\w+/,
+          /public\s+static\s+void\s+main/,
+          /import\s+java\./,
+          /public\s+static\s+void\s+\w+\s*\(/,
+          /private\s+\w+\s+\w+\s*\(/
+        ],
+        javascript: [
+          /function\s+\w+\s*\(/,
+          /const\s+\w+\s*=/,
+          /let\s+\w+\s*=/,
+          /var\s+\w+\s*=/,
+          /export\s+default/,
+          /import\s+.*\s+from/,
+          /^\s*\w+\.\w+\s*\(/m
+        ],
+        python: [
+          /def\s+\w+\s*\(/,
+          /import\s+\w+/,
+          /from\s+\w+\s+import/,
+          /class\s+\w+\s*\(/,
+          /class\s+\w+:/
+        ],
+        html: [
+          /<html/i,
+          /<body/i,
+          /<div/i,
+          /<script/i,
+          /<\/\w+>/i
+        ],
+        css: [
+          /\w+\s*{\s*[\w\-]+\s*:/,
+          /\.\w+\s*{/,
+          /#\w+\s*{/,
+          /@media\s+/,
+          /@import\s+/
+        ],
+        sql: [
+          /SELECT\s+.*\s+FROM/i,
+          /INSERT\s+INTO/i,
+          /UPDATE\s+.*\s+SET/i,
+          /DELETE\s+FROM/i,
+          /CREATE\s+TABLE/i
+        ]
+      };
+      
+      // 检测代码语言
+      let detectedLanguage = null;
+      let highestMatches = 0;
+      
+      Object.entries(codePatterns).forEach(([lang, patterns]) => {
+        const matches = patterns.filter(pattern => pattern.test(content)).length;
+        if (matches > highestMatches) {
+          highestMatches = matches;
+          detectedLanguage = lang;
+        }
+      });
+      
+      // 如果匹配度不够高，可能不是代码
+      if (highestMatches < 2) {
+        return content;
+      }
+      
+      // 处理代码块
+      if (detectedLanguage) {
+        try {
+          // 通用格式化（添加换行和缩进）
+          processedContent = this.formatCodeByLanguage(processedContent, detectedLanguage);
+          
+          // 检测是否有多个代码块（用"---"分隔）
+          if (content.includes('---')) {
+            return this.processSplitCodeSections(content, codePatterns);
+          } else {
+            // 将格式化后的代码包装在Markdown代码块中
+            processedContent = "```" + detectedLanguage + "\n" + processedContent + "\n```";
+          }
+        } catch (e) {
+          console.error('代码格式化失败:', e);
+        }
+      }
+
+      return processedContent;
+    },
+    
+    // 根据编程语言格式化代码
+    formatCodeByLanguage(code, language) {
+      switch(language) {
+        case 'java':
+          return this.formatJavaCode(code);
+        case 'javascript':
+          return this.formatJavascriptCode(code);
+        case 'python':
+          return this.formatPythonCode(code);
+        case 'html':
+          return this.formatHtmlCode(code);
+        case 'css':
+          return this.formatCssCode(code);
+        case 'sql':
+          return this.formatSqlCode(code);
+        default:
+          return code;
+      }
+    },
+    
+    // 格式化Java代码
+    formatJavaCode(code) {
+      return code
+        .replace(/public/g, "\npublic ")
+        .replace(/private/g, "\nprivate ")
+        .replace(/protected/g, "\nprotected ")
+        .replace(/class\s+/g, "class ")
+        .replace(/for\s*\(/g, "for (")
+        .replace(/if\s*\(/g, "if (")
+        .replace(/else\s*{/g, "else {")
+        .replace(/\)\s*{/g, ") {")
+        .replace(/;\s*/g, ";\n")
+        .replace(/}\s*/g, "}\n")
+        .replace(/{\s*/g, "{\n  ")
+        .replace(/\s{2,}/g, "  ")
+        .replace(/import\s+/g, "import ")
+        .replace(/package\s+/g, "package ");
+    },
+    
+    // 格式化JavaScript代码
+    formatJavascriptCode(code) {
+      return code
+        .replace(/function\s+/g, "\nfunction ")
+        .replace(/const\s+/g, "\nconst ")
+        .replace(/let\s+/g, "\nlet ")
+        .replace(/var\s+/g, "\nvar ")
+        .replace(/for\s*\(/g, "for (")
+        .replace(/if\s*\(/g, "if (")
+        .replace(/else\s*{/g, "else {")
+        .replace(/\)\s*{/g, ") {")
+        .replace(/;\s*/g, ";\n")
+        .replace(/}\s*/g, "}\n")
+        .replace(/{\s*/g, "{\n  ")
+        .replace(/\s{2,}/g, "  ")
+        .replace(/import\s+/g, "import ")
+        .replace(/export\s+/g, "export ");
+    },
+    
+    // 格式化Python代码
+    formatPythonCode(code) {
+      return code
+        .replace(/def\s+/g, "\ndef ")
+        .replace(/class\s+/g, "\nclass ")
+        .replace(/import\s+/g, "\nimport ")
+        .replace(/from\s+/g, "\nfrom ")
+        .replace(/:\s*/g, ":\n  ")
+        .replace(/if\s+/g, "\nif ")
+        .replace(/elif\s+/g, "\nelif ")
+        .replace(/else\s*:/g, "\nelse:")
+        .replace(/for\s+/g, "\nfor ")
+        .replace(/while\s+/g, "\nwhile ")
+        .replace(/try\s*:/g, "\ntry:")
+        .replace(/except\s+/g, "\nexcept ")
+        .replace(/finally\s*:/g, "\nfinally:")
+        .replace(/\n\s*\n/g, "\n\n");
+    },
+    
+    // 格式化HTML代码
+    formatHtmlCode(code) {
+      return code
+        .replace(/</g, "\n<")
+        .replace(/>/g, ">\n")
+        .replace(/\n\s*\n/g, "\n");
+    },
+    
+    // 格式化CSS代码
+    formatCssCode(code) {
+      return code
+        .replace(/{/g, " {\n  ")
+        .replace(/}/g, "\n}\n")
+        .replace(/;/g, ";\n  ")
+        .replace(/\n\s*\n/g, "\n");
+    },
+    
+    // 格式化SQL代码
+    formatSqlCode(code) {
+      return code
+        .replace(/SELECT/ig, "\nSELECT")
+        .replace(/FROM/ig, "\nFROM")
+        .replace(/WHERE/ig, "\nWHERE")
+        .replace(/ORDER BY/ig, "\nORDER BY")
+        .replace(/GROUP BY/ig, "\nGROUP BY")
+        .replace(/HAVING/ig, "\nHAVING")
+        .replace(/JOIN/ig, "\nJOIN")
+        .replace(/INSERT/ig, "\nINSERT")
+        .replace(/UPDATE/ig, "\nUPDATE")
+        .replace(/DELETE/ig, "\nDELETE")
+        .replace(/CREATE/ig, "\nCREATE")
+        .replace(/DROP/ig, "\nDROP")
+        .replace(/ALTER/ig, "\nALTER")
+        .replace(/;/g, ";\n");
+    },
+    
+    // 处理分段代码块
+    processSplitCodeSections(content, codePatterns) {
+      const sections = content.split('---');
+      
+      // 处理每个部分
+      return sections.map(section => {
+        // 检测代码语言
+        let sectionLanguage = null;
+        let highestMatches = 0;
+        
+        Object.entries(codePatterns).forEach(([lang, patterns]) => {
+          const matches = patterns.filter(pattern => pattern.test(section)).length;
+          if (matches > highestMatches) {
+            highestMatches = matches;
+            sectionLanguage = lang;
+          }
+        });
+        
+        if (highestMatches < 2) {
+          return section; // 可能不是代码
+        }
+        
+        // 查找可能的标题
+        const titleMatch = section.match(/#{1,6}\s*(.+?)(?:\n|$)/);
+        const title = titleMatch ? titleMatch[0] : '';
+        
+        // 分离标题和代码
+        let code = titleMatch ? section.replace(titleMatch[0], '') : section;
+        
+        // 格式化代码
+        if (sectionLanguage) {
+          try {
+            code = this.formatCodeByLanguage(code, sectionLanguage);
+            return title + "\n```" + sectionLanguage + "\n" + code.trim() + "\n```";
+          } catch (e) {
+            console.error('部分代码格式化失败:', e);
+            return section;
+          }
+        } else {
+          return section;
+        }
+      }).join("\n\n");
+    },
+    
+    // 格式化时间
+    formatTime(time) {
+      return parseTime(time, '{h}:{i}');
+    },
+    
+    // 滚动到聊天窗口底部
+    scrollToBottom() {
+      const container = this.$refs.messagesContainer;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    },
+    
+    // 获取缓存中的用户头像 (保留此方法作为备用)
+    getCache(key) {
+      const userInfo = this.$store.getters.userInfo;
+      return userInfo && userInfo.avatar ? process.env.VUE_APP_BASE_API + userInfo.avatar : '';
+    },
+    
+    // 格式化日期
+    formatDate(dateString) {
+      if (!dateString) return '';
+      
+      const date = new Date(dateString);
+      const now = new Date();
+      const diff = now - date;
+      
+      // 今天的消息只显示时间
+      if (diff < 24 * 60 * 60 * 1000 && 
+          date.getDate() === now.getDate() &&
+          date.getMonth() === now.getMonth() &&
+          date.getFullYear() === now.getFullYear()) {
+        return parseTime(date, '{h}:{i}');
+      }
+      
+      // 一周内的消息显示星期几
+      if (diff < 7 * 24 * 60 * 60 * 1000) {
+        const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        return days[date.getDay()];
+      }
+      
+      // 其他情况显示完整日期
+      return parseTime(date, '{y}-{m}-{d}');
+    },
+    
+    // 为代码块添加工具栏、复制按钮和行号 - 全新实现
+    addCopyButtonsToCodeBlocks() {
+      // 注入样式表
+      this.injectCodeBlockStyles();
+      
+      // 确保DOM已经渲染完成
+      setTimeout(() => {
+        // 选择所有的pre元素
+        const preElements = document.querySelectorAll('.message-content pre');
+        
+        // 为每个pre元素添加工具栏和行号
+        preElements.forEach((pre) => {
+          // 如果已经处理过，跳过
+          if (pre.classList.contains('vs-code-processed')) return;
+          
+          // 标记为已处理
+          pre.classList.add('vs-code-processed');
+          
+          // 获取代码元素
+          const codeElement = pre.querySelector('code');
+          if (!codeElement) return;
+          
+          // 重新构建整个代码块结构
+          this.buildVSCodeStyleBlock(pre, codeElement);
+        });
+      }, 100);
+    },
+    
+    // 构建VS Code风格的代码块
+    buildVSCodeStyleBlock(pre, codeElement) {
+      // 确保首先注入样式
+      this.injectCodeBlockStyles();
+      
+      // 获取原始代码和语言
+      const code = codeElement.textContent;
+      let language = '';
+      
+      // 从class中提取语言
+      if (codeElement.className) {
+        const match = codeElement.className.match(/language-(\w+)/);
+        if (match) {
+          language = match[1];
+        }
+      }
+
+      // 获取高亮后的HTML
+      const highlightedHtml = codeElement.innerHTML;
+      
+      // 统计代码行数
+      const lineCount = code.split('\n').length;
+      
+      // 创建主容器
+      const container = document.createElement('div');
+      container.className = 'vs-code-container';
+      if (language) {
+        container.classList.add(`language-${language}`);
+        container.setAttribute('data-language', language);
+      }
+      
+      // 创建头部（包含语言标签和工具栏）
+      const header = document.createElement('div');
+      header.className = 'vs-code-header';
+      
+      // 语言标签
+      const langLabel = document.createElement('div');
+      langLabel.className = 'vs-code-lang';
+      langLabel.textContent = language ? language.toUpperCase() : 'TEXT';
+      header.appendChild(langLabel);
+      
+      // 工具栏 - 使用简单的HTML字符串
+      header.innerHTML += `
+        <div class="vs-code-toolbar">
+          <button class="vs-code-btn vs-code-copy-btn" title="复制代码">
+            <i class="el-icon-document-copy"></i>
+          </button>
+          <button class="vs-code-btn vs-code-download-btn" title="下载代码">
+            <i class="el-icon-download"></i>
+          </button>
+        </div>
+      `;
+      
+      container.appendChild(header);
+      
+      // 创建内容区域（行号+代码）
+      const content = document.createElement('div');
+      content.className = 'vs-code-content';
+      
+      // 创建行号区域
+      const lineNumbers = document.createElement('div');
+      lineNumbers.className = 'vs-code-line-numbers';
+      
+      // 添加行号
+      for (let i = 1; i <= lineCount; i++) {
+        const lineNumber = document.createElement('div');
+        lineNumber.className = 'vs-code-line-number';
+        lineNumber.textContent = i;
+        lineNumbers.appendChild(lineNumber);
+      }
+      
+      content.appendChild(lineNumbers);
+      
+      // 创建代码文本区域
+      const textArea = document.createElement('div');
+      textArea.className = 'vs-code-text';
+      
+      // 分割高亮后的HTML为行
+      const lines = this.splitHighlightedCode(highlightedHtml, lineCount);
+      
+      // 添加每一行代码
+      lines.forEach(line => {
+        const codeLine = document.createElement('div');
+        codeLine.className = 'vs-code-line';
+        codeLine.innerHTML = line || ' '; // 确保空行也显示
+        textArea.appendChild(codeLine);
+      });
+      
+      content.appendChild(textArea);
+      container.appendChild(content);
+      
+      // 添加右上角的复制按钮 - 使用简单的HTML
+      const cornerCopyBtn = document.createElement('button');
+      cornerCopyBtn.className = 'vs-code-corner-copy-btn';
+      cornerCopyBtn.innerHTML = '<i class="el-icon-document-copy"></i> 复制代码';
+      cornerCopyBtn.title = '复制代码';
+      container.appendChild(cornerCopyBtn);
+      
+      // 替换原来的pre标签
+      pre.parentNode.replaceChild(container, pre);
+    },
+    
+    // 将高亮后的HTML分割为行
+    splitHighlightedCode(html, lineCount) {
+      // 如果html为空，返回空行数组
+      if (!html.trim()) {
+        return Array(lineCount).fill('');
+      }
+      
+      // 将HTML按换行符分割
+      let lines = html.split('\n');
+      
+      // 调整行数以匹配原始代码的行数
+      if (lines.length < lineCount) {
+        // 如果行数不足，添加空行
+        lines = lines.concat(Array(lineCount - lines.length).fill(''));
+      } else if (lines.length > lineCount) {
+        // 如果行数过多，截断多余的行
+        lines = lines.slice(0, lineCount);
+      }
+      
+      return lines;
+    },
+    
+    // 复制代码到剪贴板
+    copyCodeToClipboard(code, container) {
+      if (!code || typeof code !== 'string') {
+        this.$message.error('没有可复制的内容');
+        return;
+      }
+      
+      try {
+        // 现代浏览器API - navigator.clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code.trim())
+            .then(() => {
+              // 添加复制成功的动画效果
+              container.classList.add('vs-code-copied');
+              setTimeout(() => {
+                container.classList.remove('vs-code-copied');
+              }, 1000);
+              
+              // 显示提示信息
+              this.$message.success('代码已复制到剪贴板');
+            })
+            .catch(err => {
+              console.error('使用Clipboard API复制失败:', err);
+              // 回退到传统方法
+              this.fallbackCopy(code, container);
+            });
+        } else {
+          // 回退到传统方法
+          this.fallbackCopy(code, container);
+        }
+      } catch (error) {
+        console.error('复制失败:', error);
+        this.$message.error('复制失败: ' + error.message);
+      }
+    },
+    
+    // 兼容老浏览器的复制方法
+    fallbackCopy(code, container) {
+      // 创建临时文本区域
+      const textarea = document.createElement('textarea');
+      textarea.value = code.trim();
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      // 确保元素在视区内，某些浏览器要求
+      textarea.style.top = '0';
+      textarea.style.left = '0';
+      
+      document.body.appendChild(textarea);
+      
+      try {
+        // 选择文本
+        textarea.focus();
+        textarea.select();
+        
+        // 尝试复制
+        const successful = document.execCommand('copy');
+        
+        if (successful) {
+          // 添加复制成功的动画效果
+          container.classList.add('vs-code-copied');
+          setTimeout(() => {
+            container.classList.remove('vs-code-copied');
+          }, 1000);
+          
+          // 显示提示信息
+          this.$message.success('代码已复制到剪贴板');
+        } else {
+          this.$message.error('复制失败，请手动复制');
+        }
+      } catch (err) {
+        console.error('execCommand复制失败:', err);
+        this.$message.error('复制失败，请手动复制');
+      } finally {
+        // 移除临时文本区域
+        document.body.removeChild(textarea);
+      }
+    },
+    
+    // 下载代码文件
+    downloadCode(code, language) {
+      if (!code || typeof code !== 'string') {
+        this.$message.error('没有可下载的内容');
+        return;
+      }
+      
+      try {
+        // 确定文件扩展名
+        const extensions = {
+          java: '.java',
+          javascript: '.js',
+          js: '.js',
+          typescript: '.ts',
+          ts: '.ts',
+          html: '.html',
+          css: '.css',
+          python: '.py',
+          py: '.py',
+          ruby: '.rb',
+          php: '.php',
+          go: '.go',
+          rust: '.rs',
+          c: '.c',
+          cpp: '.cpp',
+          'c++': '.cpp',
+          csharp: '.cs',
+          'c#': '.cs',
+          swift: '.swift',
+          kotlin: '.kt',
+          scala: '.scala',
+          perl: '.pl',
+          bash: '.sh',
+          shell: '.sh',
+          sql: '.sql',
+          json: '.json',
+          xml: '.xml',
+          yaml: '.yml',
+          markdown: '.md',
+          md: '.md'
+        };
+        
+        // 默认扩展名
+        const ext = extensions[language ? language.toLowerCase() : ''] || '.txt';
+        
+        // 创建Blob对象
+        const blob = new Blob([code.trim()], { type: 'text/plain' });
+        
+        // 创建下载链接
+        const a = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = `code-snippet${ext}`;
+        
+        // 添加到DOM以便在Firefox等浏览器触发下载
+        document.body.appendChild(a);
+        
+        // 模拟点击
+        a.click();
+        
+        // 给浏览器一些时间来处理下载
+        setTimeout(() => {
+          // 清理
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          // 显示提示信息
+          this.$message.success(`代码已下载为 code-snippet${ext}`);
+        }, 100);
+      } catch (error) {
+        console.error('下载失败:', error);
+        this.$message.error('下载失败: ' + error.message);
+      }
+    },
+    
+    // 注入代码块样式表
+    injectCodeBlockStyles() {
+      // 检查是否已注入
+      if (document.getElementById('vs-code-styles')) return;
+      
+      // 创建样式元素
+      const styleElement = document.createElement('style');
+      styleElement.id = 'vs-code-styles';
+      
+      // VS Code风格的CSS样式
+      const css = `
+        /* 覆盖原有样式 */
+        .message-content pre {
+          padding: 0 !important;
+          margin: 15px 0 !important;
+          overflow: hidden !important;
+          background: none !important;
+          border: none !important;
+          box-shadow: none !important;
+        }
+        
+        /* 特定语言样式覆盖 - Java */
+        .vs-code-container[data-language="java"] .hljs-keyword {
+          color: #569cd6 !important;
+          font-weight: bold !important;
+        }
+        
+        .vs-code-container[data-language="java"] .hljs-class {
+          color: #4ec9b0 !important;
+        }
+        
+        .vs-code-container[data-language="java"] .hljs-string {
+          color: #ce9178 !important;
+        }
+        
+        .vs-code-container[data-language="java"] .hljs-comment {
+          color: #6a9955 !important;
+          font-style: italic !important;
+        }
+        
+        /* VS Code样式容器 */
+        .vs-code-container {
+          background-color: #1e1e1e;
+          border-radius: 6px;
+          overflow: hidden;
+          font-family: Consolas, Monaco, monospace;
+          font-size: 14px;
+          margin: 0;
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+          border: 1px solid #333;
+          position: relative;
+        }
+        
+        /* 代码标题栏 */
+        .vs-code-header {
+          background-color: #2d2d2d;
+          color: #cccccc;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 5px 10px;
+          border-bottom: 1px solid #3e3e3e;
+          height: 30px;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        /* 语言标签 */
+        .vs-code-lang {
+          font-size: 12px;
+          color: #cccccc;
+          opacity: 0.8;
+        }
+        
+        /* 工具栏 */
+        .vs-code-toolbar {
+          display: flex;
+        }
+        
+        /* 按钮样式 */
+        .vs-code-btn {
+          background: transparent;
+          border: none;
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #cccccc;
+          opacity: 0.7;
+          border-radius: 4px;
+          cursor: pointer;
+          transition: all 0.2s;
+          margin-left: 4px;
+          font-size: 14px;
+        }
+        
+        /* 按钮悬停效果 */
+        .vs-code-btn:hover {
+          opacity: 1;
+          background-color: #3e3e3e;
+        }
+        
+        /* 右上角复制按钮 */
+        .vs-code-corner-copy-btn {
+          position: absolute;
+          top: 45px;
+          right: 15px;
+          z-index: 100;
+          background-color: rgba(0, 122, 204, 0.8);
+          color: #fff;
+          border: none;
+          border-radius: 4px;
+          padding: 6px 12px;
+          font-size: 13px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          opacity: 0;
+          transition: all 0.2s ease;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+          box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* 显示右上角复制按钮（当鼠标悬停在代码块上时） */
+        .vs-code-container:hover .vs-code-corner-copy-btn {
+          opacity: 1;
+        }
+        
+        /* 右上角复制按钮悬停效果 */
+        .vs-code-corner-copy-btn:hover {
+          background-color: rgba(0, 122, 204, 1);
+          transform: translateY(-1px);
+          box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* 复制按钮复制成功状态 */
+        .vs-code-button-copied {
+          background-color: rgba(58, 166, 74, 0.9) !important;
+          color: white !important;
+        }
+        
+        /* 代码内容区域 */
+        .vs-code-content {
+          display: flex;
+          padding: 0;
+          overflow-x: auto;
+          background-color: #1e1e1e;
+        }
+        
+        /* 行号区域 */
+        .vs-code-line-numbers {
+          padding: 12px 8px;
+          text-align: right;
+          min-width: 40px;
+          border-right: 1px solid #404040;
+          color: #858585;
+          font-size: 12px;
+          line-height: 1.5;
+          user-select: none;
+          background-color: #1e1e1e;
+        }
+        
+        /* 单行行号 */
+        .vs-code-line-number {
+          height: 20px;
+          font-family: Consolas, Monaco, monospace;
+        }
+        
+        /* 代码文本区域 */
+        .vs-code-text {
+          flex: 1;
+          padding: 12px 16px;
+          color: #d4d4d4;
+          overflow-x: auto;
+          white-space: pre;
+          font-family: Consolas, Monaco, monospace;
+          font-size: 14px;
+          line-height: 1.5;
+          background-color: #1e1e1e;
+        }
+        
+        /* 代码行 */
+        .vs-code-line {
+          height: 20px;
+          white-space: pre;
+          font-family: Consolas, Monaco, monospace;
+        }
+        
+        /* 复制成功动画 */
+        .vs-code-copied {
+          animation: vs-code-copy-success 1s ease;
+        }
+        
+        @keyframes vs-code-copy-success {
+          0% { box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2); }
+          50% { box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.4); }
+          100% { box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2); }
+        }
+        
+        /* 语法高亮 - VS Code暗色主题 */
+        .vs-code-text .hljs-keyword { color: #569cd6; font-weight: bold; }
+        .vs-code-text .hljs-built_in { color: #4ec9b0; }
+        .vs-code-text .hljs-type { color: #4ec9b0; }
+        .vs-code-text .hljs-literal { color: #569cd6; }
+        .vs-code-text .hljs-number { color: #b5cea8; }
+        .vs-code-text .hljs-regexp { color: #d16969; }
+        .vs-code-text .hljs-string { color: #ce9178; }
+        .vs-code-text .hljs-subst { color: #d4d4d4; }
+        .vs-code-text .hljs-symbol { color: #d4d4d4; }
+        .vs-code-text .hljs-class { color: #4ec9b0; }
+        .vs-code-text .hljs-function { color: #dcdcaa; }
+        .vs-code-text .hljs-title { color: #dcdcaa; }
+        .vs-code-text .hljs-params { color: #9cdcfe; }
+        .vs-code-text .hljs-comment { color: #6a9955; font-style: italic; }
+        .vs-code-text .hljs-doctag { color: #608b4e; }
+        .vs-code-text .hljs-meta { color: #9cdcfe; }
+        .vs-code-text .hljs-section { color: gold; }
+        .vs-code-text .hljs-name { color: #569cd6; }
+        .vs-code-text .hljs-tag { color: #569cd6; }
+        .vs-code-text .hljs-attr { color: #9cdcfe; }
+        .vs-code-text .hljs-bullet { color: #d4d4d4; }
+        .vs-code-text .hljs-code { color: #d4d4d4; }
+        .vs-code-text .hljs-emphasis { color: #d4d4d4; font-style: italic; }
+        .vs-code-text .hljs-formula { color: #d4d4d4; }
+        .vs-code-text .hljs-link { color: #9cdcfe; }
+        .vs-code-text .hljs-quote { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-tag { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-id { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-class { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-attr { color: #d4d4d4; }
+        .vs-code-text .hljs-selector-pseudo { color: #d4d4d4; }
+        .vs-code-text .hljs-template-tag { color: #d4d4d4; }
+        .vs-code-text .hljs-template-variable { color: #d4d4d4; }
+        .vs-code-text .hljs-addition { color: #d4d4d4; }
+        .vs-code-text .hljs-deletion { color: #d4d4d4; }
+        
+        /* Java特定颜色 */
+        .language-java .vs-code-text .hljs-keyword { color: #569cd6; font-weight: bold; }
+        .language-java .vs-code-text .hljs-class { color: #4ec9b0; }
+        .language-java .vs-code-text .hljs-title { color: #4ec9b0; }
+        .language-java .vs-code-text .hljs-function { color: #dcdcaa; }
+        .language-java .vs-code-text .hljs-string { color: #ce9178; }
+        .language-java .vs-code-text .hljs-comment { color: #6a9955; }
+        .language-java .vs-code-text .hljs-number { color: #b5cea8; }
+        .language-java .vs-code-text .hljs-params { color: #9cdcfe; }
+      `;
+      
+      styleElement.textContent = css;
+      document.head.appendChild(styleElement);
+    },
+    // + 新增：获取团队列表
+    fetchTeamList() {
+      listMy_team().then(response => { // Corrected function call
+        if (response.code === 200) {
+          if (response.rows && response.rows.length > 0) {
+            this.teamList = response.rows;
+            // 尝试从localStorage获取上次选择的团队ID
+            const lastSelectedTeamId = localStorage.getItem('ai-chat-last-selected-team');
+            if (lastSelectedTeamId && this.teamList.some(team => String(team.teamId) === String(lastSelectedTeamId))) {
+              this.selectedTeamId = String(lastSelectedTeamId); // 确保使用字符串进行比较和赋值
+            } else {
+              // 确保 this.teamList[0] 存在
+              if (this.teamList.length > 0 && this.teamList[0]) {
+                this.selectedTeamId = String(this.teamList[0].teamId); // 默认选择第一个团队, 确保是字符串
+                localStorage.setItem('ai-chat-last-selected-team', this.selectedTeamId);
+              } else {
+                // 如果 teamList 为空数组或者第一个元素是 undefined/null
+                this.selectedTeamId = null;
+                // 这种情况理论上已经被外层的 else if (response.rows && response.rows.length > 0) 覆盖
+                // 但作为防御性编程保留
+                this.$message.warning('获取到的团队列表为空，AI问答功能可能无法使用或受限。');
+              }
+            }
+          } else { // code === 200 但是 rows 为空或不存在
+            this.teamList = [];
+            this.selectedTeamId = null; // 没有团队则设为null
+            this.$message.warning('您尚未加入任何团队，AI问答功能可能无法使用或受限。');
+          }
+        } else { // code !== 200，请求本身失败
+          this.teamList = [];
+          this.selectedTeamId = null;
+          this.$message.error(response.msg || '获取团队列表失败');
+        }
+      }).catch(error => {
+        this.teamList = [];
+        this.selectedTeamId = null;
+        console.error('获取团队列表失败:', error);
+        this.$message.error('无法连接到服务器获取团队列表，请稍后再试。');
+      });
+    },
+    // 检查认证并初始化会话
+    checkAuthAndInitSessions() {
+      if (!getToken()) {
+        this.$message.error('您未登录或登录已过期，请重新登录');
+        // 可以选择跳转到登录页
+        // this.$router.push('/login'); 
+        return;
+      }
+      
+      // 加载会话列表
+      this.loadSessionList();
+    },
+    
+    // 切换会话
+    switchSession(sessionId) {
+      if (this.sessionId === sessionId || this.loading) return;
+      
+      // 重置状态
+      this.messages = [];
+      this.currentStreamingMessage = null;
+      this.streamingResponse = false;
+      
+      this.sessionId = sessionId;
+      this.loading = true;
+      
+      // 保存最后使用的会话ID
+      localStorage.setItem('ai-chat-last-session', sessionId);
+      
+      // 加载会话消息
+      this.loadChatHistory();
+    },
+    
+    // 创建新会话
+    createNewSession() {
+      if (this.loading) return;
+      
+      // 先重置当前状态
+      this.messages = [];
+      this.currentStreamingMessage = null;
+      this.streamingResponse = false;
+      
+      this.loading = true;
+      createSession().then(response => {
+        if (response.code === 200) {
+          const newSessionId = response.data.sessionId;
+          
+          // 添加到会话列表
+          const newSession = {
+            id: newSessionId,
+            title: '新对话',
+            createTime: new Date().toISOString()
+          };
+          
+          this.sessionList.unshift(newSession);
+          // this.saveSessionList(); // 移除对localStorage的保存
+          
+          // 设置为当前会话
+          this.sessionId = newSessionId;
+          
+          // 保存最后使用的会话ID
+          localStorage.setItem('ai-chat-last-session', newSessionId);
+          
+          this.$message.success('已创建新会话');
+          this.loading = false;
+        } else {
+          this.$message.error(response.msg || '创建会话失败');
+          this.loading = false;
+        }
+      }).catch(error => {
+        console.error('创建会话失败:', error);
+        this.$message.error('无法连接到服务器，请稍后再试');
+        this.loading = false;
+      });
+    },
+    
+    // 确认删除会话
+    confirmDeleteSession(sessionId) {
+      this.$confirm('确定要删除这个会话吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        this.deleteSessionById(sessionId);
+      }).catch(() => {});
+    },
+    
+    // 删除会话
+    deleteSessionById(sessionId) {
+      if (this.loading) return;
+      
+      this.loading = true;
+      deleteSession(sessionId).then(() => {
+        // 从会话列表中移除
+        const index = this.sessionList.findIndex(s => s.id === sessionId);
+        if (index !== -1) {
+          this.sessionList.splice(index, 1);
+          // this.saveSessionList(); // 移除对localStorage的保存
+        }
+        
+        // 如果删除的是当前会话，切换到另一个会话
+        if (this.sessionId === sessionId) {
+          localStorage.removeItem('ai-chat-last-session'); // 清除被删除的会话ID
+          if (this.sessionList.length > 0) {
+            // 切换到列表中的第一个会话
+            this.switchSession(this.sessionList[0].id); 
+          } else {
+            // 如果没有其他会话了，则创建一个新的
+            this.sessionId = null;
+            this.messages = [];
+            this.createNewSession(); // 创建新会话会设置loading=false
+          }
+        } else {
+          this.loading = false;
+        }
+        
+        this.$message.success('会话已删除');
+      }).catch(error => {
+        console.error('删除会话失败:', error);
+        this.$message.error('删除会话失败，请稍后再试');
+        this.loading = false;
+      });
+    },
+    
+    // 保存会话列表到本地存储 (此方法不再需要，将被移除)
+    // saveSessionList() {
+    //   localStorage.setItem('ai-chat-sessions', JSON.stringify(this.sessionList));
+    // },
+    
+    // 更新会话标题
+    updateSessionTitle(sessionId, firstMessage) {
+      // 使用第一条用户消息作为会话标题
+      if (!firstMessage || !sessionId) return;
+      
+      const session = this.sessionList.find(s => s.id === sessionId);
+      if (session && session.title === '新对话') {
+        // 截取前20个字符作为标题
+        let title = firstMessage.trim();
+        if (title.length > 20) {
+          title = title.substring(0, 20) + '...';
+        }
+        session.title = title;
+        // this.saveSessionList(); // 移除对localStorage的保存
+      }
+    },
+    
+    // 加载聊天历史
+    loadChatHistory() {
+      if (!this.sessionId) {
+        this.loading = false;
+        return;
+      }
+      
+      // 重置当前状态
+      this.messages = [];
+      this.currentStreamingMessage = null;
+      this.streamingResponse = false;
+      
+      getChatHistory(this.sessionId).then(response => {
+        if (response.code === 200) {
+          const historyMessages = response.data.messages || [];
+          
+          // 将历史消息转换为前端消息格式
+          historyMessages.forEach(msg => {
+            this.messages.push({
+              type: msg.role === 'user' ? 'user' : 'ai',
+              content: msg.content,
+              time: new Date(msg.createTime)
+            });
+          });
+          
+          // 更新会话标题和可能的创建时间
+          const currentSessionInList = this.sessionList.find(s => s.id === this.sessionId);
+          if (currentSessionInList && historyMessages.length > 0) {
+            // 使用第一条消息的创建时间更新会话的 createTime，使其更准确
+            if (historyMessages[0].createTime) {
+              // 只有当初始的createTime是占位符时才更新，或者总是更新
+              // 这里我们假设如果后端有createTime就用它
+              currentSessionInList.createTime = new Date(historyMessages[0].createTime).toISOString();
+            }
+
+            const firstUserMessage = historyMessages.find(msg => msg.role === 'user');
+            if (firstUserMessage) {
+              this.updateSessionTitle(this.sessionId, firstUserMessage.content);
+            } else if (currentSessionInList.title === '新对话' && historyMessages[0] && historyMessages[0].content) {
+              // 如果没有用户消息，但有AI消息，且标题是默认的，可以尝试用AI消息更新
+              let aiTitle = historyMessages[0].content.substring(0, 20);
+              if (historyMessages[0].content.length > 20) aiTitle += "...";
+              this.updateSessionTitle(this.sessionId, `AI: ${aiTitle}`);
+            }
+          }
+          
+          this.$nextTick(() => {
+            this.scrollToBottom();
+          });
+        } else {
+          this.$message.error(response.msg || '获取聊天历史失败');
+        }
+        this.loading = false;
+      }).catch(error => {
+        console.error('获取聊天历史失败:', error);
+        this.$message.error('无法连接到服务器，请稍后再试');
+        this.loading = false;
+      });
+    },
+    
+    // 清空当前对话
+    clearCurrentChat() {
+      if (!this.sessionId || this.messages.length === 0) return;
+      
+      this.$confirm('确定要清空当前对话内容吗?', '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(() => {
+        // 清空API目前没有，这里只清空前端messages和重置标题
+        this.messages = []; 
+        this.$message.success('对话内容已清空');
+        
+        // 重置会话标题
+        const session = this.sessionList.find(s => s.id === this.sessionId);
+        if (session) {
+          session.title = '新对话';
+          // this.saveSessionList(); // 移除对localStorage的保存
+        }
+      }).catch(() => {});
+    },
+    
+    // 发送消息
+    sendMessage() {
+      if (!this.userInput.trim() || this.loading || !this.sessionId) return;
+      // + 新增：检查是否已选择团队
+      if (!this.selectedTeamId) {
+        this.$message.warning('请先选择一个知识库（团队）才能提问');
+        return;
+      }
+      
+      // 添加用户消息
+      const userMessage = {
+        type: 'user',
+        content: this.userInput,
+        time: new Date()
+      };
+      this.messages.push(userMessage);
+      
+      // 更新会话标题（如果是第一条消息）
+      if (this.messages.length === 1 || (this.messages.length === 2 && this.messages[0].type === 'ai')) {
+        this.updateSessionTitle(this.sessionId, this.userInput);
+      }
+      
+      const question = this.userInput;
+      this.userInput = '';
+      
+      // 滚动到底部
+      this.$nextTick(() => {
+        this.scrollToBottom();
+      });
+      
+      // 设置加载状态
+      this.loading = true;
+      
+      // 使用流式API发送请求
+      this.sendStreamChatRequest(question);
+    },
+    
+    // 发送流式聊天请求
+    sendStreamChatRequest(question) {
+      // 检查认证状态
+      if (!getToken()) {
+        this.$message.error('您未登录或登录已过期，请重新登录');
+        this.loading = false;
+        return;
+      }
+      // + 新增：检查是否已选择团队
+      if (!this.selectedTeamId) {
+        this.$message.error('发送失败，请先选择一个知识库（团队）');
+        this.loading = false; // 确保重置加载状态
+        return;
+      }
+      
+      // 确保在请求开始时，currentStreamingMessage 为 null 并且没有预先添加AI消息
+      // this.currentStreamingMessage = null; // 应该在 onComplete 或 onError 中被设为null，或者在切换会话时
+                                          // 确保没有在这里错误地初始化或添加消息到 this.messages
+
+      const requestData = {
+        prompt: question,
+        sessionId: this.sessionId,
+        teamId: this.selectedTeamId, // + 新增：将选中的团队ID发送给后端
+        options: {} // 如果后端需要其他参数，可以在这里添加
+      };
+      
+      // 定义消息处理函数
+      const onMessage = (content) => {
+        if (!this.streamingResponse) { 
+          this.streamingResponse = true; // 首先改变状态，这将隐藏打字动画
+          
+          // 仅在此时创建并添加新的AI消息对象到messages数组
+          const aiMessage = {
+            type: 'ai',
+            content: '',
+            time: new Date() // 时间戳为第一条回复到达的时间
+          };
+          this.messages.push(aiMessage);
+          this.currentStreamingMessage = aiMessage; // 设置当前正在流式处理的消息
+        }
+        
+        // 确保 currentStreamingMessage 存在才尝试添加内容
+        if (this.currentStreamingMessage) {
+          try {
+            const jsonContent = JSON.parse(content);
+            if (jsonContent.choices && jsonContent.choices[0] && jsonContent.choices[0].delta) {
+              const chunk = jsonContent.choices[0].delta.content || '';
+              if (chunk) {
+                this.currentStreamingMessage.content += chunk;
+              }
+            } else if (jsonContent.content !== undefined) {
+              this.currentStreamingMessage.content += jsonContent.content;
+            } else if (typeof content === 'string' && content.trim()) {
+              this.currentStreamingMessage.content += content;
+            }
+          } catch (e) {
+            if (typeof content === 'string' && content.trim()) {
+              this.currentStreamingMessage.content += content;
+            }
+          }
+        } else {
+          // 如果 currentStreamingMessage 因为某些原因仍为null (理论上不应发生在此流程中)
+          // 可以考虑记录一个警告或错误
+          console.warn('currentStreamingMessage is null when trying to append content.');
+        }
+        
+        this.$nextTick(() => {
+          this.scrollToBottom();
+        });
+      };
+      
+      // 定义错误处理函数
+      const onError = (error) => {
+        this.handleError('网络错误，无法连接到服务器: ' + error.message);
+        this.streamingResponse = false;
+        this.loading = false;
+      };
+      
+      // 定义完成回调函数
+      const onComplete = () => {
+        this.streamingResponse = false;
+        this.loading = false;
+        this.currentStreamingMessage = null;
+      };
+      
+      // 发送流式聊天请求
+      sendStreamChatMessage(requestData, onMessage, onError, onComplete);
+    },
+    
+    // 处理错误
+    handleError(errorMsg) {
+      this.error = errorMsg;
+      this.$message.error(errorMsg);
+      this.loading = false;
+      this.streamingResponse = false;
+      
+      // 如果当前有流式消息但内容为空，则添加错误信息
+      if (this.currentStreamingMessage && !this.currentStreamingMessage.content) {
+        this.currentStreamingMessage.content = `抱歉，出现了一个错误: ${errorMsg}`;
+      } else {
+        // 否则添加新的错误消息
+        this.messages.push({
+          type: 'ai',
+          content: `抱歉，出现了一个错误: ${errorMsg}`,
+          time: new Date()
+        });
+      }
+    },
+    
+    // 格式化消息内容，支持Markdown
+    formatMessage(content) {
+      if (!content) return '';
+      
+      try {
+        // 预处理代码块
+        let processedContent = this.preprocessCodeBlocks ? this.preprocessCodeBlocks(content) : content;
+        
+        // 使用marked处理markdown
+        const html = marked(processedContent);
+        
+        // 创建一个临时元素来解析HTML
+        const tempElement = document.createElement('div');
+        tempElement.innerHTML = html;
+        
+        // 处理pre元素，应用VS Code风格
+        const preElements = tempElement.querySelectorAll('pre');
+        preElements.forEach(pre => {
+          const codeElement = pre.querySelector('code');
+          if (codeElement) {
+            this.buildVSCodeStyleBlock(pre, codeElement);
+          }
+        });
+        
+        // 返回处理后的HTML
+        return tempElement.innerHTML;
+      } catch (error) {
+        console.error('格式化消息出错:', error);
+        return content;
+      }
+    },
+    
+    // 复制文本到剪贴板
+    copyToClipboard(text) {
+      if (!text) {
+        this.$message.error('没有可复制的内容');
+        return;
+      }
+      
+      // 创建临时文本区域
+      const textarea = document.createElement('textarea');
+      textarea.value = text.trim();
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      textarea.style.top = '-9999px';
+      document.body.appendChild(textarea);
+      
+      try {
+        // 选择文本并复制
+        textarea.select();
+        textarea.setSelectionRange(0, 99999);
+        const successful = document.execCommand('copy');
+        
+        if (successful) {
+          // 显示成功消息
+          this.$message({
+            message: '代码已复制到剪贴板',
+            type: 'success',
+            duration: 1500,
+            customClass: 'code-copy-message'
+          });
+          
+          // 显示复制成功动画
+          this.showCopyAnimation();
+        } else {
+          this.$message.error('复制失败，请手动复制');
+        }
+      } catch (err) {
+        console.error('复制失败:', err);
+        this.$message.error('复制失败: ' + err);
+      } finally {
+        // 移除临时文本区域
+        document.body.removeChild(textarea);
+      }
+    },
+    
+    // 显示复制成功动画
+    showCopyAnimation() {
+      // 创建动画元素
+      const animation = document.createElement('div');
+      animation.className = 'copy-success-animation';
+      animation.innerHTML = '<i class="el-icon-check"></i>';
+      document.body.appendChild(animation);
+      
+      // 使用setTimeout允许DOM渲染
+      setTimeout(() => {
+        animation.classList.add('show');
+      }, 10);
+      
+      // 动画结束后移除元素
+      setTimeout(() => {
+        animation.classList.remove('show');
+        setTimeout(() => {
+          if (document.body.contains(animation)) {
+            document.body.removeChild(animation);
+          }
+        }, 300);
+      }, 1500);
+    },
+    
+    // 预处理代码块
+    preprocessCodeBlocks(content) {
+      if (!content) return '';
+
+      // 已经包含Markdown代码块的不需要处理
+      if (content.includes('```')) return content;
+      
+      // 检查是否是Java样例代码（常见的错误情况）
+      if (content.includes('// HelloWorld.java') && content.includes('public class HelloWorld')) {
+        return "```java\n" + content + "\n```";
+      }
+      
+      let processedContent = content;
+      
+      // 常见编程语言的特征模式
+      const codePatterns = {
+        java: [
+          /public\s+class\s+\w+/,
+          /public\s+static\s+void\s+main/,
+          /import\s+java\./,
+          /public\s+static\s+void\s+\w+\s*\(/,
+          /private\s+\w+\s+\w+\s*\(/
+        ],
+        javascript: [
+          /function\s+\w+\s*\(/,
+          /const\s+\w+\s*=/,
+          /let\s+\w+\s*=/,
+          /var\s+\w+\s*=/,
+          /export\s+default/,
+          /import\s+.*\s+from/,
+          /^\s*\w+\.\w+\s*\(/m
+        ],
+        python: [
+          /def\s+\w+\s*\(/,
+          /import\s+\w+/,
+          /from\s+\w+\s+import/,
+          /class\s+\w+\s*\(/,
+          /class\s+\w+:/
+        ],
+        html: [
+          /<html/i,
+          /<body/i,
+          /<div/i,
+          /<script/i,
+          /<\/\w+>/i
+        ],
+        css: [
+          /\w+\s*{\s*[\w\-]+\s*:/,
+          /\.\w+\s*{/,
+          /#\w+\s*{/,
+          /@media\s+/,
+          /@import\s+/
+        ],
+        sql: [
+          /SELECT\s+.*\s+FROM/i,
+          /INSERT\s+INTO/i,
+          /UPDATE\s+.*\s+SET/i,
+          /DELETE\s+FROM/i,
+          /CREATE\s+TABLE/i
+        ]
+      };
+      
+      // 检测代码语言
+      let detectedLanguage = null;
+      let highestMatches = 0;
+      
+      Object.entries(codePatterns).forEach(([lang, patterns]) => {
+        const matches = patterns.filter(pattern => pattern.test(content)).length;
+        if (matches > highestMatches) {
+          highestMatches = matches;
+          detectedLanguage = lang;
+        }
+      });
+      
+      // 如果匹配度不够高，可能不是代码
+      if (highestMatches < 2) {
+        return content;
+      }
+      
+      // 处理代码块
+      if (detectedLanguage) {
+        try {
+          // 通用格式化（添加换行和缩进）
+          processedContent = this.formatCodeByLanguage(processedContent, detectedLanguage);
+          
+          // 检测是否有多个代码块（用"---"分隔）
+          if (content.includes('---')) {
+            return this.processSplitCodeSections(content, codePatterns);
+          } else {
+            // 将格式化后的代码包装在Markdown代码块中
+            processedContent = "```" + detectedLanguage + "\n" + processedContent + "\n```";
+          }
+        } catch (e) {
+          console.error('代码格式化失败:', e);
+        }
+      }
+
+      return processedContent;
+    },
+    
+    // 根据编程语言格式化代码
+    formatCodeByLanguage(code, language) {
+      switch(language) {
+        case 'java':
+          return this.formatJavaCode(code);
+        case 'javascript':
+          return this.formatJavascriptCode(code);
+        case 'python':
+          return this.formatPythonCode(code);
+        case 'html':
+          return this.formatHtmlCode(code);
+        case 'css':
+          return this.formatCssCode(code);
+        case 'sql':
+          return this.formatSqlCode(code);
+        default:
+          return code;
+      }
+    },
+    
+    // 格式化Java代码
+    formatJavaCode(code) {
+      return code
+        .replace(/public/g, "\npublic ")
+        .replace(/private/g, "\nprivate ")
+        .replace(/protected/g, "\nprotected ")
+        .replace(/class\s+/g, "class ")
+        .replace(/for\s*\(/g, "for (")
+        .replace(/if\s*\(/g, "if (")
+        .replace(/else\s*{/g, "else {")
+        .replace(/\)\s*{/g, ") {")
+        .replace(/;\s*/g, ";\n")
+        .replace(/}\s*/g, "}\n")
+        .replace(/{\s*/g, "{\n  ")
+        .replace(/\s{2,}/g, "  ")
+        .replace(/import\s+/g, "import ")
+        .replace(/package\s+/g, "package ");
+    },
+    
+    // 格式化JavaScript代码
+    formatJavascriptCode(code) {
+      return code
+        .replace(/function\s+/g, "\nfunction ")
+        .replace(/const\s+/g, "\nconst ")
+        .replace(/let\s+/g, "\nlet ")
+        .replace(/var\s+/g, "\nvar ")
+        .replace(/for\s*\(/g, "for (")
+        .replace(/if\s*\(/g, "if (")
+        .replace(/else\s*{/g, "else {")
+        .replace(/\)\s*{/g, ") {")
+        .replace(/;\s*/g, ";\n")
+        .replace(/}\s*/g, "}\n")
+        .replace(/{\s*/g, "{\n  ")
+        .replace(/\s{2,}/g, "  ")
+        .replace(/import\s+/g, "import ")
+        .replace(/export\s+/g, "export ");
+    },
+    
+    // 格式化Python代码
+    formatPythonCode(code) {
+      return code
+        .replace(/def\s+/g, "\ndef ")
+        .replace(/class\s+/g, "\nclass ")
+        .replace(/import\s+/g, "\nimport ")
+        .replace(/from\s+/g, "\nfrom ")
+        .replace(/:\s*/g, ":\n  ")
+        .replace(/if\s+/g, "\nif ")
+        .replace(/elif\s+/g, "\nelif ")
+        .replace(/else\s*:/g, "\nelse:")
+        .replace(/for\s+/g, "\nfor ")
+        .replace(/while\s+/g, "\nwhile ")
+        .replace(/try\s*:/g, "\ntry:")
+        .replace(/except\s+/g, "\nexcept ")
+        .replace(/finally\s*:/g, "\nfinally:")
+        .replace(/\n\s*\n/g, "\n\n");
+    },
+    
+    // 格式化HTML代码
+    formatHtmlCode(code) {
+      return code
+        .replace(/</g, "\n<")
+        .replace(/>/g, ">\n")
+        .replace(/\n\s*\n/g, "\n");
+    },
+    
+    // 格式化CSS代码
+    formatCssCode(code) {
+      return code
+        .replace(/{/g, " {\n  ")
+        .replace(/}/g, "\n}\n")
+        .replace(/;/g, ";\n  ")
+        .replace(/\n\s*\n/g, "\n");
+    },
+    
+    // 格式化SQL代码
+    formatSqlCode(code) {
+      return code
+        .replace(/SELECT/ig, "\nSELECT")
+        .replace(/FROM/ig, "\nFROM")
+        .replace(/WHERE/ig, "\nWHERE")
+        .replace(/ORDER BY/ig, "\nORDER BY")
+        .replace(/GROUP BY/ig, "\nGROUP BY")
+        .replace(/HAVING/ig, "\nHAVING")
+        .replace(/JOIN/ig, "\nJOIN")
+        .replace(/INSERT/ig, "\nINSERT")
+        .replace(/UPDATE/ig, "\nUPDATE")
+        .replace(/DELETE/ig, "\nDELETE")
+        .replace(/CREATE/ig, "\nCREATE")
+        .replace(/DROP/ig, "\nDROP")
+        .replace(/ALTER/ig, "\nALTER")
+        .replace(/;/g, ";\n");
+    },
+    
+    // 处理分段代码块
+    processSplitCodeSections(content, codePatterns) {
+      const sections = content.split('---');
+      
+      // 处理每个部分
+      return sections.map(section => {
+        // 检测代码语言
+        let sectionLanguage = null;
+        let highestMatches = 0;
+        
+        Object.entries(codePatterns).forEach(([lang, patterns]) => {
+          const matches = patterns.filter(pattern => pattern.test(section)).length;
+          if (matches > highestMatches) {
+            highestMatches = matches;
+            sectionLanguage = lang;
+          }
+        });
+        
+        if (highestMatches < 2) {
+          return section; // 可能不是代码
+        }
+        
+        // 查找可能的标题
+        const titleMatch = section.match(/#{1,6}\s*(.+?)(?:\n|$)/);
+        const title = titleMatch ? titleMatch[0] : '';
+        
+        // 分离标题和代码
+        let code = titleMatch ? section.replace(titleMatch[0], '') : section;
+        
+        // 格式化代码
+        if (sectionLanguage) {
+          try {
+            code = this.formatCodeByLanguage(code, sectionLanguage);
+            return title + "\n```" + sectionLanguage + "\n" + code.trim() + "\n```";
+          } catch (e) {
+            console.error('部分代码格式化失败:', e);
+            return section;
+          }
+        } else {
+          return section;
+        }
+      }).join("\n\n");
+    },
+    
+    // 格式化时间
+    formatTime(time) {
+      return parseTime(time, '{h}:{i}');
+    },
+    
+    // 滚动到聊天窗口底部
+    scrollToBottom() {
+      const container = this.$refs.messagesContainer;
+      if (container) {
+        container.scrollTop = container.scrollHeight;
+      }
+    },
+    
+    // 获取缓存中的用户头像 (保留此方法作为备用)
+    getCache(key) {
+      const userInfo = this.$store.getters.userInfo;
+      return userInfo && userInfo.avatar ? process.env.VUE_APP_BASE_API + userInfo.avatar : '';
+    },
+    
+    // 格式化日期
+    formatDate(dateString) {
+      if (!dateString) return '';
+      
+      const date = new Date(dateString);
+      const now = new Date();
+      const diff = now - date;
+      
+      // 今天的消息只显示时间
+      if (diff < 24 * 60 * 60 * 1000 && 
+          date.getDate() === now.getDate() &&
+          date.getMonth() === now.getMonth() &&
+          date.getFullYear() === now.getFullYear()) {
+        return parseTime(date, '{h}:{i}');
+      }
+      
+      // 一周内的消息显示星期几
+      if (diff < 7 * 24 * 60 * 60 * 1000) {
+        const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+        return days[date.getDay()];
+      }
+      
+      // 其他情况显示完整日期
+      return parseTime(date, '{y}-{m}-{d}');
+    },
+    
+    // 为代码块添加工具栏、复制按钮和行号 - 全新实现
+    addCopyButtonsToCodeBlocks() {
+      // 注入样式表
+      this.injectCodeBlockStyles();
+      
+      // 确保DOM已经渲染完成
+      setTimeout(() => {
+        // 选择所有的pre元素
+        const preElements = document.querySelectorAll('.message-content pre');
+        
+        // 为每个pre元素添加工具栏和行号
+        preElements.forEach((pre) => {
+          // 如果已经处理过，跳过
+          if (pre.classList.contains('vs-code-processed')) return;
+          
+          // 标记为已处理
+          pre.classList.add('vs-code-processed');
+          
+          // 获取代码元素
+          const codeElement = pre.querySelector('code');
+          if (!codeElement) return;
+          
+          // 重新构建整个代码块结构
+          this.buildVSCodeStyleBlock(pre, codeElement);
+        });
+      }, 100);
+    },
+    
+    // 构建VS Code风格的代码块
+    buildVSCodeStyleBlock(pre, codeElement) {
+      // 确保首先注入样式
+      this.injectCodeBlockStyles();
+      
+      // 获取原始代码和语言
+      const code = codeElement.textContent;
+      let language = '';
+      
+      // 从class中提取语言
+      if (codeElement.className) {
+        const match = codeElement.className.match(/language-(\w+)/);
+        if (match) {
+          language = match[1];
+        }
+      }
+
+      // 获取高亮后的HTML
+      const highlightedHtml = codeElement.innerHTML;
+      
+      // 统计代码行数
+      const lineCount = code.split('\n').length;
+      
+      // 创建主容器
+      const container = document.createElement('div');
+      container.className = 'vs-code-container';
+      if (language) {
+        container.classList.add(`language-${language}`);
+        container.setAttribute('data-language', language);
+      }
+      
+      // 创建头部（包含语言标签和工具栏）
+      const header = document.createElement('div');
+      header.className = 'vs-code-header';
+      
+      // 语言标签
+      const langLabel = document.createElement('div');
+      langLabel.className = 'vs-code-lang';
+      langLabel.textContent = language ? language.toUpperCase() : 'TEXT';
+      header.appendChild(langLabel);
+      
+      // 工具栏 - 使用简单的HTML字符串
+      header.innerHTML += `
+        <div class="vs-code-toolbar">
+          <button class="vs-code-btn vs-code-copy-btn" title="复制代码">
+            <i class="el-icon-document-copy"></i>
+          </button>
+          <button class="vs-code-btn vs-code-download-btn" title="下载代码">
+            <i class="el-icon-download"></i>
+          </button>
+        </div>
+      `;
+      
+      container.appendChild(header);
+      
+      // 创建内容区域（行号+代码）
+      const content = document.createElement('div');
+      content.className = 'vs-code-content';
+      
+      // 创建行号区域
+      const lineNumbers = document.createElement('div');
+      lineNumbers.className = 'vs-code-line-numbers';
+      
+      // 添加行号
+      for (let i = 1; i <= lineCount; i++) {
+        const lineNumber = document.createElement('div');
+        lineNumber.className = 'vs-code-line-number';
+        lineNumber.textContent = i;
+        lineNumbers.appendChild(lineNumber);
+      }
+      
+      content.appendChild(lineNumbers);
+      
+      // 创建代码文本区域
+      const textArea = document.createElement('div');
+      textArea.className = 'vs-code-text';
+      
+      // 分割高亮后的HTML为行
+      const lines = this.splitHighlightedCode(highlightedHtml, lineCount);
+      
+      // 添加每一行代码
+      lines.forEach(line => {
+        const codeLine = document.createElement('div');
+        codeLine.className = 'vs-code-line';
+        codeLine.innerHTML = line || ' '; // 确保空行也显示
+        textArea.appendChild(codeLine);
+      });
+      
+      content.appendChild(textArea);
+      container.appendChild(content);
+      
+      // 添加右上角的复制按钮 - 使用简单的HTML
+      const cornerCopyBtn = document.createElement('button');
+      cornerCopyBtn.className = 'vs-code-corner-copy-btn';
+      cornerCopyBtn.innerHTML = '<i class="el-icon-document-copy"></i> 复制代码';
+      cornerCopyBtn.title = '复制代码';
+      container.appendChild(cornerCopyBtn);
+      
+      // 替换原来的pre标签
+      pre.parentNode.replaceChild(container, pre);
+    },
+    
+    // 将高亮后的HTML分割为行
+    splitHighlightedCode(html, lineCount) {
+      // 如果html为空，返回空行数组
+      if (!html.trim()) {
+        return Array(lineCount).fill('');
+      }
+      
+      // 将HTML按换行符分割
+      let lines = html.split('\n');
+      
+      // 调整行数以匹配原始代码的行数
+      if (lines.length < lineCount) {
+        // 如果行数不足，添加空行
+        lines = lines.concat(Array(lineCount - lines.length).fill(''));
+      } else if (lines.length > lineCount) {
+        // 如果行数过多，截断多余的行
+        lines = lines.slice(0, lineCount);
+      }
+      
+      return lines;
+    },
+    
+    // 复制代码到剪贴板
+    copyCodeToClipboard(code, container) {
+      if (!code || typeof code !== 'string') {
+        this.$message.error('没有可复制的内容');
+        return;
+      }
+      
+      try {
+        // 现代浏览器API - navigator.clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code.trim())
+            .then(() => {
+              // 添加复制成功的动画效果
+              container.classList.add('vs-code-copied');
+              setTimeout(() => {
+                container.classList.remove('vs-code-copied');
+              }, 1000);
+              
+              // 显示提示信息
+              this.$message.success('代码已复制到剪贴板');
+            })
+            .catch(err => {
+              console.error('使用Clipboard API复制失败:', err);
+              // 回退到传统方法
+              this.fallbackCopy(code, container);
+            });
+        } else {
+          // 回退到传统方法
+          this.fallbackCopy(code, container);
+        }
+      } catch (error) {
+        console.error('复制失败:', error);
+        this.$message.error('复制失败: ' + error.message);
+      }
+    },
+    
+    // 兼容老浏览器的复制方法
+    fallbackCopy(code, container) {
+      // 创建临时文本区域
+      const textarea = document.createElement('textarea');
+      textarea.value = code.trim();
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      // 确保元素在视区内，某些浏览器要求
+      textarea.style.top = '0';
+      textarea.style.left = '0';
+      
+      document.body.appendChild(textarea);
+      
+      try {
+        // 选择文本
+        textarea.focus();
+        textarea.select();
+        
+        // 尝试复制
+        const successful = document.execCommand('copy');
+        
+        if (successful) {
+          // 添加复制成功的动画效果
+          container.classList.add('vs-code-copied');
+          setTimeout(() => {
+            container.classList.remove('vs-code-copied');
+          }, 1000);
+          
+          // 显示提示信息
+          this.$message.success('代码已复制到剪贴板');
+        } else {
+          this.$message.error('复制失败，请手动复制');
+        }
+      } catch (err) {
+        console.error('execCommand复制失败:', err);
+        this.$message.error('复制失败，请手动复制');
+      } finally {
+        // 移除临时文本区域
+        document.body.removeChild(textarea);
+      }
+    },
+    
+    // 下载代码文件
+    downloadCode(code, language) {
+      if (!code || typeof code !== 'string') {
+        this.$message.error('没有可下载的内容');
+        return;
+      }
+      
+      try {
+        // 确定文件扩展名
+        const extensions = {
+          java: '.java',
+          javascript: '.js',
+          js: '.js',
+          typescript: '.ts',
+          ts: '.ts',
+          html: '.html',
+          css: '.css',
+          python: '.py',
+          py: '.py',
+          ruby: '.rb',
+          php: '.php',
+          go: '.go',
+          rust: '.rs',
+          c: '.c',
+          cpp: '.cpp',
+          'c++': '.cpp',
+          csharp: '.cs',
+          'c#': '.cs',
+          swift: '.swift',
+          kotlin: '.kt',
+          scala: '.scala',
+          perl: '.pl',
+          bash: '.sh',
+          shell: '.sh',
+          sql: '.sql',
+          json: '.json',
+          xml: '.xml',
+          yaml: '.yml',
+          markdown: '.md',
+          md: '.md'
+        };
+        
+        // 默认扩展名
+        const ext = extensions[language ? language.toLowerCase() : ''] || '.txt';
+        
+        // 创建Blob对象
+        const blob = new Blob([code.trim()], { type: 'text/plain' });
+        
+        // 创建下载链接
+        const a = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.download = `code-snippet${ext}`;
+        
+        // 添加到DOM以便在Firefox等浏览器触发下载
+        document.body.appendChild(a);
+        
+        // 模拟点击
+        a.click();
+        
+        // 给浏览器一些时间来处理下载
+        setTimeout(() => {
+          // 清理
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+          
+          // 显示提示信息
+          this.$message.success(`代码已下载为 code-snippet${ext}`);
+        }, 100);
+      } catch (error) {
+        console.error('下载失败:', error);
+        this.$message.error('下载失败: ' + error.message);
+      }
+    },
+    
+    // 处理团队选择变化
+    handleTeamChange(newTeamId) { // newTeamId will be a string from el-select
+      // this.selectedTeamId is already updated by v-model to newTeamId.
+      
+      const selectedTeam = this.teamList.find(team => String(team.teamId) === newTeamId);
+      if (selectedTeam) {
+        this.$message.info(`知识库已切换到: ${selectedTeam.name}`);
+      }
+      localStorage.setItem('ai-chat-last-selected-team', newTeamId); // Store as string
+      
+      // 可在此处添加切换团队后需要的其他逻辑, 例如:
+      // this.messages = [];
+      // this.userInput = '';
+      // if (this.sessionId) {
+      //   this.loadChatHistory(); // 或者调用特定方法以适应新的团队上下文
+      // }
     }
   }
 }
@@ -2184,15 +6020,92 @@ export default {
   padding: 16px 20px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: center; // Vertically align session-details and header-actions
   border-bottom: 1px solid #eaeaea;
+  min-height: 70px; // Ensure enough height for two lines if title wraps
+
+  .session-details {
+    display: flex;
+    flex-direction: column; 
+    align-items: flex-start; 
+    gap: 8px; 
+    flex-grow: 1; // Allow this section to take available space
+    min-width: 0; // Prevent overflow issues with long titles
+  }
   
-  h2 {
+  .session-title-text { // Moved out of .current-session-info if that class is removed
     margin: 0;
     font-size: 16px;
     font-weight: 600;
     color: #303133;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    // max-width: 200px; // Consider removing if flex-grow handles width well or adjust based on layout
   }
+
+  // .current-session-info and .team-selector might be removed or styles merged into new classes
+  // Ensure to remove or comment out their specific styles if they are no longer used
+  // For example:
+  // .current-session-info {
+  //   display: flex;
+  //   align-items: center;
+  //   gap: 15px; 
+  // }
+  // .team-selector { 
+  //    min-width: 150px; 
+  // }
+
+  .knowledge-base-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .kb-label {
+      font-size: 13px;
+      color: #525252; 
+      display: flex;
+      align-items: center;
+      gap: 5px; 
+      font-weight: 500;
+      i {
+        font-size: 16px;
+        color: #409EFF; 
+      }
+    }
+
+    .team-select-dropdown {
+      width: 220px; 
+      
+      :deep(.el-input__inner) { 
+        border-radius: 6px; 
+        border-color: #dcdfe6;
+        height: 32px; 
+        line-height: 32px;
+        font-size: 13px; // Match label font size for consistency
+        &:focus {
+          border-color: #409EFF;
+          box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);
+        }
+      }
+      :deep(.el-input__icon) {
+        line-height: 32px; 
+      }
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    flex-shrink: 0; // Prevent actions from shrinking
+  }
+
+  // h2 is now .session-title-text
+  // h2 {
+  //   margin: 0;
+  //   font-size: 16px;
+  //   font-weight: 600;
+  //   color: #303133;
+  // }
 }
 
 .header-actions {
@@ -2441,7 +6354,7 @@ export default {
   transition: all 0.3s;
   
   :deep(.el-textarea__inner) {
-    padding: 12px 45px 12px 16px;
+    padding: 12px 45px 12px 16px; // 调整右边距给发送按钮留空间
     resize: none;
     font-size: 14px;
     line-height: 1.5;
