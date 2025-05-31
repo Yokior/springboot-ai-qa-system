@@ -404,7 +404,7 @@ export default {
     
     // 导航方法
     goToQA() {
-      this.$router.push('/qa/index');
+      this.$router.push('/ai/chat');
     },
     
     goToKnowledgeBase() {
