@@ -72,6 +72,12 @@
             <groupId>com.yokior</groupId>
             <artifactId>yokior-ai</artifactId>
         </dependency>
+
+        <!-- 知识库模块-->
+        <dependency>
+            <groupId>com.yokior</groupId>
+            <artifactId>yokior-knowledge</artifactId>
+        </dependency>
     </dependencies>
 
     <build>

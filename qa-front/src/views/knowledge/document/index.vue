@@ -4,19 +4,43 @@
       <template #header>
         <div class="card-header">
           <span class="header-title">团队知识库 - 文档管理</span>
-          <el-select v-model="selectedTeamId" placeholder="请选择团队" @change="handleTeamChange" size="small" style="margin-left: 10px; margin-right: 10px;">
-            <el-option
-              v-for="item in teamList"
-              :key="item.teamId"
-              :label="item.name"
-              :value="item.teamId">
-            </el-option>
-          </el-select>
-          <el-button type="primary" @click="handleUpload" v-hasPerms="['knowledge:document:upload']" size="small" icon="el-icon-upload">
+          <el-button type="primary" @click="handleUpload" size="small" icon="el-icon-upload">
             上传文档
           </el-button>
         </div>
       </template>
+      
+      <!-- 团队选择区域 -->
+      <div class="team-selection-area">
+        <div class="section-title">选择团队</div>
+        <div class="team-cards-container">
+          <el-scrollbar class="team-scrollbar">
+            <div class="team-cards">
+              <div 
+                v-for="team in teamList" 
+                :key="team.teamId" 
+                class="team-card" 
+                :class="{ 'active': selectedTeamId === team.teamId }"
+                @click="selectTeam(team.teamId)"
+              >
+                <div class="team-avatar">
+                  <el-avatar 
+                    :size="40" 
+                    :src="getAvatarUrl(team.avatar)" 
+                    @error="() => avatarError(team)"
+                  >
+                    {{ team.name ? team.name.substring(0, 1).toUpperCase() : 'T' }}
+                  </el-avatar>
+                </div>
+                <div class="team-info">
+                  <div class="team-name">{{ team.name }}</div>
+                  <div class="team-role">{{ formatRole(team.role) }}</div>
+                </div>
+              </div>
+            </div>
+          </el-scrollbar>
+        </div>
+      </div>
       
       <el-tabs v-model="activeName">
         <el-tab-pane label="全部文档" name="all">
@@ -34,60 +58,102 @@
       </el-tabs>
     </el-card>
     
-    <el-dialog v-model="uploadVisible" title="上传文档" width="500px">
+    <el-dialog :visible.sync="uploadVisible" title="上传文档" width="500px">
       <upload-document :team-id="selectedTeamId" @close="uploadVisible = false" @success="handleUploadSuccess" />
     </el-dialog>
   </div>
 </template>
 
-<script setup>
-import { ref, onMounted } from 'vue';
+<script>
 import DocumentList from './components/DocumentList.vue';
 import UploadDocument from './components/UploadDocument.vue';
 import { listMy_team } from '@/api/team/my_team';
-import Vue from 'vue';
 
-const selectedTeamId = ref('');
-const teamList = ref([]);
-const activeName = ref('all');
-const uploadVisible = ref(false);
-
-// 获取当前用户所在的团队列表
-const getTeamList = async () => {
-  try {
-    const res = await listMy_team();
-    teamList.value = res.data;
-    if (teamList.value.length > 0) {
-      selectedTeamId.value = teamList.value[0].teamId;
+export default {
+  name: "DocumentManagement",
+  components: {
+    DocumentList,
+    UploadDocument
+  },
+  data() {
+    return {
+      selectedTeamId: '',
+      teamList: [],
+      activeName: 'all',
+      uploadVisible: false
+    };
+  },
+  created() {
+    console.log('文档管理页面已加载');
+    this.getTeamList();
+  },
+  methods: {
+    // 获取当前用户所在的团队列表
+    async getTeamList() {
+      try {
+        const res = await listMy_team();
+        if (res && res.rows) {
+          this.teamList = res.rows;
+          if (this.teamList.length > 0) {
+            this.selectedTeamId = this.teamList[0].teamId;
+          } else {
+            this.$message.warning('您还没有加入任何团队，请先创建或加入团队');
+          }
+        } else {
+          this.$message.error('获取团队列表失败: 返回数据格式错误');
+        }
+      } catch (error) {
+        console.error('获取团队列表失败:', error);
+        this.$message.error('获取团队列表失败: ' + (error.message || '未知错误'));
+      }
+    },
+    
+    // 获取头像URL
+    getAvatarUrl(avatar) {
+      if (!avatar) return '';
+      // 如果头像路径是相对路径，则加上基础URL
+      if (avatar.startsWith('/')) {
+        return process.env.VUE_APP_BASE_API + avatar;
+      }
+      return avatar;
+    },
+    
+    // 头像加载失败处理
+    avatarError(team) {
+      console.error('头像加载失败:', team.avatar);
+    },
+    
+    // 格式化角色显示
+    formatRole(role) {
+      const roleMap = {
+        'creator': '创建者',
+        'admin': '管理员',
+        'member': '成员'
+      };
+      return roleMap[role] || role;
+    },
+    
+    // 选择团队
+    selectTeam(teamId) {
+      this.selectedTeamId = teamId;
+      console.log('切换到团队:', this.selectedTeamId);
+    },
+    
+    handleUpload() {
+      if (!this.selectedTeamId) {
+        this.$message.warning('请先选择一个团队');
+        return;
+      }
+      this.uploadVisible = true;
+    },
+    
+    handleUploadSuccess() {
+      this.uploadVisible = false;
+      this.$message.success('文档上传成功，开始处理');
+      // 可以选择刷新当前文档列表
     }
-  } catch (error) {
-    console.error('获取团队列表失败:', error);
-    Vue.prototype.$message.error('获取团队列表失败');
   }
 };
-
-const handleTeamChange = () => {
-  // 切换团队时重新加载文档列表
-  // DocumentList组件会监听teamId的变化自动刷新
-};
-
-const handleUpload = () => {
-  if (!selectedTeamId.value) {
-    Vue.prototype.$message.warning('请先选择一个团队');
-    return;
-  }
-  uploadVisible.value = true;
-};
-
-const handleUploadSuccess = () => {
-  uploadVisible.value = false;
-  Vue.prototype.$message.success('文档上传成功，开始处理');
-  // 可以选择刷新当前文档列表
-};
-
-onMounted(() => {
-  getTeamList();
-});
 </script>
 
 <style scoped>
@@ -102,9 +168,90 @@ onMounted(() => {
   font-size: 16px;
 }
 
-/* Add some spacing for the select and button */
-.el-select {
-  margin-left: 10px;
-  margin-right: 10px;
+.team-selection-area {
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.section-title {
+  font-size: 14px;
+  color: #606266;
+  margin-bottom: 10px;
+  font-weight: 500;
+  position: relative;
+  z-index: 1;
+  background-color: #fff;
+}
+
+.team-scrollbar {
+  height: 120px;
+  overflow: visible;
+}
+
+.team-cards-container {
+  width: 100%;
+  overflow: visible;
+  position: relative;
+  z-index: 2;
+}
+
+.team-cards {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 15px;
+  padding-bottom: 10px;
+  padding-top: 5px;
+}
+
+.team-card {
+  min-width: 180px;
+  height: 80px;
+  border-radius: 8px;
+  border: 1px solid #e4e7ed;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background-color: #f5f7fa;
+  position: relative;
+  z-index: 3;
+}
+
+.team-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px 0 rgba(0, 0, 0, 0.1);
+  z-index: 4;
+}
+
+.team-card.active {
+  border-color: #409EFF;
+  background-color: rgba(64, 158, 255, 0.1);
+}
+
+.team-avatar {
+  margin-right: 12px;
+}
+
+.team-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.team-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team-role {
+  font-size: 12px;
+  color: #909399;
 }
 </style>

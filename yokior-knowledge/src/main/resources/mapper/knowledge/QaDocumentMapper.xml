@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yokior.knowledge.mapper.QaDocumentMapper">
+
+    <resultMap type="com.yokior.knowledge.domain.QaDocument" id="QaDocumentResult">
+        <id property="docId" column="doc_id"/>
+        <result property="teamId" column="team_id"/>
+        <result property="uploaderUserId" column="uploader_user_id"/>
+        <result property="filename" column="filename"/>
+        <result property="fileType" column="file_type"/>
+        <result property="fileSize" column="file_size"/>
+        <result property="processingStatus" column="processing_status"/>
+        <result property="uploadTime" column="upload_time"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectQaDocumentVo">
+        select doc_id, team_id, uploader_user_id, filename, file_type, file_size, processing_status, 
+               upload_time, created_at, updated_at
+        from qa_document
+    </sql>
+
+    <!-- 查询文档列表 -->
+    <select id="selectDocumentList" resultMap="QaDocumentResult">
+        <include refid="selectQaDocumentVo"/>
+        where 1=1
+        <if test="teamId != null">
+            AND team_id = #{teamId}
+        </if>
+        <if test="processingStatus != null and processingStatus != ''">
+            AND processing_status = #{processingStatus}
+        </if>
+        order by upload_time desc
+    </select>
+
+    <!-- 根据ID查询文档 -->
+    <select id="selectDocumentById" parameterType="Long" resultMap="QaDocumentResult">
+        <include refid="selectQaDocumentVo"/>
+        where doc_id = #{docId}
+    </select>
+
+    <!-- 新增文档 -->
+    <insert id="insertDocument" parameterType="com.yokior.knowledge.domain.QaDocument" useGeneratedKeys="true" keyProperty="docId">
+        insert into qa_document (
+            <if test="teamId != null">team_id,</if>
+            <if test="uploaderUserId != null">uploader_user_id,</if>
+            <if test="filename != null">filename,</if>
+            <if test="fileType != null">file_type,</if>
+            <if test="fileSize != null">file_size,</if>
+            <if test="processingStatus != null">processing_status,</if>
+            <if test="uploadTime != null">upload_time,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updatedAt != null">updated_at</if>
+        ) values (
+            <if test="teamId != null">#{teamId},</if>
+            <if test="uploaderUserId != null">#{uploaderUserId},</if>
+            <if test="filename != null">#{filename},</if>
+            <if test="fileType != null">#{fileType},</if>
+            <if test="fileSize != null">#{fileSize},</if>
+            <if test="processingStatus != null">#{processingStatus},</if>
+            <if test="uploadTime != null">#{uploadTime},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="updatedAt != null">#{updatedAt}</if>
+        )
+    </insert>
+
+    <!-- 修改文档 -->
+    <update id="updateDocument" parameterType="com.yokior.knowledge.domain.QaDocument">
+        update qa_document
+        <set>
+            <if test="teamId != null">team_id = #{teamId},</if>
+            <if test="uploaderUserId != null">uploader_user_id = #{uploaderUserId},</if>
+            <if test="filename != null">filename = #{filename},</if>
+            <if test="fileType != null">file_type = #{fileType},</if>
+            <if test="fileSize != null">file_size = #{fileSize},</if>
+            <if test="processingStatus != null">processing_status = #{processingStatus},</if>
+            <if test="uploadTime != null">upload_time = #{uploadTime},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt}</if>
+        </set>
+        where doc_id = #{docId}
+    </update>
+
+    <!-- 删除文档 -->
+    <delete id="deleteDocumentById" parameterType="Long">
+        delete from qa_document where doc_id = #{docId}
+    </delete>
+</mapper> 

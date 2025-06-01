@@ -232,6 +232,13 @@
                 <version>${yokior.version}</version>
             </dependency>
 
+             <!-- 知识模块-->
+             <dependency>
+                <groupId>com.yokior</groupId>
+                <artifactId>yokior-knowledge</artifactId>
+                <version>${yokior.version}</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
@@ -244,6 +251,7 @@
         <module>yokior-common</module>
         <module>yokior-team</module>
         <module>yokior-ai</module>
+        <module>yokior-knowledge</module>
     </modules>
     <packaging>pom</packaging>
 

@@ -44,16 +44,14 @@
             link
             type="primary"
             size="small"
-            @click="handleView(scope.row)"
-            v-hasPerms="['knowledge:document:query']">
+            @click="handleView(scope.row)">
             查看
           </el-button>
           <el-button
             link
             type="danger"
             size="small"
-            @click="handleDelete(scope.row)"
-            v-hasPerms="['knowledge:document:remove']">
+            @click="handleDelete(scope.row)">
             删除
           </el-button>
         </template>
@@ -73,168 +71,194 @@
   </div>
 </template>
 
-<script setup>
-import { ref, watch, onMounted, defineProps } from 'vue';
-import Vue from 'vue';
+<script>
 import { listDocuments, deleteDocument } from '@/api/knowledge/document';
 
-const props = defineProps({
-  teamId: {
-    type: [String, Number],
-    required: true
-  },
-  status: {
-    type: [String, Array, null],
-    default: null
-  }
-});
-
-const loading = ref(false);
-const documentList = ref([]);
-const total = ref(0);
-const queryParams = ref({
-  pageNum: 1,
-  pageSize: 10,
-  teamId: undefined,
-  processingStatus: undefined
-});
-
-// 监听团队ID的变化
-watch(() => props.teamId, (val) => {
-  if (val) {
-    queryParams.value.teamId = val;
-    queryParams.value.pageNum = 1;
-    getList();
-  }
-}, { immediate: true });
-
-// 监听状态的变化
-watch(() => props.status, (val) => {
-  queryParams.value.processingStatus = val;
-  queryParams.value.pageNum = 1;
-  getList();
-}, { immediate: true });
-
-// 获取文档列表
-const getList = async () => {
-  if (!queryParams.value.teamId) return;
-  
-  loading.value = true;
-  try {
-    const res = await listDocuments(queryParams.value);
-    documentList.value = res.rows;
-    total.value = res.total;
-  } catch (error) {
-    console.error('获取文档列表失败:', error);
-    Vue.prototype.$message.error('获取文档列表失败');
-  } finally {
-    loading.value = false;
-  }
-};
-
-// 格式化文件大小
-const formatFileSize = (size) => {
-  if (!size) return '0 B';
-  
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  let index = 0;
-  let fileSize = size;
-  
-  while (fileSize >= 1024 && index < units.length - 1) {
-    fileSize /= 1024;
-    index++;
-  }
-  
-  return `${fileSize.toFixed(2)} ${units[index]}`;
-};
-
-// 获取文件类型标签样式
-const getFileTypeTag = (fileType) => {
-  if (!fileType) return '';
-  
-  const typeMap = {
-    'pdf': 'danger',
-    'docx': 'primary',
-    'doc': 'primary',
-    'txt': 'info',
-    'xlsx': 'success',
-    'xls': 'success',
-    'pptx': 'warning',
-    'ppt': 'warning'
-  };
-  
-  return typeMap[fileType.toLowerCase()] || '';
-};
-
-// 获取状态标签样式
-const getStatusTag = (status) => {
-  if (!status) return '';
-  
-  const statusMap = {
-    'PENDING': 'info',
-    'PROCESSING_TEXT': 'warning',
-    'PROCESSING_NLP': 'warning',
-    'COMPLETED': 'success',
-    'FAILED': 'danger'
-  };
-  
-  return statusMap[status] || '';
-};
-
-// 格式化状态显示
-const formatStatus = (status) => {
-  if (!status) return '';
-  
-  const statusMap = {
-    'PENDING': '待处理',
-    'PROCESSING_TEXT': '解析中',
-    'PROCESSING_NLP': 'NLP处理中',
-    'COMPLETED': '已完成',
-    'FAILED': '处理失败'
-  };
-  
-  return statusMap[status] || status;
-};
-
-// 查看文档详情
-const handleView = (row) => {
-  Vue.prototype.$message.info('查看文档详情功能待实现');
-};
-
-// 删除文档
-const handleDelete = (row) => {
-  Vue.prototype.$confirm(`确认删除文档 "${row.filename}"?`, '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await deleteDocument(row.docId);
-      Vue.prototype.$message.success('删除成功');
-      getList();
-    } catch (error) {
-      console.error('删除文档失败:', error);
-      Vue.prototype.$message.error('删除失败');
+export default {
+  name: "DocumentList",
+  props: {
+    teamId: {
+      type: [String, Number],
+      required: true
+    },
+    status: {
+      type: [String, Array, null],
+      default: null
     }
-  }).catch(() => {});
-};
+  },
+  data() {
+    return {
+      loading: false,
+      documentList: [],
+      total: 0,
+      queryParams: {
+        pageNum: 1,
+        pageSize: 10,
+        teamId: undefined,
+        processingStatus: undefined
+      }
+    };
+  },
+  watch: {
+    teamId: {
+      handler(val) {
+        if (val) {
+          this.queryParams.teamId = val;
+          this.queryParams.pageNum = 1;
+          this.getList();
+        }
+      },
+      immediate: true
+    },
+    status: {
+      handler(val) {
+        if (Array.isArray(val)) {
+          this.queryParams.processingStatus = val.join(',');
+        } else {
+          this.queryParams.processingStatus = val;
+        }
+        this.queryParams.pageNum = 1;
+        this.getList();
+      },
+      immediate: true
+    }
+  },
+  mounted() {
+    console.log('DocumentList组件已加载, teamId:', this.teamId);
+    if (this.teamId) {
+      this.getList();
+    }
+  },
+  methods: {
+    // 获取文档列表
+    async getList() {
+      if (!this.queryParams.teamId) {
+        console.log('未设置团队ID，不加载文档列表');
+        return;
+      }
+      
+      console.log('加载文档列表，参数:', JSON.stringify(this.queryParams));
+      this.loading = true;
+      try {
+        const res = await listDocuments(this.queryParams);
+        console.log('文档列表返回结果:', res);
+        if (res && res.rows) {
+          this.documentList = res.rows;
+          this.total = res.total;
+        } else {
+          this.documentList = [];
+          this.total = 0;
+          console.error('获取文档列表返回数据格式错误:', res);
+        }
+      } catch (error) {
+        console.error('获取文档列表失败:', error);
+        this.$message.error('获取文档列表失败: ' + (error.message || '未知错误'));
+        this.documentList = [];
+        this.total = 0;
+      } finally {
+        this.loading = false;
+      }
+    },
 
-// 分页处理
-const handleSizeChange = (val) => {
-  queryParams.value.pageSize = val;
-  getList();
-};
+    // 格式化文件大小
+    formatFileSize(size) {
+      if (!size) return '0 B';
+      
+      const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+      let index = 0;
+      let fileSize = size;
+      
+      while (fileSize >= 1024 && index < units.length - 1) {
+        fileSize /= 1024;
+        index++;
+      }
+      
+      return `${fileSize.toFixed(2)} ${units[index]}`;
+    },
 
-const handleCurrentChange = (val) => {
-  queryParams.value.pageNum = val;
-  getList();
-};
+    // 获取文件类型标签样式
+    getFileTypeTag(fileType) {
+      if (!fileType) return '';
+      
+      const typeMap = {
+        'pdf': 'danger',
+        'docx': 'primary',
+        'doc': 'primary',
+        'txt': 'info',
+        'xlsx': 'success',
+        'xls': 'success',
+        'pptx': 'warning',
+        'ppt': 'warning'
+      };
+      
+      return typeMap[fileType.toLowerCase()] || '';
+    },
 
-onMounted(() => {
-  if (props.teamId) {
-    getList();
+    // 获取状态标签样式
+    getStatusTag(status) {
+      if (!status) return '';
+      
+      const statusMap = {
+        'PENDING': 'info',
+        'PROCESSING_TEXT': 'warning',
+        'PROCESSING_NLP': 'warning',
+        'COMPLETED': 'success',
+        'FAILED': 'danger'
+      };
+      
+      return statusMap[status] || '';
+    },
+
+    // 格式化状态显示
+    formatStatus(status) {
+      if (!status) return '';
+      
+      const statusMap = {
+        'PENDING': '待处理',
+        'PROCESSING_TEXT': '解析中',
+        'PROCESSING_NLP': 'NLP处理中',
+        'COMPLETED': '已完成',
+        'FAILED': '处理失败'
+      };
+      
+      return statusMap[status] || status;
+    },
+
+    // 查看文档详情
+    handleView(row) {
+      this.$message.info('查看文档详情功能待实现');
+    },
+
+    // 删除文档
+    handleDelete(row) {
+      this.$confirm(`确认删除文档 "${row.filename}"?`, '提示', {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }).then(async () => {
+        try {
+          await deleteDocument(row.docId);
+          this.$message.success('删除成功');
+          this.getList();
+        } catch (error) {
+          console.error('删除文档失败:', error);
+          this.$message.error('删除失败: ' + (error.message || '未知错误'));
+        }
+      }).catch(() => {});
+    },
+
+    // 分页处理
+    handleSizeChange(val) {
+      this.queryParams.pageSize = val;
+      this.getList();
+    },
+
+    handleCurrentChange(val) {
+      this.queryParams.pageNum = val;
+      this.getList();
+    }
   }
-});
+};
 </script>
 
 <style scoped>

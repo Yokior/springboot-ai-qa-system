@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yokior.knowledge.mapper.QaDocumentParagraphMapper">
+
+    <resultMap type="com.yokior.knowledge.domain.QaDocumentParagraph" id="QaDocumentParagraphResult">
+        <id property="paragraphId" column="paragraph_id"/>
+        <result property="docId" column="doc_id"/>
+        <result property="teamId" column="team_id"/>
+        <result property="content" column="content"/>
+        <result property="paragraphOrder" column="paragraph_order"/>
+        <result property="terms" column="terms"/>
+        <result property="featureWeights" column="feature_weights"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <sql id="selectQaDocumentParagraphVo">
+        select paragraph_id, doc_id, team_id, content, paragraph_order, terms, feature_weights, 
+               created_at, updated_at
+        from qa_document_paragraph
+    </sql>
+
+    <!-- 根据文档ID查询段落列表 -->
+    <select id="selectParagraphsByDocId" parameterType="Long" resultMap="QaDocumentParagraphResult">
+        <include refid="selectQaDocumentParagraphVo"/>
+        where doc_id = #{docId}
+        order by paragraph_order asc
+    </select>
+
+    <!-- 根据团队ID查询段落列表 -->
+    <select id="selectParagraphsByTeamId" parameterType="Long" resultMap="QaDocumentParagraphResult">
+        <include refid="selectQaDocumentParagraphVo"/>
+        where team_id = #{teamId}
+    </select>
+
+    <!-- 新增段落 -->
+    <insert id="insertParagraph" parameterType="com.yokior.knowledge.domain.QaDocumentParagraph" useGeneratedKeys="true" keyProperty="paragraphId">
+        insert into qa_document_paragraph (
+            <if test="docId != null">doc_id,</if>
+            <if test="teamId != null">team_id,</if>
+            <if test="content != null">content,</if>
+            <if test="paragraphOrder != null">paragraph_order,</if>
+            <if test="terms != null">terms,</if>
+            <if test="featureWeights != null">feature_weights,</if>
+            <if test="createdAt != null">created_at,</if>
+            <if test="updatedAt != null">updated_at</if>
+        ) values (
+            <if test="docId != null">#{docId},</if>
+            <if test="teamId != null">#{teamId},</if>
+            <if test="content != null">#{content},</if>
+            <if test="paragraphOrder != null">#{paragraphOrder},</if>
+            <if test="terms != null">#{terms},</if>
+            <if test="featureWeights != null">#{featureWeights},</if>
+            <if test="createdAt != null">#{createdAt},</if>
+            <if test="updatedAt != null">#{updatedAt}</if>
+        )
+    </insert>
+
+    <!-- 批量新增段落 -->
+    <insert id="batchInsertParagraphs" parameterType="java.util.List">
+        insert into qa_document_paragraph (
+            doc_id, team_id, content, paragraph_order, terms, feature_weights, created_at, updated_at
+        ) values
+        <foreach collection="list" item="item" index="index" separator=",">
+            (
+                #{item.docId}, #{item.teamId}, #{item.content}, #{item.paragraphOrder},
+                #{item.terms}, #{item.featureWeights}, #{item.createdAt}, #{item.updatedAt}
+            )
+        </foreach>
+    </insert>
+
+    <!-- 修改段落 -->
+    <update id="updateParagraph" parameterType="com.yokior.knowledge.domain.QaDocumentParagraph">
+        update qa_document_paragraph
+        <set>
+            <if test="docId != null">doc_id = #{docId},</if>
+            <if test="teamId != null">team_id = #{teamId},</if>
+            <if test="content != null">content = #{content},</if>
+            <if test="paragraphOrder != null">paragraph_order = #{paragraphOrder},</if>
+            <if test="terms != null">terms = #{terms},</if>
+            <if test="featureWeights != null">feature_weights = #{featureWeights},</if>
+            <if test="createdAt != null">created_at = #{createdAt},</if>
+            <if test="updatedAt != null">updated_at = #{updatedAt}</if>
+        </set>
+        where paragraph_id = #{paragraphId}
+    </update>
+
+    <!-- 根据文档ID删除段落 -->
+    <delete id="deleteParagraphsByDocId" parameterType="Long">
+        delete from qa_document_paragraph where doc_id = #{docId}
+    </delete>
+</mapper> 

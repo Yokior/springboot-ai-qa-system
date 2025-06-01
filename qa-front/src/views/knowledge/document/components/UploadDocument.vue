@@ -29,107 +29,113 @@
   </div>
 </template>
 
-<script setup>
-import { ref, defineProps, defineEmits, computed } from 'vue';
+<script>
 import { getToken } from '@/utils/auth';
-import Vue from 'vue';
 
-const props = defineProps({
-  teamId: {
-    type: [String, Number],
-    required: true
-  }
-});
-
-const emit = defineEmits(['close', 'success']);
-
-const uploadFiles = ref([]);
-const uploadUrl = computed(() => {
-  return `/api/knowledge/document/upload?teamId=${props.teamId}`;
-});
-
-// 获取认证头信息
-const headers = computed(() => {
-  return {
-    Authorization: 'Bearer ' + getToken()
-  };
-});
-
-// 上传前验证
-const beforeUpload = (file) => {
-  const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
-  const isValidType = validTypes.includes(file.type);
-  const isLt20M = file.size / 1024 / 1024 < 20;
-
-  if (!isValidType) {
-    Vue.prototype.$message.error('只能上传PDF、Word或TXT文档!');
-    return false;
-  }
-  
-  if (!isLt20M) {
-    Vue.prototype.$message.error('文件大小不能超过20MB!');
-    return false;
-  }
-  
-  return true;
-};
-
-// 处理文件上传成功
-const handleSuccess = (response, file, fileList) => {
-  if (response.code === 200) {
-    Vue.prototype.$message.success('文件上传成功');
-    uploadFiles.value = fileList;
-  } else {
-    Vue.prototype.$message.error(response.msg || '上传失败');
-    // 从列表中移除上传失败的文件
-    const index = fileList.indexOf(file);
-    if (index !== -1) {
-      fileList.splice(index, 1);
+export default {
+  name: "UploadDocument",
+  props: {
+    teamId: {
+      type: [String, Number],
+      required: true
     }
-  }
-};
+  },
+  data() {
+    return {
+      uploadFiles: []
+    };
+  },
+  computed: {
+    uploadUrl() {
+      return `/api/knowledge/document/upload?teamId=${this.teamId}`;
+    },
+    // 获取认证头信息
+    headers() {
+      return {
+        Authorization: 'Bearer ' + getToken()
+      };
+    }
+  },
+  methods: {
+    // 上传前验证
+    beforeUpload(file) {
+      const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
+      const isValidType = validTypes.includes(file.type);
+      const isLt20M = file.size / 1024 / 1024 < 20;
 
-// 处理上传错误
-const handleError = () => {
-  Vue.prototype.$message.error('文件上传失败，请重试');
-};
+      if (!isValidType) {
+        this.$message.error('只能上传PDF、Word或TXT文档!');
+        return false;
+      }
+      
+      if (!isLt20M) {
+        this.$message.error('文件大小不能超过20MB!');
+        return false;
+      }
+      
+      return true;
+    },
 
-// 文件移除前的确认
-const beforeRemove = (file) => {
-  return new Promise((resolve) => {
-    Vue.prototype.$confirm(`确定移除 ${file.name}？`, '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }).then(() => {
-      resolve(true);
-    }).catch(() => {
-      resolve(false);
-    });
-  });
-};
+    // 处理文件上传成功
+    handleSuccess(response, file, fileList) {
+      console.log('文件上传响应:', response);
+      if (response.code === 200) {
+        this.$message.success('文件上传成功');
+        this.uploadFiles = fileList;
+      } else {
+        this.$message.error(response.msg || '上传失败');
+        // 从列表中移除上传失败的文件
+        const index = fileList.indexOf(file);
+        if (index !== -1) {
+          fileList.splice(index, 1);
+        }
+      }
+    },
 
-// 处理文件移除
-const handleRemove = (file, fileList) => {
-  uploadFiles.value = fileList;
-};
+    // 处理上传错误
+    handleError(err) {
+      console.error('文件上传错误:', err);
+      this.$message.error('文件上传失败，请重试');
+    },
 
-// 文件预览
-const handlePreview = (file) => {
-  console.log(file);
-};
+    // 文件移除前的确认
+    beforeRemove(file) {
+      return new Promise((resolve) => {
+        this.$confirm(`确定移除 ${file.name}？`, '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        }).then(() => {
+          resolve(true);
+        }).catch(() => {
+          resolve(false);
+        });
+      });
+    },
 
-// 取消上传
-const handleClose = () => {
-  emit('close');
-};
+    // 处理文件移除
+    handleRemove(file, fileList) {
+      this.uploadFiles = fileList;
+    },
 
-// 确认上传
-const handleSubmit = () => {
-  if (uploadFiles.value.length > 0) {
-    emit('success');
-  } else {
-    Vue.prototype.$message.warning('请先选择要上传的文档');
+    // 文件预览
+    handlePreview(file) {
+      console.log('预览文件:', file);
+    },
+
+    // 取消上传
+    handleClose() {
+      this.$emit('close');
+    },
+
+    // 确认上传
+    handleSubmit() {
+      if (this.uploadFiles.length > 0) {
+        this.$emit('success');
+      } else {
+        this.$message.warning('请先选择要上传的文档');
+      }
+    }
   }
 };
 </script>
