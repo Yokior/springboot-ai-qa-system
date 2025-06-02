@@ -237,7 +237,11 @@ export default {
         type: 'warning'
       }).then(async () => {
         try {
-          await deleteDocument(row.docId);
+          if (!this.queryParams.teamId) {
+            this.$message.error('缺少团队ID参数，无法删除文档');
+            return;
+          }
+          await deleteDocument(row.docId, this.queryParams.teamId);
           this.$message.success('删除成功');
           this.getList();
         } catch (error) {

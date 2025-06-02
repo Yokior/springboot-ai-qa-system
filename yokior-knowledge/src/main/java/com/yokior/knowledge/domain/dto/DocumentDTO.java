@@ -23,14 +23,4 @@ public class DocumentDTO
      */
     private String processingStatus;
 
-    /**
-     * 分页大小
-     */
-    private Integer pageSize;
-
-    /**
-     * 当前页码
-     */
-    private Integer pageNum;
-
 } 

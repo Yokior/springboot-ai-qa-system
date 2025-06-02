@@ -4,7 +4,12 @@
       <template #header>
         <div class="card-header">
           <span class="header-title">团队知识库 - 文档管理</span>
-          <el-button type="primary" @click="handleUpload" size="small" icon="el-icon-upload">
+          <el-button 
+            v-if="hasUploadPermission" 
+            type="primary" 
+            @click="handleUpload" 
+            size="small" 
+            icon="el-icon-upload">
             上传文档
           </el-button>
         </div>
@@ -80,8 +85,20 @@ export default {
       selectedTeamId: '',
       teamList: [],
       activeName: 'all',
-      uploadVisible: false
+      uploadVisible: false,
+      currentTeam: null
     };
+  },
+  computed: {
+    // 判断当前用户是否有上传权限（创建者或管理员）
+    hasUploadPermission() {
+      if (!this.selectedTeamId || !this.teamList.length) return false;
+      
+      const currentTeam = this.teamList.find(team => team.teamId === this.selectedTeamId);
+      if (!currentTeam) return false;
+      
+      return ['creator', 'admin'].includes(currentTeam.role);
+    }
   },
   created() {
     console.log('文档管理页面已加载');
@@ -128,7 +145,7 @@ export default {
       const roleMap = {
         'creator': '创建者',
         'admin': '管理员',
-        'member': '成员'
+        'member': '普通成员'
       };
       return roleMap[role] || role;
     },
@@ -144,6 +161,13 @@ export default {
         this.$message.warning('请先选择一个团队');
         return;
       }
+      
+      // 检查权限
+      if (!this.hasUploadPermission) {
+        this.$message.warning('您没有上传文档的权限，只有团队创建者和管理员可以上传文档');
+        return;
+      }
+      
       this.uploadVisible = true;
     },
     

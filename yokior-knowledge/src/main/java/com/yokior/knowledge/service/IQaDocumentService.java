@@ -17,11 +17,9 @@ public interface IQaDocumentService
      *
      * @param teamId           团队ID
      * @param processingStatus 处理状态
-     * @param pageNum          页码
-     * @param pageSize         每页大小
      * @return 文档列表
      */
-    List<QaDocument> listDocuments(Long teamId, String processingStatus, Integer pageNum, Integer pageSize);
+    List<QaDocument> listDocuments(Long teamId, String processingStatus);
 
     /**
      * 查询文档总数

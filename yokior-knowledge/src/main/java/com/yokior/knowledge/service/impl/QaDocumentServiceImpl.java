@@ -1,5 +1,6 @@
 package com.yokior.knowledge.service.impl;
 
+import com.yokior.common.constant.DocumentConstants;
 import com.yokior.knowledge.domain.QaDocument;
 import com.yokior.knowledge.domain.QaDocumentParagraph;
 import com.yokior.knowledge.mapper.QaDocumentMapper;
@@ -34,15 +35,11 @@ public class QaDocumentServiceImpl implements IQaDocumentService
      *
      * @param teamId           团队ID
      * @param processingStatus 处理状态
-     * @param pageNum          页码
-     * @param pageSize         每页大小
      * @return 文档列表
      */
     @Override
-    public List<QaDocument> listDocuments(Long teamId, String processingStatus, Integer pageNum, Integer pageSize)
+    public List<QaDocument> listDocuments(Long teamId, String processingStatus)
     {
-        // 由于未使用MyBatisPlus，这里需要手动计算分页
-        // TODO: 实现分页查询，这里简化处理，直接返回全部结果
         return documentMapper.selectDocumentList(teamId, processingStatus);
     }
 
@@ -101,7 +98,7 @@ public class QaDocumentServiceImpl implements IQaDocumentService
         document.setFilename(originalFilename);
         document.setFileType(fileType);
         document.setFileSize(fileSize);
-        document.setProcessingStatus("PENDING"); // 初始状态为待处理
+        document.setProcessingStatus(DocumentConstants.PROCESSING_STATUS_PENDING); // 初始状态为待处理
         document.setUploadTime(new Date());
         document.setCreatedAt(new Date());
         document.setUpdatedAt(new Date());
@@ -133,7 +130,7 @@ public class QaDocumentServiceImpl implements IQaDocumentService
         catch (IOException e)
         {
             // 上传失败，更新文档状态为失败
-            document.setProcessingStatus("FAILED");
+            document.setProcessingStatus(DocumentConstants.PROCESSING_STATUS_FAILED);
             documentMapper.updateDocument(document);
             throw new RuntimeException("文件上传失败", e);
         }

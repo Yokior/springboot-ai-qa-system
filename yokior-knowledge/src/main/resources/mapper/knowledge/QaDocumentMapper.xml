@@ -18,21 +18,30 @@
     </resultMap>
 
     <sql id="selectQaDocumentVo">
-        select doc_id, team_id, uploader_user_id, filename, file_type, file_size, processing_status, 
-               upload_time, created_at, updated_at
+        select doc_id,
+               team_id,
+               uploader_user_id,
+               filename,
+               file_type,
+               file_size,
+               processing_status,
+               upload_time,
+               created_at,
+               updated_at
         from qa_document
     </sql>
 
     <!-- 查询文档列表 -->
     <select id="selectDocumentList" resultMap="QaDocumentResult">
         <include refid="selectQaDocumentVo"/>
-        where 1=1
-        <if test="teamId != null">
-            AND team_id = #{teamId}
-        </if>
-        <if test="processingStatus != null and processingStatus != ''">
-            AND processing_status = #{processingStatus}
-        </if>
+        <where>
+            <if test="teamId != null">
+                AND team_id = #{teamId}
+            </if>
+            <if test="processingStatus != null and processingStatus != ''">
+                AND processing_status = #{processingStatus}
+            </if>
+        </where>
         order by upload_time desc
     </select>
 
@@ -43,27 +52,28 @@
     </select>
 
     <!-- 新增文档 -->
-    <insert id="insertDocument" parameterType="com.yokior.knowledge.domain.QaDocument" useGeneratedKeys="true" keyProperty="docId">
+    <insert id="insertDocument" parameterType="com.yokior.knowledge.domain.QaDocument" useGeneratedKeys="true"
+            keyProperty="docId">
         insert into qa_document (
-            <if test="teamId != null">team_id,</if>
-            <if test="uploaderUserId != null">uploader_user_id,</if>
-            <if test="filename != null">filename,</if>
-            <if test="fileType != null">file_type,</if>
-            <if test="fileSize != null">file_size,</if>
-            <if test="processingStatus != null">processing_status,</if>
-            <if test="uploadTime != null">upload_time,</if>
-            <if test="createdAt != null">created_at,</if>
-            <if test="updatedAt != null">updated_at</if>
+        <if test="teamId != null">team_id,</if>
+        <if test="uploaderUserId != null">uploader_user_id,</if>
+        <if test="filename != null">filename,</if>
+        <if test="fileType != null">file_type,</if>
+        <if test="fileSize != null">file_size,</if>
+        <if test="processingStatus != null">processing_status,</if>
+        <if test="uploadTime != null">upload_time,</if>
+        <if test="createdAt != null">created_at,</if>
+        <if test="updatedAt != null">updated_at</if>
         ) values (
-            <if test="teamId != null">#{teamId},</if>
-            <if test="uploaderUserId != null">#{uploaderUserId},</if>
-            <if test="filename != null">#{filename},</if>
-            <if test="fileType != null">#{fileType},</if>
-            <if test="fileSize != null">#{fileSize},</if>
-            <if test="processingStatus != null">#{processingStatus},</if>
-            <if test="uploadTime != null">#{uploadTime},</if>
-            <if test="createdAt != null">#{createdAt},</if>
-            <if test="updatedAt != null">#{updatedAt}</if>
+        <if test="teamId != null">#{teamId},</if>
+        <if test="uploaderUserId != null">#{uploaderUserId},</if>
+        <if test="filename != null">#{filename},</if>
+        <if test="fileType != null">#{fileType},</if>
+        <if test="fileSize != null">#{fileSize},</if>
+        <if test="processingStatus != null">#{processingStatus},</if>
+        <if test="uploadTime != null">#{uploadTime},</if>
+        <if test="createdAt != null">#{createdAt},</if>
+        <if test="updatedAt != null">#{updatedAt}</if>
         )
     </insert>
 
@@ -86,6 +96,8 @@
 
     <!-- 删除文档 -->
     <delete id="deleteDocumentById" parameterType="Long">
-        delete from qa_document where doc_id = #{docId}
+        delete
+        from qa_document
+        where doc_id = #{docId}
     </delete>
 </mapper> 

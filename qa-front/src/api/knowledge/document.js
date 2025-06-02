@@ -18,10 +18,11 @@ export function getDocument(docId) {
 }
 
 // 删除文档
-export function deleteDocument(docId) {
+export function deleteDocument(docId, teamId) {
   return request({
     url: `/knowledge/document/${docId}`,
-    method: 'delete'
+    method: 'delete',
+    params: { teamId }
   });
 }
 

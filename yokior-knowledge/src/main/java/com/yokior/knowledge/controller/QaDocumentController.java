@@ -1,5 +1,7 @@
 package com.yokior.knowledge.controller;
 
+import com.yokior.common.annotation.TeamAuth;
+import com.yokior.common.constant.TeamConstants;
 import com.yokior.common.core.controller.BaseController;
 import com.yokior.common.core.domain.AjaxResult;
 import com.yokior.common.core.page.TableDataInfo;
@@ -38,9 +40,7 @@ public class QaDocumentController extends BaseController
         startPage();
         List<QaDocument> list = documentService.listDocuments(
                 documentDTO.getTeamId(),
-                documentDTO.getProcessingStatus(),
-                documentDTO.getPageNum(),
-                documentDTO.getPageSize());
+                documentDTO.getProcessingStatus());
         return getDataTable(list);
     }
 
@@ -57,6 +57,7 @@ public class QaDocumentController extends BaseController
     /**
      * 上传文档
      */
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR, TeamConstants.ROLE_ADMIN})
     @PostMapping("/upload")
     public AjaxResult upload(@RequestParam("file") MultipartFile file, @RequestParam("teamId") Long teamId)
     {
@@ -70,6 +71,7 @@ public class QaDocumentController extends BaseController
     /**
      * 删除文档
      */
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR, TeamConstants.ROLE_ADMIN})
     @DeleteMapping("/{docId}")
     public AjaxResult remove(@PathVariable Long docId)
     {

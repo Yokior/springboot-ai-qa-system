@@ -3,8 +3,9 @@
     <el-upload
       class="upload"
       drag
-      :action="uploadUrl"
-      :headers="headers"
+      action="#"
+      :auto-upload="false"
+      :http-request="uploadFile"
       :on-preview="handlePreview"
       :on-remove="handleRemove"
       :before-remove="beforeRemove"
@@ -12,7 +13,8 @@
       :on-error="handleError"
       :before-upload="beforeUpload"
       :multiple="false"
-      :show-file-list="true">
+      :show-file-list="true"
+      ref="upload">
       <i class="el-icon-upload"></i>
       <div class="el-upload__text">拖拽文件到此处或 <em>点击上传</em></div>
       <template #tip>
@@ -24,13 +26,14 @@
     
     <div class="upload-actions">
       <el-button @click="handleClose">取消</el-button>
-      <el-button type="primary" @click="handleSubmit" :disabled="uploadFiles.length === 0">确认上传</el-button>
+      <el-button type="primary" @click="handleSubmit" :loading="uploading">确认上传</el-button>
     </div>
   </div>
 </template>
 
 <script>
 import { getToken } from '@/utils/auth';
+import { uploadDocument } from '@/api/knowledge/document';
 
 export default {
   name: "UploadDocument",
@@ -42,13 +45,11 @@ export default {
   },
   data() {
     return {
-      uploadFiles: []
+      uploadFiles: [],
+      uploading: false
     };
   },
   computed: {
-    uploadUrl() {
-      return `/api/knowledge/document/upload?teamId=${this.teamId}`;
-    },
     // 获取认证头信息
     headers() {
       return {
@@ -57,6 +58,33 @@ export default {
     }
   },
   methods: {
+    // 自定义上传方法
+    async uploadFile(options) {
+      const { file } = options;
+      try {
+        this.uploading = true;
+        
+        // 创建FormData对象
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // 调用API上传文件
+        const response = await uploadDocument(formData, this.teamId);
+        
+        // 处理上传结果
+        if (response.code === 200) {
+          options.onSuccess(response, file);
+        } else {
+          options.onError(new Error(response.msg || '上传失败'));
+        }
+      } catch (error) {
+        console.error('文件上传错误:', error);
+        options.onError(error);
+      } finally {
+        this.uploading = false;
+      }
+    },
+
     // 上传前验证
     beforeUpload(file) {
       const validTypes = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain'];
@@ -130,8 +158,8 @@ export default {
 
     // 确认上传
     handleSubmit() {
-      if (this.uploadFiles.length > 0) {
-        this.$emit('success');
+      if (this.$refs.upload.uploadFiles.length > 0) {
+        this.$refs.upload.submit();
       } else {
         this.$message.warning('请先选择要上传的文档');
       }
