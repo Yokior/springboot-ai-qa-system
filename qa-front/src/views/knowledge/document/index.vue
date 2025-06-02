@@ -49,16 +49,16 @@
       
       <el-tabs v-model="activeName">
         <el-tab-pane label="全部文档" name="all">
-          <document-list :team-id="selectedTeamId" :status="null" />
+          <document-list :team-id="selectedTeamId" :status="null" ref="allDocList" />
         </el-tab-pane>
         <el-tab-pane label="处理中" name="processing">
-          <document-list :team-id="selectedTeamId" :status="['PENDING', 'PROCESSING_TEXT', 'PROCESSING_NLP']" />
+          <document-list :team-id="selectedTeamId" :status="['PENDING', 'PROCESSING_TEXT', 'PROCESSING_NLP']" ref="processingDocList" />
         </el-tab-pane>
         <el-tab-pane label="已完成" name="completed">
-          <document-list :team-id="selectedTeamId" :status="['COMPLETED']" />
+          <document-list :team-id="selectedTeamId" :status="['COMPLETED']" ref="completedDocList" />
         </el-tab-pane>
         <el-tab-pane label="处理失败" name="failed">
-          <document-list :team-id="selectedTeamId" :status="['FAILED']" />
+          <document-list :team-id="selectedTeamId" :status="['FAILED']" ref="failedDocList" />
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -98,6 +98,19 @@ export default {
       if (!currentTeam) return false;
       
       return ['creator', 'admin'].includes(currentTeam.role);
+    },
+    
+    // 获取当前活动的文档列表组件
+    activeDocumentList() {
+      const refMap = {
+        'all': 'allDocList',
+        'processing': 'processingDocList',
+        'completed': 'completedDocList',
+        'failed': 'failedDocList'
+      };
+      
+      const refName = refMap[this.activeName];
+      return this.$refs[refName];
     }
   },
   created() {
@@ -171,10 +184,42 @@ export default {
       this.uploadVisible = true;
     },
     
+    // 处理上传成功
     handleUploadSuccess() {
       this.uploadVisible = false;
-      this.$message.success('文档上传成功，开始处理');
-      // 可以选择刷新当前文档列表
+      
+      // 刷新当前活动标签页的文档列表
+      this.refreshDocumentList();
+      
+      // 切换到"处理中"标签页，因为新上传的文档状态为"待处理"
+      this.activeName = 'processing';
+      
+      // 在下一个tick刷新处理中的文档列表
+      this.$nextTick(() => {
+        if (this.$refs.processingDocList) {
+          this.$refs.processingDocList.getList();
+        }
+      });
+    },
+    
+    // 刷新文档列表
+    refreshDocumentList() {
+      // 刷新所有文档列表
+      if (this.$refs.allDocList) {
+        this.$refs.allDocList.getList();
+      }
+      
+      if (this.$refs.processingDocList) {
+        this.$refs.processingDocList.getList();
+      }
+      
+      if (this.$refs.completedDocList) {
+        this.$refs.completedDocList.getList();
+      }
+      
+      if (this.$refs.failedDocList) {
+        this.$refs.failedDocList.getList();
+      }
     }
   }
 };
