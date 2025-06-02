@@ -32,7 +32,10 @@ export function uploadDocument(data, teamId) {
     url: `/knowledge/document/upload`,
     method: 'post',
     data: data,
-    params: { teamId }
+    params: { teamId },
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
   });
 }
 

@@ -74,6 +74,7 @@ export default {
         // 处理上传结果
         if (response.code === 200) {
           options.onSuccess(response, file);
+          this.$emit('success');
         } else {
           options.onError(new Error(response.msg || '上传失败'));
         }
@@ -110,6 +111,8 @@ export default {
       if (response.code === 200) {
         this.$message.success('文件上传成功');
         this.uploadFiles = fileList;
+        // 通知父组件上传成功
+        this.$emit('success');
       } else {
         this.$message.error(response.msg || '上传失败');
         // 从列表中移除上传失败的文件
