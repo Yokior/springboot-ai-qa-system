@@ -7,10 +7,12 @@ import com.yokior.knowledge.mapper.QaDocumentMapper;
 import com.yokior.knowledge.mapper.QaDocumentParagraphMapper;
 import com.yokior.knowledge.service.IQaDocumentService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
 import java.util.Date;
@@ -29,6 +31,19 @@ public class QaDocumentServiceImpl implements IQaDocumentService
 
     @Autowired
     private QaDocumentParagraphMapper paragraphMapper;
+
+    @Value("${document.uploadPath}")
+    private String uploadPathConfig;
+
+    // 文件上传路径
+    private String uploadDir;
+
+    @PostConstruct
+    public void init()
+    {
+        this.uploadDir = System.getProperty("user.dir") + uploadPathConfig;
+    }
+
 
     /**
      * 查询文档列表
@@ -91,10 +106,14 @@ public class QaDocumentServiceImpl implements IQaDocumentService
         String fileType = getFileExtension(originalFilename);
         long fileSize = file.getSize();
 
+        // 生成唯一文件名
+        String newFilename = UUID.randomUUID().toString().replace("-", "") + "." + fileType;
+
         // 创建文档记录
         QaDocument document = new QaDocument();
         document.setTeamId(teamId);
         document.setUploaderUserId(userId);
+        document.setFileId(newFilename);
         document.setFilename(originalFilename);
         document.setFileType(fileType);
         document.setFileSize(fileSize);
@@ -109,16 +128,12 @@ public class QaDocumentServiceImpl implements IQaDocumentService
         // 保存文件到服务器
         try
         {
-            // 创建文件存储目录
-            String uploadDir = System.getProperty("user.dir") + "/upload/documents/";
             File dir = new File(uploadDir);
             if (!dir.exists())
             {
                 dir.mkdirs();
             }
 
-            // 生成唯一文件名
-            String newFilename = UUID.randomUUID().toString().replace("-", "") + "." + fileType;
             File dest = new File(uploadDir + newFilename);
             file.transferTo(dest);
 
@@ -147,9 +162,27 @@ public class QaDocumentServiceImpl implements IQaDocumentService
     public boolean deleteDocument(Long docId)
     {
         // 先删除文档段落
-        paragraphMapper.deleteParagraphsByDocId(docId);
+        int del1 = paragraphMapper.deleteParagraphsByDocId(docId);
+
+        // 获取文件id也就是实际文件名
+        String fileName = documentMapper.selectFileIdById(docId);
+
         // 再删除文档
-        return documentMapper.deleteDocumentById(docId) > 0;
+        int del2 = documentMapper.deleteDocumentById(docId);
+
+        if (del1 > 0 || del2 > 0)
+        {
+            // 删除文件 拼接文件路径
+            String filePath = uploadDir + fileName;
+            // 删除文件
+            File file = new File(filePath);
+            if (file.exists())
+            {
+                file.delete();
+            }
+        }
+
+        return true;
     }
 
     /**

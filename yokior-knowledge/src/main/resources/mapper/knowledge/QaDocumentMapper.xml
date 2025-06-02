@@ -51,11 +51,19 @@
         where doc_id = #{docId}
     </select>
 
+    <!-- 根据id查询文件id-->
+    <select id="selectFileIdById" resultType="java.lang.String">
+        select file_id
+        from qa_document
+        where doc_id = #{docId}
+    </select>
+
     <!-- 新增文档 -->
     <insert id="insertDocument" parameterType="com.yokior.knowledge.domain.QaDocument" useGeneratedKeys="true"
             keyProperty="docId">
         insert into qa_document (
         <if test="teamId != null">team_id,</if>
+        <if test="fileId != null and fileId != ''">file_id,</if>
         <if test="uploaderUserId != null">uploader_user_id,</if>
         <if test="filename != null">filename,</if>
         <if test="fileType != null">file_type,</if>
@@ -66,6 +74,7 @@
         <if test="updatedAt != null">updated_at</if>
         ) values (
         <if test="teamId != null">#{teamId},</if>
+        <if test="fileId != null and fileId != ''">#{fileId},</if>
         <if test="uploaderUserId != null">#{uploaderUserId},</if>
         <if test="filename != null">#{filename},</if>
         <if test="fileType != null">#{fileType},</if>

@@ -26,6 +26,15 @@ public interface QaDocumentMapper {
      * @return 文档
      */
     QaDocument selectDocumentById(Long docId);
+
+    /**
+     * 根据ID查询文档文件ID
+     *
+     * @param docId 文档ID
+     * @return 文档文件ID
+     */
+    String selectFileIdById(Long docId);
+
     
     /**
      * 添加文档

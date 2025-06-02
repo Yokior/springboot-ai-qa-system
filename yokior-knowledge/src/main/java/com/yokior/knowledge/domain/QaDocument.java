@@ -26,6 +26,11 @@ public class QaDocument
     private Long teamId;
 
     /**
+     * 文件唯一ID
+     */
+    private String fileId;
+
+    /**
      * 上传者用户ID (逻辑关联)
      */
     private Long uploaderUserId;
