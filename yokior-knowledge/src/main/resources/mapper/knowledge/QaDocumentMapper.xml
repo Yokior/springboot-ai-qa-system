@@ -7,6 +7,7 @@
     <resultMap type="com.yokior.knowledge.domain.QaDocument" id="QaDocumentResult">
         <id property="docId" column="doc_id"/>
         <result property="teamId" column="team_id"/>
+        <result property="fileId" column="file_id"/>
         <result property="uploaderUserId" column="uploader_user_id"/>
         <result property="filename" column="filename"/>
         <result property="fileType" column="file_type"/>
@@ -20,6 +21,7 @@
     <sql id="selectQaDocumentVo">
         select doc_id,
                team_id,
+               file_id,
                uploader_user_id,
                filename,
                file_type,

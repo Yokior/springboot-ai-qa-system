@@ -31,6 +31,9 @@ public class QaDocumentServiceImpl implements IQaDocumentService
 
     @Autowired
     private QaDocumentParagraphMapper paragraphMapper;
+    
+    @Autowired
+    private DocumentProcessingService documentProcessingService;
 
     @Value("${document.uploadPath}")
     private String uploadPathConfig;
@@ -68,7 +71,6 @@ public class QaDocumentServiceImpl implements IQaDocumentService
     @Override
     public int countDocuments(Long teamId, String processingStatus)
     {
-        // TODO: 实现文档总数查询
         return documentMapper.selectDocumentList(teamId, processingStatus).size();
     }
 
@@ -137,8 +139,8 @@ public class QaDocumentServiceImpl implements IQaDocumentService
             File dest = new File(uploadDir + newFilename);
             file.transferTo(dest);
 
-            // TODO: 异步处理文档内容，解析文本和处理NLP
-            // 这里应该启动一个异步任务来处理文档内容，更新文档状态并保存段落信息
+            // 异步处理文档内容，解析文本和处理NLP
+            documentProcessingService.processDocument(document.getDocId());
 
             return document.getDocId();
         }
