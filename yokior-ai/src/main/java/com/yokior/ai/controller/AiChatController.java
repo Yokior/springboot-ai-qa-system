@@ -9,6 +9,8 @@ import com.yokior.common.core.controller.BaseController;
 import com.yokior.common.core.domain.R;
 import com.yokior.common.core.domain.model.LoginUser;
 import com.yokior.common.utils.SecurityUtils;
+import com.yokior.knowledge.domain.vo.KnowledgeMatchVO;
+import com.yokior.knowledge.service.IQaDocumentService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +21,7 @@ import javax.annotation.Resource;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -30,6 +33,9 @@ public class AiChatController extends BaseController
 
     @Autowired
     private AiChatService aiChatService;
+
+    @Autowired
+    private IQaDocumentService qaDocumentService;
 
     @Resource(name = "deepseek")
     private AiProvider aiProvider;
@@ -95,11 +101,37 @@ public class AiChatController extends BaseController
             List<ChatMessage> history = aiChatService.getChatHistory(finalSessionId, loginUser.getUserId(), 10);
             log.debug("获取到历史消息: {} 条", history.size());
 
+            String prompt = request.getPrompt();
+
+            // 获取用户选项
+            Map<String, Object> options = request.getOptions();
+
+            // 如果存在teamId获取teamId
+            Long teamId = null;
+            if (options != null && options.containsKey("teamId"))
+            {
+                teamId = Long.parseLong(options.get("teamId").toString());
+
+                // 获取知识匹配结果
+                List<KnowledgeMatchVO> knowledgeMatchVOList = qaDocumentService.searchKnowledge(teamId, prompt, 3);
+
+                // 处理知识匹配结果
+                if (knowledgeMatchVOList != null && !knowledgeMatchVOList.isEmpty())
+                {
+                    log.debug("获取到知识匹配结果: {} 条", knowledgeMatchVOList.size());
+                    // TODO: 临时写死额外提示词:  "请根据提供的知识进行回答"
+                    String knowledgeContent = knowledgeMatchVOList.stream()
+                            .map(KnowledgeMatchVO::getContent)
+                            .collect(Collectors.joining("\n"));
+                    prompt = "请根据以下知识进行回答：" + knowledgeContent + "\n" + prompt;
+                }
+            }
+
             // 保存用户消息 在聊天历史后面再保存 防止出现重复
             ChatMessage userMessage = new ChatMessage();
             userMessage.setId(UUID.randomUUID().toString());
             userMessage.setSessionId(finalSessionId);
-            userMessage.setContent(request.getPrompt());
+            userMessage.setContent(prompt);
             userMessage.setRole("user");
             userMessage.setCreateTime(new Date());
             aiChatService.saveChatMessage(userMessage);
@@ -111,9 +143,10 @@ public class AiChatController extends BaseController
 
 //            TODO: 添加用户options处理 选择不同的模型
 
+            log.debug("发送AI内容: {}", prompt);
             // 调用AI流式API
             aiProvider.streamCompletion(
-                    request.getPrompt(),
+                    prompt,
                     history,
                     request.getOptions(),
                     copyOutputStream

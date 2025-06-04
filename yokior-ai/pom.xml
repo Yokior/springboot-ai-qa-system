@@ -41,6 +41,11 @@
             <groupId>org.springframework</groupId>
             <artifactId>spring-webmvc</artifactId>
         </dependency>
+
+        <dependency>
+            <groupId>com.yokior</groupId>
+            <artifactId>yokior-knowledge</artifactId>
+        </dependency>
     </dependencies>
 
 </project>

@@ -764,8 +764,9 @@ export default {
       const requestData = {
         prompt: question,
         sessionId: this.sessionId,
-        teamId: this.selectedTeamId, // + 新增：将选中的团队ID发送给后端
-        options: {} // 如果后端需要其他参数，可以在这里添加
+        options: {
+          teamId: this.selectedTeamId // 将选中的团队ID放在options对象中
+        }
       };
       
       // 定义消息处理函数
@@ -2138,8 +2139,9 @@ export default {
       const requestData = {
         prompt: question,
         sessionId: this.sessionId,
-        teamId: this.selectedTeamId, // + 新增：将选中的团队ID发送给后端
-        options: {} // 如果后端需要其他参数，可以在这里添加
+        options: {
+          teamId: this.selectedTeamId // 将选中的团队ID放在options对象中
+        }
       };
       
       // 定义消息处理函数
@@ -3512,8 +3514,9 @@ export default {
       const requestData = {
         prompt: question,
         sessionId: this.sessionId,
-        teamId: this.selectedTeamId, // + 新增：将选中的团队ID发送给后端
-        options: {} // 如果后端需要其他参数，可以在这里添加
+        options: {
+          teamId: this.selectedTeamId // 将选中的团队ID放在options对象中
+        }
       };
       
       // 定义消息处理函数
