@@ -3,9 +3,12 @@ package com.yokior.knowledge.service.impl;
 import com.yokior.common.constant.DocumentConstants;
 import com.yokior.knowledge.domain.QaDocument;
 import com.yokior.knowledge.domain.QaDocumentParagraph;
+import com.yokior.knowledge.domain.vo.KnowledgeMatchVO;
 import com.yokior.knowledge.mapper.QaDocumentMapper;
 import com.yokior.knowledge.mapper.QaDocumentParagraphMapper;
 import com.yokior.knowledge.service.IQaDocumentService;
+import com.yokior.knowledge.util.HanLPProcessor;
+import com.yokior.knowledge.util.TfIdfMatcher;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -15,9 +18,10 @@ import org.springframework.web.multipart.MultipartFile;
 import javax.annotation.PostConstruct;
 import java.io.File;
 import java.io.IOException;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import org.json.JSONObject;
 
 /**
  * 文档服务实现类
@@ -31,7 +35,7 @@ public class QaDocumentServiceImpl implements IQaDocumentService
 
     @Autowired
     private QaDocumentParagraphMapper paragraphMapper;
-    
+
     @Autowired
     private DocumentProcessingService documentProcessingService;
 
@@ -236,6 +240,147 @@ public class QaDocumentServiceImpl implements IQaDocumentService
 
         // 批量插入段落
         return paragraphMapper.batchInsertParagraphs(paragraphs) > 0;
+    }
+
+    /**
+     * 知识库检索
+     *
+     * @param teamId              团队ID
+     * @param queryText           查询文本
+     * @param maxParagraphsPerDoc 每个文档返回的最大段落数
+     * @return 匹配结果列表
+     */
+    @Override
+    public List<KnowledgeMatchVO> searchKnowledge(Long teamId, String queryText, Integer maxParagraphsPerDoc)
+    {
+        // 1. 检查输入参数
+        if (queryText == null || queryText.trim().isEmpty())
+        {
+            return new ArrayList<>();
+        }
+
+        if (maxParagraphsPerDoc == null || maxParagraphsPerDoc <= 0)
+        {
+            maxParagraphsPerDoc = 3; // 默认每个文档返回3个段落
+        }
+
+        // 2. 获取已处理完成的团队文档列表
+        List<QaDocument> documents = documentMapper.selectDocumentList(teamId, DocumentConstants.PROCESSING_STATUS_COMPLETED);
+        if (documents.isEmpty())
+        {
+            return new ArrayList<>();
+        }
+
+        // 3. 对查询文本进行分词
+        List<String> queryTerms = HanLPProcessor.segment(queryText);
+        if (queryTerms.isEmpty())
+        {
+            return new ArrayList<>();
+        }
+
+        // 4. 创建结果集
+        List<KnowledgeMatchVO> results = new ArrayList<>();
+
+        // 5. 按文档分组处理
+        for (QaDocument document : documents)
+        {
+            // 获取文档的所有段落
+            List<QaDocumentParagraph> paragraphs = paragraphMapper.selectParagraphsByDocId(document.getDocId());
+            if (paragraphs.isEmpty())
+            {
+                continue;
+            }
+
+            // 提取段落内容列表，用于TF-IDF匹配
+            List<String> paragraphContents = paragraphs.stream()
+                    .map(QaDocumentParagraph::getContent)
+                    .collect(Collectors.toList());
+
+            // 匹配查询词与段落
+            List<Integer> matchedIndices = TfIdfMatcher.match(queryTerms, paragraphContents);
+
+            // 取前N个最匹配的段落
+            int count = 0;
+            Map<Integer, Double> scoreMap = calculateScores(queryTerms, paragraphs);
+
+            for (Integer idx : matchedIndices)
+            {
+                if (count >= maxParagraphsPerDoc)
+                {
+                    break;
+                }
+
+                if (idx >= 0 && idx < paragraphs.size())
+                {
+                    QaDocumentParagraph paragraph = paragraphs.get(idx);
+
+                    KnowledgeMatchVO matchVO = new KnowledgeMatchVO();
+                    matchVO.setDocId(document.getDocId());
+                    matchVO.setFilename(document.getFilename());
+                    matchVO.setParagraphId(paragraph.getParagraphId());
+                    matchVO.setContent(paragraph.getContent());
+                    matchVO.setParagraphOrder(paragraph.getParagraphOrder());
+                    matchVO.setScore(scoreMap.getOrDefault(idx, 0.0));
+
+                    results.add(matchVO);
+                    count++;
+                }
+            }
+        }
+
+        // 6. 按得分降序排序结果
+        results.sort(Comparator.comparing(KnowledgeMatchVO::getScore).reversed());
+
+        return results;
+    }
+
+    /**
+     * 计算查询词与段落的匹配得分
+     *
+     * @param queryTerms 查询词条
+     * @param paragraphs 段落列表
+     * @return 索引-得分映射
+     */
+    private Map<Integer, Double> calculateScores(List<String> queryTerms, List<QaDocumentParagraph> paragraphs)
+    {
+        Map<Integer, Double> scoreMap = new HashMap<>();
+
+        for (int i = 0; i < paragraphs.size(); i++)
+        {
+            QaDocumentParagraph paragraph = paragraphs.get(i);
+            String featureWeightsJson = paragraph.getFeatureWeights();
+
+            // 如果权重为空，则跳过
+            if (featureWeightsJson == null || featureWeightsJson.isEmpty())
+            {
+                scoreMap.put(i, 0.0);
+                continue;
+            }
+
+            try
+            {
+                // 解析TF-IDF权重JSON
+                JSONObject weights = new JSONObject(featureWeightsJson);
+                double score = 0.0;
+
+                // 累加每个查询词的TF-IDF得分
+                for (String term : queryTerms)
+                {
+                    if (weights.has(term))
+                    {
+                        score += weights.getDouble(term);
+                    }
+                }
+
+                scoreMap.put(i, score);
+            }
+            catch (Exception e)
+            {
+                scoreMap.put(i, 0.0);
+            }
+        }
+
+        return scoreMap;
     }
 
     /**

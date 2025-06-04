@@ -2,6 +2,7 @@ package com.yokior.knowledge.service;
 
 import com.yokior.knowledge.domain.QaDocument;
 import com.yokior.knowledge.domain.QaDocumentParagraph;
+import com.yokior.knowledge.domain.vo.KnowledgeMatchVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
@@ -80,4 +81,14 @@ public interface IQaDocumentService
      * @return 是否成功
      */
     boolean addDocumentParagraphs(List<QaDocumentParagraph> paragraphs);
+    
+    /**
+     * 知识库检索
+     * 
+     * @param teamId 团队ID
+     * @param queryText 查询文本
+     * @param maxParagraphsPerDoc 每个文档返回的最大段落数
+     * @return 匹配结果列表
+     */
+    List<KnowledgeMatchVO> searchKnowledge(Long teamId, String queryText, Integer maxParagraphsPerDoc);
 } 

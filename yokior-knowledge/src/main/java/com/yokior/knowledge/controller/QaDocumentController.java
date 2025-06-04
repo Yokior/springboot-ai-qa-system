@@ -9,6 +9,8 @@ import com.yokior.common.utils.SecurityUtils;
 import com.yokior.knowledge.domain.QaDocument;
 import com.yokior.knowledge.domain.QaDocumentParagraph;
 import com.yokior.knowledge.domain.dto.DocumentDTO;
+import com.yokior.knowledge.domain.dto.KnowledgeQueryDTO;
+import com.yokior.knowledge.domain.vo.KnowledgeMatchVO;
 import com.yokior.knowledge.service.IQaDocumentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,6 +35,7 @@ public class QaDocumentController extends BaseController
     /**
      * 获取文档列表
      */
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR, TeamConstants.ROLE_ADMIN, TeamConstants.ROLE_MEMBER})
     @GetMapping("/list")
     public TableDataInfo list(DocumentDTO documentDTO)
     {
@@ -47,6 +50,7 @@ public class QaDocumentController extends BaseController
     /**
      * 获取文档详情
      */
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR, TeamConstants.ROLE_ADMIN, TeamConstants.ROLE_MEMBER})
     @GetMapping("/{docId}")
     public AjaxResult getInfo(@PathVariable Long docId)
     {
@@ -83,11 +87,26 @@ public class QaDocumentController extends BaseController
     /**
      * 获取文档段落列表
      */
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR, TeamConstants.ROLE_ADMIN, TeamConstants.ROLE_MEMBER})
     @GetMapping("/paragraphs/{docId}")
     public AjaxResult paragraphs(@PathVariable Long docId)
     {
         log.info("获取文档段落列表, docId: {}", docId);
         List<QaDocumentParagraph> paragraphs = documentService.listDocumentParagraphs(docId);
         return success(paragraphs);
+    }
+    
+    /**
+     * 知识库检索
+     */
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR, TeamConstants.ROLE_ADMIN, TeamConstants.ROLE_MEMBER})
+    @PostMapping("/search")
+    public AjaxResult search(@RequestBody KnowledgeQueryDTO queryDTO)
+    {
+        log.info("知识库检索, 参数: {}", queryDTO);
+        List<KnowledgeMatchVO> matchResults = documentService.searchKnowledge(
+                queryDTO.getTeamId(),
+                queryDTO.getQueryText(), 3);
+        return success(matchResults);
     }
 } 

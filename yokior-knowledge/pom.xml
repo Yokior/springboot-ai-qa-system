@@ -33,6 +33,12 @@
             <artifactId>hanlp</artifactId>
             <version>portable-1.7.6</version>
         </dependency>
+        <!-- JSON依赖 -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+            <version>20220320</version>
+        </dependency>
     </dependencies>
 
     <properties>
