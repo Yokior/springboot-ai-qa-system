@@ -110,7 +110,7 @@ public class AiChatController extends BaseController
 
             // 如果存在teamId获取teamId
             Long teamId = null;
-            if (options != null && options.containsKey("teamId"))
+            if (options != null && options.containsKey("teamId") && !StringUtils.isEmpty(options.get("teamId").toString()))
             {
                 teamId = Long.parseLong(options.get("teamId").toString());
 
