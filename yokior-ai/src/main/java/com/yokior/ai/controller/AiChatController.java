@@ -40,6 +40,8 @@ public class AiChatController extends BaseController
     @Resource(name = "deepseek")
     private AiProvider aiProvider;
 
+    private final String separator = "===分隔符===";
+
     /**
      * 发送聊天消息
      */
@@ -74,8 +76,8 @@ public class AiChatController extends BaseController
         response.setHeader("Cache-Control", "no-cache");
         response.setHeader("Connection", "keep-alive");
 
-        log.info("收到流式聊天请求: prompt={}, sessionId={}", 
-               request.getPrompt(), request.getSessionId());
+        log.info("收到流式聊天请求: prompt={}, sessionId={}",
+                request.getPrompt(), request.getSessionId());
 
         // 获取当前登录用户
         LoginUser loginUser = SecurityUtils.getLoginUser();
@@ -86,7 +88,7 @@ public class AiChatController extends BaseController
 
         try
         {
-            
+
             // 获取或创建会话ID
             String sessionId = request.getSessionId();
             if (StringUtils.isEmpty(sessionId))
@@ -119,11 +121,11 @@ public class AiChatController extends BaseController
                 if (knowledgeMatchVOList != null && !knowledgeMatchVOList.isEmpty())
                 {
                     log.debug("获取到知识匹配结果: {} 条", knowledgeMatchVOList.size());
-                    // TODO: 临时写死额外提示词:  "请根据提供的知识进行回答"
+                    // TODO: 临时写死额外提示词:  "请根据提供的知识进行回答" 写死分隔符
                     String knowledgeContent = knowledgeMatchVOList.stream()
                             .map(KnowledgeMatchVO::getContent)
                             .collect(Collectors.joining("\n"));
-                    prompt = "请根据以下知识进行回答：" + knowledgeContent + "\n" + prompt;
+                    prompt = "请根据以下知识进行回答：" + knowledgeContent + "\n" + separator + "\n" + prompt;
                 }
             }
 
@@ -151,7 +153,7 @@ public class AiChatController extends BaseController
                     request.getOptions(),
                     copyOutputStream
             );
-            
+
             // 发送结束标记
             String endMessage = "data: [DONE]\n\n";
             response.getOutputStream().write(endMessage.getBytes());
@@ -190,7 +192,7 @@ public class AiChatController extends BaseController
                 String errorMessage = "data: {\"error\": \"" + e.getMessage().replace("\"", "\\\"") + "\"}\n\n";
                 response.getOutputStream().write(errorMessage.getBytes());
                 response.getOutputStream().flush();
-                
+
                 // 发送结束标记
                 String endMessage = "data: [DONE]\n\n";
                 response.getOutputStream().write(endMessage.getBytes());
@@ -230,7 +232,7 @@ public class AiChatController extends BaseController
     }
 
     /**
-     * 获取会话消息历史
+     * 获取会话消息历史 返回给前端展示
      */
     @GetMapping("/sessions/{sessionId}/messages")
     public R<Map<String, List<ChatMessage>>> getChatHistory(@PathVariable("sessionId") String sessionId)
@@ -242,6 +244,15 @@ public class AiChatController extends BaseController
         {
             // 获取聊天历史
             List<ChatMessage> messages = aiChatService.getChatHistory(sessionId, loginUser.getUserId());
+
+            // 额外处理：将content内容转成分隔符后面的内容发送给前端（不要有知识库）
+            messages.forEach(message -> {
+                if (message.getContent().contains(separator))
+                {
+                    message.setContent(message.getContent().split(separator)[1]);
+                }
+            });
+
             Map<String, List<ChatMessage>> result = new HashMap<>();
             result.put("messages", messages);
             return R.ok(result);
@@ -357,19 +368,25 @@ public class AiChatController extends BaseController
                 // 如果不是[DONE]标记，则提取实际内容
                 if (!content.equals("[DONE]"))
                 {
-                    try {
+                    try
+                    {
                         // 尝试解析JSON
                         Map<String, Object> contentMap = objectMapper.readValue(content, Map.class);
-                        if (contentMap.containsKey("content")) {
+                        if (contentMap.containsKey("content"))
+                        {
                             // 只提取content字段的值
                             String textContent = (String) contentMap.get("content");
                             // 直接追加文本内容，不带JSON包装
                             collector.append(textContent);
-                        } else if (contentMap.containsKey("error")) {
+                        }
+                        else if (contentMap.containsKey("error"))
+                        {
                             // 处理错误消息
                             collector.append("[错误] " + contentMap.get("error"));
                         }
-                    } catch (Exception e) {
+                    }
+                    catch (Exception e)
+                    {
                         // JSON解析失败，作为纯文本处理
                         log.warn("无法解析内容为JSON: {}", content);
                         collector.append(content);

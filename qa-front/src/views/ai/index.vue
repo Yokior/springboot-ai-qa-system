@@ -409,7 +409,7 @@ export default {
     };
     
     // 检查认证并初始化会话
-    this.checkAuthAndInitSessions();
+    // this.checkAuthAndInitSessions(); // 删除此处调用，因为在mounted中已经调用了
     
     // this.fetchTeamList(); // + 新增：获取团队列表 - 移到 mounted
   },
