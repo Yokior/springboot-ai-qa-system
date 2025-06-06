@@ -41,7 +41,7 @@ public class AiChatController extends BaseController
     @Resource(name = "deepseek")
     private AiProvider aiProvider;
 
-    private final String separator = "===分隔符===";
+    private final String separator = "【用户问题】";
 
     /**
      * 发送聊天消息
@@ -104,7 +104,8 @@ public class AiChatController extends BaseController
             List<ChatMessage> history = aiChatService.getChatHistory(finalSessionId, loginUser.getUserId(), 10);
             log.debug("获取到历史消息: {} 条", history.size());
 
-            String prompt = request.getPrompt();
+            String originalPrompt = request.getPrompt();
+            StringBuilder prompt = new StringBuilder(originalPrompt);
 
             // 如果是初次会话 设置会话的标题
             if (history.isEmpty())
@@ -129,17 +130,22 @@ public class AiChatController extends BaseController
                 teamId = Long.parseLong(options.get("teamId").toString());
 
                 // 获取知识匹配结果
-                List<KnowledgeMatchVO> knowledgeMatchVOList = qaDocumentService.searchKnowledge(teamId, prompt, 3);
+                List<KnowledgeMatchVO> knowledgeMatchVOList = qaDocumentService.searchKnowledge(teamId, originalPrompt, 3);
 
                 // 处理知识匹配结果
                 if (knowledgeMatchVOList != null && !knowledgeMatchVOList.isEmpty())
                 {
                     log.debug("获取到知识匹配结果: {} 条", knowledgeMatchVOList.size());
-                    // TODO: 临时写死额外提示词:  "请根据提供的知识进行回答" 写死分隔符
+                    // TODO: 临时写死额外提示词  写死分隔符
                     String knowledgeContent = knowledgeMatchVOList.stream()
-                            .map(KnowledgeMatchVO::getContent)
+                            .map(k ->
+                            {
+                                return "\n[" + k.getFilename() + "]第[" + k.getParagraphOrder() + "段]\n" + k.getContent();
+                            })
                             .collect(Collectors.joining("\n"));
-                    prompt = "请根据以下知识进行回答：" + knowledgeContent + "\n" + separator + "\n" + prompt;
+                    prompt.append("以下是相关知识库内容，请根据这些内容回答用户的问题。如果相关内容中没有包含答案，请如实说明无法回答\n\n");
+
+                    prompt.append(knowledgeContent).append("\n").append(separator).append("\n").append(originalPrompt);
                 }
             }
 
@@ -147,7 +153,7 @@ public class AiChatController extends BaseController
             ChatMessage userMessage = new ChatMessage();
             userMessage.setId(UUID.randomUUID().toString());
             userMessage.setSessionId(finalSessionId);
-            userMessage.setContent(prompt);
+            userMessage.setContent(originalPrompt); // 保存原始prompt
             userMessage.setRole("user");
             userMessage.setCreateTime(new Date());
             aiChatService.saveChatMessage(userMessage);
@@ -162,7 +168,7 @@ public class AiChatController extends BaseController
             log.debug("发送AI内容: {}", prompt);
             // 调用AI流式API
             aiProvider.streamCompletion(
-                    prompt,
+                    prompt.toString(),
                     history,
                     request.getOptions(),
                     copyOutputStream
@@ -258,14 +264,6 @@ public class AiChatController extends BaseController
         {
             // 获取聊天历史
             List<ChatMessage> messages = aiChatService.getChatHistory(sessionId, loginUser.getUserId());
-
-            // 额外处理：将content内容转成分隔符后面的内容发送给前端（不要有知识库）
-            messages.forEach(message -> {
-                if (message.getContent().contains(separator))
-                {
-                    message.setContent(message.getContent().split(separator)[1]);
-                }
-            });
 
             Map<String, List<ChatMessage>> result = new HashMap<>();
             result.put("messages", messages);
