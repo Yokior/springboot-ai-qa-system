@@ -74,7 +74,7 @@
                 :value="String(team.teamId)">
                 <div class="team-option">
                   <el-avatar 
-                    :size="30" 
+                    :size="26" 
                     :src="getAvatarUrl(team.avatar)" 
                     class="team-option-avatar">
                     {{ team.name ? team.name.substring(0, 1) : 'T' }}
@@ -443,7 +443,6 @@ export default {
                 }
             }).catch(error => {
                 console.error('创建会话失败:', error);
-                this.$message.error('无法连接到服务器，请稍后再试');
                 this.loading = false;
             });
         },
@@ -1619,7 +1618,7 @@ export default {
     }
 
     .team-select-dropdown {
-      width: 220px; 
+      width: 300px; 
       
       :deep(.el-input__inner) { 
         border-radius: 6px; 
@@ -2156,31 +2155,15 @@ export default {
   line-height: 1 !important;
 }
 
-.team-option {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
 
-.team-option-avatar {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  overflow: hidden;
-}
-
-.team-option-name {
-  font-size: 14px;
-  color: #333;
-}
 
 /* 团队选择组件样式 */
 .team-option {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 100%;
   gap: 10px;
-  padding: 5px 0;
-  transition: all 0.2s;
 }
 
 .team-option-avatar {
