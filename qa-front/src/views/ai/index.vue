@@ -175,7 +175,7 @@ import { marked } from 'marked';
 import hljs from 'highlight.js/lib/common'; // 改用common包，包含常用语言
 import 'highlight.js/styles/vs2015.css'; // 导入VS Code风格的代码高亮样式
 import { mapState } from 'vuex';
-import { sendChatMessage, sendStreamChatMessage, createSession, deleteSession, getChatHistory, getUserSessions } from '@/api/ai/index';
+import { sendChatMessage, sendStreamChatMessage, createSession, deleteSession, getChatHistory, getUserSessions, clearChatHistory } from '@/api/ai/index';
 import { getToken } from '@/utils/auth';
 import { parseTime } from '@/utils/yokior';
 import { getInfo } from '@/api/login';
@@ -517,7 +517,6 @@ export default {
                             }
                         }).catch(error => {
                             clearTimeout(failsafeTimeout); // 清除超时
-                            console.error('[诊断] 4.2.4 createSession API 异常', error);
                             this.loading = false;
                         });
                     }
@@ -527,7 +526,6 @@ export default {
                 }
             }).catch(error => {
                 clearTimeout(failsafeTimeout); // 清除超时
-                console.error('[诊断] 6. deleteSession API 异常', error);
                 this.loading = false;
             });
         },
@@ -585,8 +583,18 @@ export default {
                 type: 'warning'
             }).then(() => {
                 this.messages = [];
-                this.$message.success('对话内容已清空');
 
+                clearChatHistory(this.sessionId).then((res) => {
+                    if (res.code === 200) {
+                        this.$message.success('对话历史已清空');
+                    } else {
+                        this.$message.error('清空对话历史失败');
+                    }
+                }).catch(() => {
+                    this.$message.error('清空对话历史失败');
+                });
+
+                // 更新会话标题
                 const session = this.sessionList.find(s => s.id === this.sessionId);
                 if (session) {
                     session.title = '新对话';

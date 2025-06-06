@@ -119,7 +119,7 @@ public class AiChatServiceImpl implements AiChatService
         // 获取该会话的所有消息
         return chatMessageMapper.selectBySessionId(sessionId);
     }
-    
+
     @Override
     public List<ChatMessage> getChatHistory(String sessionId, Long userId, int count)
     {
@@ -133,7 +133,7 @@ public class AiChatServiceImpl implements AiChatService
         // 获取该会话的指定数量的消息
         return chatMessageMapper.selectRecentBySessionId(sessionId, count);
     }
-    
+
     @Override
     public void saveChatMessage(ChatMessage message)
     {
@@ -141,7 +141,7 @@ public class AiChatServiceImpl implements AiChatService
         {
             throw new ServiceException("消息或会话ID不能为空");
         }
-        
+
         chatMessageMapper.insert(message);
     }
 
@@ -165,6 +165,7 @@ public class AiChatServiceImpl implements AiChatService
 
     /**
      * 根据用户id获取用户会话列表
+     *
      * @param userId 用户ID
      * @return 会话列表
      */
@@ -178,19 +179,41 @@ public class AiChatServiceImpl implements AiChatService
 
     /**
      * 设置会话标题
+     *
      * @param sessionId 会话ID
-     * @param title 标题
+     * @param title     标题
      * @return 影响行数
      */
     @Override
-    public int setSessionTitle(String sessionId, String title)
+    public Boolean setSessionTitle(String sessionId, String title)
     {
-        ChatSession chatSession = new ChatSession();
-        chatSession.setId(sessionId);
-        chatSession.setTitle(title);
+        int update = chatSessionMapper.updateTitle(sessionId, title);
 
-        int update = chatSessionMapper.updateById(chatSession);
+        return update > 0;
+    }
 
-        return update;
+    /**
+     * 清空会话历史
+     *
+     * @param sessionId 会话ID
+     * @param userId    用户ID
+     * @return 影响行数
+     */
+    @Override
+    @Transactional
+    public Boolean clearChatHistory(String sessionId, Long userId)
+    {
+        // 验证会话归属
+        ChatSession session = chatSessionMapper.selectById(sessionId);
+        if (session == null || !userId.equals(session.getUserId()))
+        {
+            throw new ServiceException("会话不存在或无权访问");
+        }
+
+        int delete = chatMessageMapper.deleteBySessionId(sessionId);
+
+        int update = chatSessionMapper.updateTitle(sessionId, "新会话");
+
+        return delete > 0 && update > 0;
     }
 }

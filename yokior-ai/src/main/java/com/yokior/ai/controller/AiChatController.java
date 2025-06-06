@@ -317,6 +317,28 @@ public class AiChatController extends BaseController
     }
 
     /**
+     * 清空会话历史
+     */
+    @DeleteMapping("/history/{sessionId}")
+    public R<Void> clearHistory(@PathVariable("sessionId") String sessionId)
+    {
+        // 获取当前登录用户
+        LoginUser loginUser = SecurityUtils.getLoginUser();
+
+        try
+        {
+            // 删除会话
+            aiChatService.clearChatHistory(sessionId, loginUser.getUserId());
+            return R.ok();
+        }
+        catch (Exception e)
+        {
+            log.error("删除会话异常", e);
+            return R.fail("删除会话失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 同时写入输出流和收集内容的输出流
      */
     private static class CopyOutputStream extends java.io.OutputStream

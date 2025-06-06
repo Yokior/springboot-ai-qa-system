@@ -144,3 +144,13 @@ export function getUserSessions() {
     method: 'get'
   });
 } 
+
+
+// 清除对话历史
+export function clearChatHistory(sessionId) {
+  return request({
+    url: `/api/ai/history/${sessionId}`,
+    method: 'delete'
+  })
+}
+

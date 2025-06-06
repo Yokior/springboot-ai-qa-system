@@ -80,5 +80,14 @@ public interface AiChatService
      * @param title     标题
      * @return 影响行数
      */
-    int setSessionTitle(String sessionId, String title);
+    Boolean setSessionTitle(String sessionId, String title);
+
+    /**
+     * 清空会话聊天历史
+     *
+     * @param sessionId 会话ID
+     * @param userId    用户ID
+     * @return 影响行数
+     */
+    Boolean clearChatHistory(String sessionId, Long userId);
 }
