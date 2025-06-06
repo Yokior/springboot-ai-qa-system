@@ -59,7 +59,16 @@ public class TfIdfMatcher
             {
                 int tf = tfMap.getOrDefault(term, 0);
                 int df = docFreqMap.getOrDefault(term, 0);
-                double idf = Math.log((double) totalDocs / (df + 1));
+                
+                // 修改IDF计算方式，确保始终为正数
+                // 使用 IDF = log(N/(df+1)) + 1 公式，与 calculateTfIdfWeights 保持一致
+                double idf = Math.log((double) totalDocs / (df + 1)) + 1.0;
+                
+                // 确保IDF始终为正数
+                if (idf < 0) {
+                    idf = 0.01; // 设置一个小的正数作为最小值
+                }
+                
                 double tfidf = tf * idf;
                 score += tfidf;
             }
@@ -122,7 +131,16 @@ public class TfIdfMatcher
                 String term = entry.getKey();
                 int tf = entry.getValue();
                 int df = docFreqMap.getOrDefault(term, 0);
-                double idf = Math.log((double) totalDocs / (df + 1));
+                
+                // 修改IDF计算方式，确保始终为正数
+                // 使用 IDF = log(N/(df+1)) + 1 公式
+                double idf = Math.log((double) totalDocs / (df + 1)) + 1.0;
+                
+                // 确保IDF始终为正数
+                if (idf < 0) {
+                    idf = 0.01; // 设置一个小的正数作为最小值
+                }
+                
                 double tfIdf = tf * idf;
 
                 tfIdfMap.put(term, tfIdf);

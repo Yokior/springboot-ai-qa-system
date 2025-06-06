@@ -140,12 +140,16 @@ public class AiChatController extends BaseController
                     String knowledgeContent = knowledgeMatchVOList.stream()
                             .map(k ->
                             {
-                                return "\n[" + k.getFilename() + "]第[" + k.getParagraphOrder() + "段]\n" + k.getContent();
+                                return "\n[" + k.getFilename() + "]第[" + k.getParagraphOrder() + "]段\n" + k.getContent();
                             })
                             .collect(Collectors.joining("\n"));
                     prompt.append("以下是相关知识库内容，请根据这些内容回答用户的问题。如果相关内容中没有包含答案，请如实说明无法回答\n\n");
 
                     prompt.append(knowledgeContent).append("\n").append(separator).append("\n").append(originalPrompt);
+                }
+                else
+                {
+                    log.debug("发送内容:\n{}\n未匹配到知识库内容", originalPrompt);
                 }
             }
 

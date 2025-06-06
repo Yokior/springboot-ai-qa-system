@@ -313,6 +313,15 @@ public class QaDocumentServiceImpl implements IQaDocumentService
                 if (idx >= 0 && idx < paragraphs.size())
                 {
                     QaDocumentParagraph paragraph = paragraphs.get(idx);
+                    double score = scoreMap.getOrDefault(idx, 0.0);
+                    
+                    // 设置相关性阈值，只添加相关性高的结果
+                    // 由于修改了TF-IDF计算方式，阈值需要相应调整
+                    double relevanceThreshold = 0.5; // 调整为更高的阈值，适应正数权重
+                    if (score < relevanceThreshold)
+                    {
+                        continue; // 跳过相关性低的段落
+                    }
 
                     KnowledgeMatchVO matchVO = new KnowledgeMatchVO();
                     matchVO.setDocId(document.getDocId());
@@ -320,7 +329,7 @@ public class QaDocumentServiceImpl implements IQaDocumentService
                     matchVO.setParagraphId(paragraph.getParagraphId());
                     matchVO.setContent(paragraph.getContent());
                     matchVO.setParagraphOrder(paragraph.getParagraphOrder());
-                    matchVO.setScore(scoreMap.getOrDefault(idx, 0.0));
+                    matchVO.setScore(score);
 
                     results.add(matchVO);
                     count++;
@@ -330,6 +339,21 @@ public class QaDocumentServiceImpl implements IQaDocumentService
 
         // 6. 按得分降序排序结果
         results.sort(Comparator.comparing(KnowledgeMatchVO::getScore).reversed());
+        
+        // 7. 如果所有结果的平均分过低，则认为没有相关结果
+        if (!results.isEmpty()) {
+            double avgScore = results.stream()
+                    .mapToDouble(KnowledgeMatchVO::getScore)
+                    .average()
+                    .orElse(0.0);
+                    
+            // 设置平均分阈值，可以根据实际情况调整
+            // 由于修改了TF-IDF计算方式，阈值需要相应调整
+            double avgScoreThreshold = 0.3; // 调整为更高的阈值，适应正数权重
+            if (avgScore < avgScoreThreshold) {
+                return new ArrayList<>(); // 平均分过低，返回空结果
+            }
+        }
 
         return results;
     }
