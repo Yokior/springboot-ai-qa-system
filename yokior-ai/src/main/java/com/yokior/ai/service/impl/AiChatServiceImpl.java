@@ -5,6 +5,7 @@ import com.yokior.ai.domain.ChatMessage;
 import com.yokior.ai.domain.ChatSession;
 import com.yokior.ai.domain.dto.ChatRequest;
 import com.yokior.ai.domain.dto.ChatResponse;
+import com.yokior.ai.domain.vo.ChatSessionVo;
 import com.yokior.ai.mapper.ChatMessageMapper;
 import com.yokior.ai.mapper.ChatSessionMapper;
 import com.yokior.ai.service.AiChatService;
@@ -168,10 +169,10 @@ public class AiChatServiceImpl implements AiChatService
      * @return 会话列表
      */
     @Override
-    public List<String> getSessionListByUserId(Long userId)
+    public List<ChatSessionVo> getSessionVoListByUserId(Long userId)
     {
-        List<String> sessionList = chatSessionMapper.getSeedListByUserId(userId);
+        List<ChatSessionVo> sessionVoList = chatSessionMapper.getSessionVoListByUserId(userId);
 
-        return sessionList;
+        return sessionVoList;
     }
 }

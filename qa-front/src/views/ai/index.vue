@@ -347,11 +347,11 @@ export default {
 
             getUserSessions().then(response => {
                 if (response.code === 200 && response.data) {
-                    const sessionIds = response.data;
-                    this.sessionList = sessionIds.map(id => ({
-                        id: id,
-                        title: '新对话',
-                        createTime: new Date().toISOString()
+                    // 直接使用返回的会话对象列表，包含 sessionId、title 和 createTime
+                    this.sessionList = response.data.map(session => ({
+                        id: session.sessionId,
+                        title: session.title || '新对话',
+                        createTime: session.createTime
                     })).sort((a, b) => new Date(b.createTime) - new Date(a.createTime));
 
                     const lastSessionId = localStorage.getItem('ai-chat-last-session');
@@ -398,6 +398,17 @@ export default {
             this.loadChatHistory();
         },
 
+        // 格式化日期为字符串，格式：YYYY-MM-DD HH:mm:ss
+        formatDateToString(date) {
+            const d = date || new Date();
+            return d.getFullYear() + '-' + 
+                  String(d.getMonth() + 1).padStart(2, '0') + '-' + 
+                  String(d.getDate()).padStart(2, '0') + ' ' + 
+                  String(d.getHours()).padStart(2, '0') + ':' + 
+                  String(d.getMinutes()).padStart(2, '0') + ':' + 
+                  String(d.getSeconds()).padStart(2, '0');
+        },
+
         // 创建新会话
         createNewSession() {
             if (this.loading) return;
@@ -410,11 +421,12 @@ export default {
             createSession().then(response => {
                 if (response.code === 200) {
                     const newSessionId = response.data.sessionId;
+                    const formattedDate = this.formatDateToString(new Date());
 
                     const newSession = {
                         id: newSessionId,
                         title: '新对话',
-                        createTime: new Date().toISOString()
+                        createTime: formattedDate
                     };
 
                     this.sessionList.unshift(newSession);
@@ -489,7 +501,12 @@ export default {
                             clearTimeout(failsafeTimeout); // 清除超时
                             if (response.code === 200) {
                                 const newSessionId = response.data.sessionId;
-                                const newSession = { id: newSessionId, title: '新对话', createTime: new Date().toISOString() };
+                                const formattedDate = this.formatDateToString(new Date());
+                                const newSession = { 
+                                    id: newSessionId, 
+                                    title: '新对话', 
+                                    createTime: formattedDate 
+                                };
                                 this.sessionList.unshift(newSession);
                                 this.sessionId = newSessionId;
                                 localStorage.setItem('ai-chat-last-session', newSessionId);
@@ -897,7 +914,23 @@ export default {
 
         formatDate(dateString) {
             if (!dateString) return '';
-            const date = new Date(dateString);
+            
+            // 尝试创建日期对象
+            let date;
+            try {
+                // 处理字符串日期格式 "YYYY-MM-DD HH:mm:ss"
+                date = new Date(dateString.replace(/-/g, '/'));
+                
+                // 检查日期是否有效
+                if (isNaN(date.getTime())) {
+                    console.error('无效的日期:', dateString);
+                    return dateString; // 如果无法解析，则返回原始字符串
+                }
+            } catch (e) {
+                console.error('日期解析错误:', e);
+                return dateString; // 出错时返回原始字符串
+            }
+            
             const now = new Date();
             const diff = now - date;
 

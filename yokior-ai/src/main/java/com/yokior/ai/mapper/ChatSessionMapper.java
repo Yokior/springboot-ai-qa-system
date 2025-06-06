@@ -1,6 +1,7 @@
 package com.yokior.ai.mapper;
 
 import com.yokior.ai.domain.ChatSession;
+import com.yokior.ai.domain.vo.ChatSessionVo;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
@@ -76,5 +77,5 @@ public interface ChatSessionMapper
      * @param userId 用户ID
      * @return 种子会话列表
      */
-    List<String> getSeedListByUserId(@Param("userId") Long userId);
+    List<ChatSessionVo> getSessionVoListByUserId(@Param("userId") Long userId);
 }

@@ -4,13 +4,20 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.yokior.ai.mapper.ChatSessionMapper">
 
-    <resultMap type="com.yokior.ai.domain.ChatSession" id="ChatSessionResult">
+    <resultMap id="ChatSessionResult" type="com.yokior.ai.domain.ChatSession" >
         <id     property="id"           column="id"/>
         <result property="userId"       column="user_id"/>
         <result property="title"        column="title"/>
         <result property="createTime"   column="create_time"/>
         <result property="updateTime"   column="update_time"/>
         <result property="status"       column="status"/>
+    </resultMap>
+
+
+    <resultMap id="ChatSessionVoResult" type="com.yokior.ai.domain.vo.ChatSessionVo" >
+        <id property="sessionId" column="id"/>
+        <result  property="title" column="title"/>
+        <result property="createTime" column="create_time"/>
     </resultMap>
 
     <sql id="selectChatSessionVo">
@@ -67,8 +74,8 @@
         where id = #{id} and user_id = #{userId}
     </select>
 
-    <select id="getSeedListByUserId" resultType="java.lang.String">
-        select id
+    <select id="getSessionVoListByUserId" resultMap="ChatSessionVoResult">
+        select id, title, create_time
         from chat_session
         where user_id = #{userId} and status = '0'
     </select>

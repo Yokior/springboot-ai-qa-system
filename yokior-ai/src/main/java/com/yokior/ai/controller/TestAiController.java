@@ -21,8 +21,8 @@ import java.util.List;
  * @description
  * @date 2025/5/19 17:17
  */
-@RestController
-@RequestMapping("/test/ai")
+//@RestController
+//@RequestMapping("/test/ai")
 @Slf4j
 public class TestAiController
 {
