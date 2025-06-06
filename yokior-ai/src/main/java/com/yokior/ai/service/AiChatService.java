@@ -72,4 +72,13 @@ public interface AiChatService
      * @return 会话列表
      */
     List<ChatSessionVo> getSessionVoListByUserId(Long userId);
+
+    /**
+     * 设置会话标题
+     *
+     * @param sessionId 会话ID
+     * @param title     标题
+     * @return 影响行数
+     */
+    int setSessionTitle(String sessionId, String title);
 }

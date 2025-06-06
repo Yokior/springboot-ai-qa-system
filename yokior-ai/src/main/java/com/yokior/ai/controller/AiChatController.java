@@ -106,6 +106,19 @@ public class AiChatController extends BaseController
 
             String prompt = request.getPrompt();
 
+            // 如果是初次会话 设置会话的标题
+            if (history.isEmpty())
+            {
+                // 取prompt前10个字符作为会话标题
+                String title = prompt.substring(0, Math.min(10, prompt.length()));
+                // 如果有更多 加...
+                if (prompt.length() > 10)
+                {
+                    title += "...";
+                }
+                aiChatService.setSessionTitle(finalSessionId, title);
+            }
+
             // 获取用户选项
             Map<String, Object> options = request.getOptions();
 

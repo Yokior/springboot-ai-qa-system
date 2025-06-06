@@ -175,4 +175,22 @@ public class AiChatServiceImpl implements AiChatService
 
         return sessionVoList;
     }
+
+    /**
+     * 设置会话标题
+     * @param sessionId 会话ID
+     * @param title 标题
+     * @return 影响行数
+     */
+    @Override
+    public int setSessionTitle(String sessionId, String title)
+    {
+        ChatSession chatSession = new ChatSession();
+        chatSession.setId(sessionId);
+        chatSession.setTitle(title);
+
+        int update = chatSessionMapper.updateById(chatSession);
+
+        return update;
+    }
 }
