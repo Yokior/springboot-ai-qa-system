@@ -14,7 +14,7 @@
     </resultMap>
 
 
-    <resultMap id="ChatSessionVoResult" type="com.yokior.ai.domain.vo.ChatSessionVo" >
+    <resultMap id="ChatSessionVoResult" type="com.yokior.ai.domain.vo.ChatSessionVO" >
         <id property="sessionId" column="id"/>
         <result  property="title" column="title"/>
         <result property="createTime" column="create_time"/>

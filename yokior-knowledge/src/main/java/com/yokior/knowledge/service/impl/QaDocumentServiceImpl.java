@@ -1,14 +1,18 @@
 package com.yokior.knowledge.service.impl;
 
 import com.yokior.common.constant.DocumentConstants;
+import com.yokior.common.core.domain.entity.SysUser;
+import com.yokior.common.exception.ServiceException;
 import com.yokior.knowledge.domain.QaDocument;
 import com.yokior.knowledge.domain.QaDocumentParagraph;
+import com.yokior.knowledge.domain.vo.DocumentDetailVO;
 import com.yokior.knowledge.domain.vo.KnowledgeMatchVO;
 import com.yokior.knowledge.mapper.QaDocumentMapper;
 import com.yokior.knowledge.mapper.QaDocumentParagraphMapper;
 import com.yokior.knowledge.service.IQaDocumentService;
 import com.yokior.knowledge.util.HanLPProcessor;
 import com.yokior.knowledge.util.TfIdfMatcher;
+import com.yokior.system.service.ISysUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -38,6 +42,10 @@ public class QaDocumentServiceImpl implements IQaDocumentService
 
     @Autowired
     private DocumentProcessingService documentProcessingService;
+
+    @Autowired
+    private ISysUserService sysUserService;
+
 
     @Value("${document.uploadPath}")
     private String uploadPathConfig;
@@ -356,6 +364,42 @@ public class QaDocumentServiceImpl implements IQaDocumentService
         }
 
         return results;
+    }
+
+    /**
+     * 获取文档详情
+     *
+     * @param docId 文档ID
+     * @return 文档详情
+     */
+    @Override
+    public DocumentDetailVO getDocumentDetail(Long docId)
+    {
+        QaDocument qaDocument = documentMapper.selectDocumentById(docId);
+
+        if (qaDocument == null)
+        {
+            throw new ServiceException("所查询的文档不存在！");
+        }
+
+        // 创建DocumentDetailVO对象
+        DocumentDetailVO documentDetailVO = new DocumentDetailVO();
+
+        SysUser sysUser = sysUserService.selectUserById(qaDocument.getUploaderUserId());
+        if (sysUser != null)
+        {
+            documentDetailVO.setUploaderUserName(sysUser.getNickName());
+        }
+        documentDetailVO.setFilename(qaDocument.getFilename());
+        documentDetailVO.setFileType(qaDocument.getFileType());
+        documentDetailVO.setFileSize(qaDocument.getFileSize());
+        documentDetailVO.setProcessingStatus(qaDocument.getProcessingStatus());
+        documentDetailVO.setUploadTime(qaDocument.getUploadTime());
+        documentDetailVO.setCreatedAt(qaDocument.getCreatedAt());
+        documentDetailVO.setUpdatedAt(qaDocument.getUpdatedAt());
+
+
+        return documentDetailVO;
     }
 
     /**

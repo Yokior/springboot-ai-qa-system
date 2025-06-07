@@ -3,7 +3,7 @@ package com.yokior.ai.service;
 import com.yokior.ai.domain.ChatMessage;
 import com.yokior.ai.domain.dto.ChatRequest;
 import com.yokior.ai.domain.dto.ChatResponse;
-import com.yokior.ai.domain.vo.ChatSessionVo;
+import com.yokior.ai.domain.vo.ChatSessionVO;
 
 import java.util.List;
 
@@ -71,7 +71,7 @@ public interface AiChatService
      * @param userId 用户ID
      * @return 会话列表
      */
-    List<ChatSessionVo> getSessionVoListByUserId(Long userId);
+    List<ChatSessionVO> getSessionVoListByUserId(Long userId);
 
     /**
      * 设置会话标题

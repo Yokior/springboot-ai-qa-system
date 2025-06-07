@@ -10,6 +10,7 @@ import com.yokior.knowledge.domain.QaDocument;
 import com.yokior.knowledge.domain.QaDocumentParagraph;
 import com.yokior.knowledge.domain.dto.DocumentDTO;
 import com.yokior.knowledge.domain.dto.KnowledgeQueryDTO;
+import com.yokior.knowledge.domain.vo.DocumentDetailVO;
 import com.yokior.knowledge.domain.vo.KnowledgeMatchVO;
 import com.yokior.knowledge.service.IQaDocumentService;
 import org.slf4j.Logger;
@@ -108,5 +109,18 @@ public class QaDocumentController extends BaseController
                 queryDTO.getTeamId(),
                 queryDTO.getQueryText(), 3);
         return success(matchResults);
+    }
+
+
+    /**
+     * 查看文档信息
+     */
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR, TeamConstants.ROLE_ADMIN, TeamConstants.ROLE_MEMBER})
+    @GetMapping("/detail/{docId}")
+    public AjaxResult detail(@PathVariable Long docId)
+    {
+        log.info("查看文档信息, docId: {}", docId);
+        DocumentDetailVO documentDetail = documentService.getDocumentDetail(docId);
+        return success(documentDetail);
     }
 } 

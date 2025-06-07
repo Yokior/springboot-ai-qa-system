@@ -68,11 +68,40 @@
       @size-change="handleSizeChange"
       @current-change="handleCurrentChange"
     />
+
+    <!-- 文档详情弹窗 -->
+    <el-dialog
+      title="文档详情"
+      :visible.sync="dialogVisible"
+      width="600px"
+      append-to-body>
+      <el-descriptions :column="1" border v-loading="detailLoading">
+        <el-descriptions-item label="文件名">{{ docDetail.filename }}</el-descriptions-item>
+        <el-descriptions-item label="文件类型">
+          <el-tag :type="getFileTypeTag(docDetail.fileType)" size="small">
+            {{ docDetail.fileType }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="文件大小">{{ formatFileSize(docDetail.fileSize) }}</el-descriptions-item>
+        <el-descriptions-item label="处理状态">
+          <el-tag :type="getStatusTag(docDetail.processingStatus)" size="small">
+            {{ formatStatus(docDetail.processingStatus) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="上传者">{{ docDetail.uploaderUserName }}</el-descriptions-item>
+        <el-descriptions-item label="上传时间">{{ docDetail.uploadTime }}</el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ docDetail.createdAt }}</el-descriptions-item>
+        <el-descriptions-item label="更新时间">{{ docDetail.updatedAt }}</el-descriptions-item>
+      </el-descriptions>
+      <span slot="footer" class="dialog-footer">
+        <el-button @click="dialogVisible = false">关闭</el-button>
+      </span>
+    </el-dialog>
   </div>
 </template>
 
 <script>
-import { listDocuments, deleteDocument } from '@/api/knowledge/document';
+import { listDocuments, deleteDocument, getDocumentDetail } from '@/api/knowledge/document';
 
 export default {
   name: "DocumentList",
@@ -89,6 +118,7 @@ export default {
   data() {
     return {
       loading: false,
+      detailLoading: false,
       documentList: [],
       total: 0,
       queryParams: {
@@ -96,6 +126,17 @@ export default {
         pageSize: 10,
         teamId: undefined,
         processingStatus: undefined
+      },
+      dialogVisible: false,
+      docDetail: {
+        filename: '',
+        fileType: '',
+        fileSize: 0,
+        processingStatus: '',
+        uploaderUserName: '',
+        uploadTime: '',
+        createdAt: '',
+        updatedAt: ''
       }
     };
   },
@@ -226,7 +267,31 @@ export default {
 
     // 查看文档详情
     handleView(row) {
-      this.$message.info('查看文档详情功能待实现');
+      this.dialogVisible = true;
+      this.detailLoading = true;
+      this.docDetail = {
+        filename: '',
+        fileType: '',
+        fileSize: 0,
+        processingStatus: '',
+        uploaderUserName: '',
+        uploadTime: '',
+        createdAt: '',
+        updatedAt: ''
+      };
+      
+      getDocumentDetail(row.docId, this.queryParams.teamId).then(res => {
+        if (res && res.data) {
+          this.docDetail = res.data;
+        } else {
+          this.$message.error('获取文档详情失败');
+        }
+      }).catch(error => {
+        console.error('获取文档详情失败:', error);
+        this.$message.error('获取文档详情失败: ' + (error.message || '未知错误'));
+      }).finally(() => {
+        this.detailLoading = false;
+      });
     },
 
     // 删除文档

@@ -9,7 +9,7 @@ import lombok.Data;
  * @date 2025/6/6 16:35
  */
 @Data
-public class ChatSessionVo
+public class ChatSessionVO
 {
     private String sessionId;
 

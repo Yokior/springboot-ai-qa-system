@@ -46,3 +46,12 @@ export function listDocumentParagraphs(docId) {
     method: 'get'
   });
 }
+
+// 获取文档详情
+export function getDocumentDetail(docId, teamId) {
+  return request({
+    url: `/knowledge/document/detail/${docId}`,
+    method: 'get',
+    params: { teamId }
+  });
+}

@@ -3,7 +3,7 @@ package com.yokior.ai.controller;
 import com.yokior.ai.domain.ChatMessage;
 import com.yokior.ai.domain.dto.ChatRequest;
 import com.yokior.ai.domain.dto.ChatResponse;
-import com.yokior.ai.domain.vo.ChatSessionVo;
+import com.yokior.ai.domain.vo.ChatSessionVO;
 import com.yokior.ai.service.AiChatService;
 import com.yokior.ai.service.AiProvider;
 import com.yokior.common.core.controller.BaseController;
@@ -307,11 +307,11 @@ public class AiChatController extends BaseController
      * 根据用户id获取seesion列表
      */
     @GetMapping("/sessions")
-    public R<List<ChatSessionVo>> getSessionList()
+    public R<List<ChatSessionVO>> getSessionList()
     {
         Long userId = SecurityUtils.getUserId();
 
-        List<ChatSessionVo> sessionList = aiChatService.getSessionVoListByUserId(userId);
+        List<ChatSessionVO> sessionList = aiChatService.getSessionVoListByUserId(userId);
 
         return R.ok(sessionList);
     }
