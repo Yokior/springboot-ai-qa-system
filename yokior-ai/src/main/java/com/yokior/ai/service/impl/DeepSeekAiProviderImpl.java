@@ -247,6 +247,11 @@ public class DeepSeekAiProviderImpl implements AiProvider
                                 {
                                     String chunk = (String) delta.get("content");
 
+                                    if (chunk == null || chunk.isEmpty())
+                                    {
+                                        continue;
+                                    }
+
                                     // 以SSE格式发送内容，包装为单独的消息对象
                                     Map<String, Object> messageObject = new HashMap<>();
                                     messageObject.put("content", chunk);

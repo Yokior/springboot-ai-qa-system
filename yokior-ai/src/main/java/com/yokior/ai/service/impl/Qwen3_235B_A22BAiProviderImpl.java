@@ -29,27 +29,27 @@ import java.util.Map;
  * @description
  * @date 2025/6/7 17:22
  */
-@Service("QwenPlus")
-public class QwenPlusAiProviderImpl implements AiProvider
+@Service("Qwen3_235B_A22B")
+public class Qwen3_235B_A22BAiProviderImpl implements AiProvider
 {
     private static final Logger log = LoggerFactory.getLogger(DeepSeekAiProviderImpl.class);
 
-    @Value("${ai.providers.QwenPlus.apiKey}")
+    @Value("${ai.providers.Qwen3_235B_A22B.apiKey}")
     private String apiKey;
 
-    @Value("${ai.providers.QwenPlus.model}")
+    @Value("${ai.providers.Qwen3_235B_A22B.model}")
     private String model;
 
-    @Value("${ai.providers.QwenPlus.endpoint}")
+    @Value("${ai.providers.Qwen3_235B_A22B.endpoint}")
     private String endpoint;
 
-    @Value("${ai.providers.QwenPlus.temperature}")
+    @Value("${ai.providers.Qwen3_235B_A22B.temperature}")
     private Double temperature;
 
-    @Value("${ai.providers.QwenPlus.maxTokens:2048}")
+    @Value("${ai.providers.Qwen3_235B_A22B.maxTokens:2048}")
     private Integer maxTokens;
 
-    @Value("${ai.providers.QwenPlus.stream}")
+    @Value("${ai.providers.Qwen3_235B_A22B.stream}")
     private Boolean stream;
 
 
@@ -57,7 +57,7 @@ public class QwenPlusAiProviderImpl implements AiProvider
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public QwenPlusAiProviderImpl(RestTemplate restTemplate)
+    public Qwen3_235B_A22BAiProviderImpl(RestTemplate restTemplate)
     {
         this.restTemplate = restTemplate;
     }

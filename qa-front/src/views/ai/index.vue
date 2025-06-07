@@ -215,7 +215,8 @@ export default {
             selectedModel: 'DeepSeek', // 当前选择的模型
             modelList: [ // 可选模型列表
               { label: 'DeepSeek', value: 'DeepSeek' },
-              { label: 'QwenPlus', value: 'QwenPlus' }
+              { label: 'QwenPlus', value: 'QwenPlus' },
+            { label: 'Qwen3_235B_A22B', value: 'Qwen3_235B_A22B' }
             ]
         }
     },
@@ -1686,7 +1687,7 @@ export default {
     }
 
     .model-select-dropdown {
-      width: 150px; 
+      width: 200px; 
       
       :deep(.el-input__inner) { 
         border-radius: 6px; 
