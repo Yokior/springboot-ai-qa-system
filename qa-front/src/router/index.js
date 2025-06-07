@@ -102,6 +102,20 @@ export const constantRoutes = [
       }
     ]
   },
+  // 添加知识库路由
+  {
+    path: '/knowledge',
+    component: Layout,
+    redirect: 'noredirect',
+    children: [
+      {
+        path: 'document',
+        component: () => import('@/views/knowledge/document/index'),
+        name: 'DocumentManagement',
+        meta: { title: '知识库管理', icon: 'education' }
+      }
+    ]
+  },
   // 添加团队相关路由
   {
     path: '/team/my_team',
@@ -128,7 +142,7 @@ export const constantRoutes = [
     name: 'InviteAccept',
     hidden: true,
     meta: { title: '接受团队邀请', activeMenu: '/team/my_team' }
-  }
+  },
 ]
 
 // 动态路由，基于用户权限动态去加载

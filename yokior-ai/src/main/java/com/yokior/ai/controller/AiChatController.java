@@ -136,7 +136,7 @@ public class AiChatController extends BaseController
                 teamId = Long.parseLong(options.get("teamId").toString());
 
                 // 获取知识匹配结果
-                List<KnowledgeMatchVO> knowledgeMatchVOList = qaDocumentService.searchKnowledge(teamId, originalPrompt, 3);
+                List<KnowledgeMatchVO> knowledgeMatchVOList = qaDocumentService.searchKnowledge(teamId, originalPrompt, 10);
 
                 // 处理知识匹配结果
                 if (knowledgeMatchVOList != null && !knowledgeMatchVOList.isEmpty())

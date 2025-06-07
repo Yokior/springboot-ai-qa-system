@@ -408,7 +408,7 @@ export default {
     },
     
     goToKnowledgeBase() {
-      this.$router.push('/knowledge/index');
+      this.$router.push('/knowledge/document');
     },
     
     goToTeam() {
