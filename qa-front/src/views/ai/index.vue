@@ -63,26 +63,40 @@
       <div class="chat-header">
         <div class="session-details">
           <h2 class="session-title-text">{{ currentSession ? currentSession.title || '新对话' : 'AI 助手' }}</h2>
-          <div class="knowledge-base-selector">
-            <span class="kb-label"><i class="el-icon-notebook-2"></i> 知识库:</span>
-            <el-select v-model="selectedTeamId" @change="handleTeamChange" placeholder="选择知识库" size="small" class="team-select-dropdown">
-              <el-option label="不使用知识库" value=""></el-option>
-              <el-option 
-                v-for="team in teamList" 
-                :key="team.teamId" 
-                :label="team.name" 
-                :value="String(team.teamId)">
-                <div class="team-option">
-                  <el-avatar 
-                    :size="26" 
-                    :src="getAvatarUrl(team.avatar)" 
-                    class="team-option-avatar">
-                    {{ team.name ? team.name.substring(0, 1) : 'T' }}
-                  </el-avatar>
-                  <span class="team-option-name">{{ team.name }}</span>
-                </div>
-              </el-option>
-            </el-select>
+          <div class="header-selectors">
+            <div class="knowledge-base-selector">
+              <span class="kb-label"><i class="el-icon-notebook-2"></i> 知识库:</span>
+              <el-select v-model="selectedTeamId" @change="handleTeamChange" placeholder="选择知识库" size="small" class="team-select-dropdown">
+                <el-option label="不使用知识库" value=""></el-option>
+                <el-option 
+                  v-for="team in teamList" 
+                  :key="team.teamId" 
+                  :label="team.name" 
+                  :value="String(team.teamId)">
+                  <div class="team-option">
+                    <el-avatar 
+                      :size="26" 
+                      :src="getAvatarUrl(team.avatar)" 
+                      class="team-option-avatar">
+                      {{ team.name ? team.name.substring(0, 1) : 'T' }}
+                    </el-avatar>
+                    <span class="team-option-name">{{ team.name }}</span>
+                  </div>
+                </el-option>
+              </el-select>
+            </div>
+            
+            <div class="model-selector">
+              <span class="model-label"><i class="el-icon-cpu"></i> 模型:</span>
+              <el-select v-model="selectedModel" @change="handleModelChange" placeholder="选择模型" size="small" class="model-select-dropdown">
+                <el-option 
+                  v-for="model in modelList" 
+                  :key="model.value" 
+                  :label="model.label" 
+                  :value="model.value">
+                </el-option>
+              </el-select>
+            </div>
           </div>
         </div>
         <div class="header-actions">
@@ -197,7 +211,12 @@ export default {
             streamingResponse: false, // 是否正在接收流式响应
             currentStreamingMessage: null, // 当前正在接收的流式消息
             selectedTeamId: null, // 当前选择的团队ID
-            teamList: [] // 团队列表
+            teamList: [], // 团队列表
+            selectedModel: 'DeepSeek', // 当前选择的模型
+            modelList: [ // 可选模型列表
+              { label: 'DeepSeek', value: 'DeepSeek' },
+              { label: 'QwenPlus', value: 'QwenPlus' }
+            ]
         }
     },
     computed: {
@@ -320,6 +339,16 @@ export default {
 
         this.checkAuthAndInitSessions();
         this.fetchTeamList();
+        
+        // 从本地存储中恢复上次选择的模型
+        const lastSelectedModel = localStorage.getItem('ai-chat-last-selected-model');
+        if (lastSelectedModel && this.modelList.some(model => model.value === lastSelectedModel)) {
+            this.selectedModel = lastSelectedModel;
+        } else {
+            // 默认使用DeepSeek
+            this.selectedModel = 'DeepSeek';
+            localStorage.setItem('ai-chat-last-selected-model', this.selectedModel);
+        }
     },
     updated() {
         // 组件更新后处理代码块
@@ -639,7 +668,9 @@ export default {
             const requestData = {
                 prompt: question,
                 sessionId: this.sessionId,
-                options: {}
+                options: {
+                    model: this.selectedModel // 添加选择的模型到请求参数
+                }
             };
 
             if (this.selectedTeamId) {
@@ -1209,6 +1240,12 @@ export default {
                 return process.env.VUE_APP_BASE_API + avatar;
             }
             return avatar;
+        },
+
+        // 处理模型选择变化
+        handleModelChange(newModel) {
+            this.$message.info(`AI模型已切换到: ${newModel}`);
+            localStorage.setItem('ai-chat-last-selected-model', newModel);
         }
     }
 }
@@ -1599,6 +1636,14 @@ export default {
   //    min-width: 150px; 
   // }
 
+  .header-selectors {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
   .knowledge-base-selector {
     display: flex;
     align-items: center;
@@ -1618,14 +1663,37 @@ export default {
     }
 
     .team-select-dropdown {
-      width: 300px; 
+      width: 200px; 
+    }
+  }
+
+  .model-selector {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .model-label {
+      font-size: 13px;
+      color: #525252; 
+      display: flex;
+      align-items: center;
+      gap: 5px; 
+      font-weight: 500;
+      i {
+        font-size: 16px;
+        color: #409EFF; 
+      }
+    }
+
+    .model-select-dropdown {
+      width: 150px; 
       
       :deep(.el-input__inner) { 
         border-radius: 6px; 
         border-color: #dcdfe6;
         height: 32px; 
         line-height: 32px;
-        font-size: 13px; // Match label font size for consistency
+        font-size: 13px;
         &:focus {
           border-color: #409EFF;
           box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.2);

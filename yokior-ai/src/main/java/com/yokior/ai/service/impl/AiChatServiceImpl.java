@@ -29,9 +29,6 @@ public class AiChatServiceImpl implements AiChatService
     @Autowired
     private ChatMessageMapper chatMessageMapper;
 
-    // 可以注入不同的AI提供者服务实现
-    @Autowired
-    private AiProvider aiProvider;
 
     @Override
     public String createSession(Long userId)
@@ -46,64 +43,10 @@ public class AiChatServiceImpl implements AiChatService
         return session.getId();
     }
 
-    // 处理用户提问并返回回复
     @Override
-    @Transactional
     public ChatResponse processChat(ChatRequest request, Long userId)
     {
-        // 检查会话是否存在，不存在则创建
-        String sessionId = request.getSessionId();
-        if (StringUtils.isEmpty(sessionId))
-        {
-            sessionId = this.createSession(userId);
-        }
-        else
-        {
-            ChatSession session = chatSessionMapper.selectById(sessionId);
-            if (session == null || !userId.equals(session.getUserId()))
-            {
-                throw new ServiceException("会话不存在或无权访问");
-            }
-            // 更新会话时间
-            session.setUpdateTime(new Date());
-            chatSessionMapper.updateById(session);
-        }
-
-        // 保存用户消息
-        ChatMessage userMessage = new ChatMessage();
-        userMessage.setId(UUID.randomUUID().toString());
-        userMessage.setSessionId(sessionId);
-        userMessage.setContent(request.getPrompt());
-        userMessage.setRole("user");
-        userMessage.setCreateTime(new Date());
-        chatMessageMapper.insert(userMessage);
-
-        // 获取聊天历史上下文(可选)
-        List<ChatMessage> history = chatMessageMapper.selectRecentBySessionId(
-                sessionId, 6); // 获取最近10条消息作为上下文
-
-        // 调用AI服务获取回复
-        String aiResponse = aiProvider.getCompletion(
-                request.getPrompt(),
-                history,
-                request.getOptions()
-        );
-
-        // 保存AI回复
-        ChatMessage aiMessage = new ChatMessage();
-        aiMessage.setId(UUID.randomUUID().toString());
-        aiMessage.setSessionId(sessionId);
-        aiMessage.setContent(aiResponse);
-        aiMessage.setRole("system");
-        aiMessage.setCreateTime(new Date());
-        chatMessageMapper.insert(aiMessage);
-
-        // 构建响应
-        ChatResponse response = new ChatResponse();
-        response.setContent(aiResponse);
-        response.setSessionId(sessionId);
-
-        return response;
+        return null;
     }
 
     @Override

@@ -3,6 +3,8 @@ package com.yokior.ai.service.impl;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yokior.ai.domain.ChatMessage;
 import com.yokior.ai.service.AiProvider;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -22,42 +24,40 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * @author Yokior
  * @description
- * @date 2025/5/19 14:40
+ * @date 2025/6/7 17:22
  */
-@Service("DeepSeek")
-public class DeepSeekAiProviderImpl implements AiProvider
+@Service("QwenPlus")
+public class QwenPlusAiProviderImpl implements AiProvider
 {
     private static final Logger log = LoggerFactory.getLogger(DeepSeekAiProviderImpl.class);
 
-    @Value("${ai.providers.DeepSeek.apiKey}")
+    @Value("${ai.providers.QwenPlus.apiKey}")
     private String apiKey;
 
-    @Value("${ai.providers.DeepSeek.model}")
+    @Value("${ai.providers.QwenPlus.model}")
     private String model;
 
-    @Value("${ai.providers.DeepSeek.endpoint}")
+    @Value("${ai.providers.QwenPlus.endpoint}")
     private String endpoint;
 
-    @Value("${ai.providers.DeepSeek.temperature}")
+    @Value("${ai.providers.QwenPlus.temperature}")
     private Double temperature;
 
-    @Value("${ai.providers.DeepSeek.maxTokens:2000}")
+    @Value("${ai.providers.QwenPlus.maxTokens:2048}")
     private Integer maxTokens;
 
-    @Value("${ai.providers.DeepSeek.stream}")
+    @Value("${ai.providers.QwenPlus.stream}")
     private Boolean stream;
 
 
     private final RestTemplate restTemplate;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public DeepSeekAiProviderImpl(RestTemplate restTemplate)
+    public QwenPlusAiProviderImpl(RestTemplate restTemplate)
     {
         this.restTemplate = restTemplate;
     }
@@ -364,7 +364,7 @@ public class DeepSeekAiProviderImpl implements AiProvider
                 // 创建与流式响应格式一致的消息对象
                 Map<String, Object> messageObject = new HashMap<>();
                 messageObject.put("content", paragraph);
-                
+
                 // 格式化为SSE格式并发送
                 String formatted = "data: " + objectMapper.writeValueAsString(messageObject) + "\n\n";
                 output.write(formatted.getBytes());

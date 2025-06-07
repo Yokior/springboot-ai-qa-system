@@ -15,6 +15,9 @@ import com.yokior.knowledge.service.IQaDocumentService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
@@ -37,33 +40,36 @@ public class AiChatController extends BaseController
 
     @Autowired
     private IQaDocumentService qaDocumentService;
-
-    @Resource(name = "deepseek")
-    private AiProvider aiProvider;
+    
+    @Autowired
+    private ApplicationContext applicationContext;
+    
+    @Value("${ai.default-provider:DeepSeek}")
+    private String defaultProvider;
 
     private final String separator = "【用户问题】";
 
     /**
      * 发送聊天消息
      */
-    @PostMapping("/chat")
-    public R<ChatResponse> chat(@RequestBody ChatRequest request)
-    {
-        // 获取当前登录用户
-        LoginUser loginUser = SecurityUtils.getLoginUser();
-
-        try
-        {
-            // 调用AI服务处理请求
-            ChatResponse response = aiChatService.processChat(request, loginUser.getUserId());
-            return R.ok(response);
-        }
-        catch (Exception e)
-        {
-            log.error("AI聊天处理异常", e);
-            return R.fail("AI处理失败: " + e.getMessage());
-        }
-    }
+//    @PostMapping("/chat")
+//    public R<ChatResponse> chat(@RequestBody ChatRequest request)
+//    {
+//        // 获取当前登录用户
+//        LoginUser loginUser = SecurityUtils.getLoginUser();
+//
+//        try
+//        {
+//            // 调用AI服务处理请求
+//            ChatResponse response = aiChatService.processChat(request, loginUser.getUserId());
+//            return R.ok(response);
+//        }
+//        catch (Exception e)
+//        {
+//            log.error("AI聊天处理异常", e);
+//            return R.fail("AI处理失败: " + e.getMessage());
+//        }
+//    }
 
     /**
      * 发送流式聊天消息
@@ -167,14 +173,16 @@ public class AiChatController extends BaseController
             final CopyOutputStream copyOutputStream = new CopyOutputStream(response.getOutputStream(), aiResponseContent);
             log.debug("准备调用AI流式接口");
 
-//            TODO: 添加用户options处理 选择不同的模型
+            // 根据用户选项选择AI提供者
+            AiProvider selectedProvider = getAiProvider(options);
+            log.info("选择的AI模型: {}", selectedProvider.getClass().getSimpleName());
 
             log.debug("发送AI内容: {}", prompt);
             // 调用AI流式API
-            aiProvider.streamCompletion(
+            selectedProvider.streamCompletion(
                     prompt.toString(),
                     history,
-                    request.getOptions(),
+                    options,
                     copyOutputStream
             );
 
@@ -228,6 +236,33 @@ public class AiChatController extends BaseController
                 // 忽略写入错误
                 log.error("发送错误信息时发生异常", ex);
             }
+        }
+    }
+    
+    /**
+     * 根据用户选项获取AI提供者
+     * @param options 用户选项
+     * @return 选择的AI提供者
+     */
+    private AiProvider getAiProvider(Map<String, Object> options) {
+        String providerName = defaultProvider;
+        
+        // 从用户选项中获取模型名称
+        if (options != null && options.containsKey("model") && options.get("model") != null) {
+            providerName = options.get("model").toString();
+            log.debug("用户指定AI模型: {}", providerName);
+        } else {
+            log.debug("使用默认AI模型: {}", providerName);
+        }
+        
+        try {
+            // 从Spring容器中获取对应的Provider实现
+            AiProvider provider = applicationContext.getBean(providerName, AiProvider.class);
+            return provider;
+        } catch (Exception e) {
+            log.warn("获取指定AI模型失败: {}，将使用默认模型: {}", providerName, defaultProvider);
+            // 如果获取失败，返回默认Provider
+            return applicationContext.getBean(defaultProvider, AiProvider.class);
         }
     }
 
