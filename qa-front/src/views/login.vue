@@ -361,8 +361,6 @@ export default {
 }
 
 .el-button--primary {
-  width: 100%;
-  height: 45px;
   font-size: 16px;
   font-weight: 500;
   // 调整渐变色以匹配新背景
