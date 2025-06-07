@@ -204,17 +204,19 @@
               <span><i class="el-icon-bell"></i> 系统公告</span>
               <span class="announcement-count" v-if="total > 0">共 {{ total }} 条</span>
             </div>
-            <div v-loading="announcements === null" element-loading-text="加载公告中...">
-              <div v-if="announcements && announcements.length > 0" class="announcement-list">
-                <div v-for="(item, index) in announcements" :key="index" class="announcement-item">
-                  <div class="announcement-title">{{ item.title }}</div>
-                  <div class="announcement-content" v-html="item.content"></div>
-                  <div class="announcement-time">{{ item.time }}</div>
+            <div class="announcement-content-wrapper" v-loading="announcements === null" element-loading-text="加载公告中...">
+              <el-scrollbar class="announcement-scrollbar">
+                <div v-if="announcements && announcements.length > 0" class="announcement-list">
+                  <div v-for="(item, index) in announcements" :key="index" class="announcement-item">
+                    <div class="announcement-title">{{ item.title }}</div>
+                    <div class="announcement-content" v-html="item.content"></div>
+                    <div class="announcement-time">{{ item.time }}</div>
+                  </div>
                 </div>
-              </div>
-              <div v-else class="empty-announcement">
-                <el-empty description="暂无系统公告" :image-size="100"></el-empty>
-              </div>
+                <div v-else class="empty-announcement">
+                  <el-empty description="暂无系统公告" :image-size="100"></el-empty>
+                </div>
+              </el-scrollbar>
             </div>
             <div class="announcement-pagination" v-if="total > queryParams.pageSize">
               <el-pagination
@@ -1189,6 +1191,16 @@ export default {
   color: #333;
 }
 
+.announcement-content-wrapper {
+  height: 350px;
+  position: relative;
+  overflow: hidden;
+}
+
+.announcement-scrollbar {
+  height: 100%;
+}
+
 .announcement-list {
   padding: 10px;
 }
@@ -1247,6 +1259,10 @@ export default {
 .empty-announcement {
   padding: 20px;
   text-align: center;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* 响应式样式 */
@@ -1257,6 +1273,10 @@ export default {
   
   .tools-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .announcement-content-wrapper {
+    height: 300px; /* 移动端稍微矮一点 */
   }
 }
 
@@ -1278,6 +1298,19 @@ export default {
   text-align: center;
   padding: 10px 0;
   margin-top: 10px;
+}
+
+/* 自定义滚动条样式 */
+::v-deep .el-scrollbar__wrap {
+  overflow-x: hidden;
+}
+
+::v-deep .el-scrollbar__bar.is-vertical {
+  width: 6px;
+}
+
+::v-deep .el-scrollbar__bar.is-horizontal {
+  display: none;
 }
 </style>
 

@@ -11,12 +11,12 @@
             <el-input v-model="queryParams.phonenumber" placeholder="请输入手机号码" clearable style="width: 240px" @keyup.enter.native="handleQuery" />
           </el-form-item>
           <el-form-item label="状态" prop="status">
-            <el-select v-model="queryParams.status" placeholder="用户状态" clearable style="width: 240px">
+            <el-select v-model="queryParams.status" placeholder="用户状态" clearable style="width: 220px">
               <el-option v-for="dict in dict.type.sys_normal_disable" :key="dict.value" :label="dict.label" :value="dict.value" />
             </el-select>
           </el-form-item>
           <el-form-item label="创建时间">
-            <el-date-picker v-model="dateRange" style="width: 240px" value-format="yyyy-MM-dd" type="daterange" range-separator="-" start-placeholder="开始日期" end-placeholder="结束日期"></el-date-picker>
+            <el-date-picker v-model="dateRange" style="width: 260px" value-format="yyyy-MM-dd" type="daterange" range-separator="-" start-placeholder="开始日期" end-placeholder="结束日期"></el-date-picker>
           </el-form-item>
           <el-form-item>
             <el-button type="primary" icon="el-icon-search" size="mini" @click="handleQuery">搜索</el-button>
@@ -54,12 +54,12 @@
               <el-switch v-model="scope.row.status" active-value="0" inactive-value="1" @change="handleStatusChange(scope.row)"></el-switch>
             </template>
           </el-table-column>
-          <el-table-column label="创建时间" align="center" prop="createTime" v-if="columns[5].visible" width="160">
+          <el-table-column label="创建时间" align="center" prop="createTime" v-if="columns[5].visible" width="180">
             <template slot-scope="scope">
               <span>{{ parseTime(scope.row.createTime) }}</span>
             </template>
           </el-table-column>
-          <el-table-column label="操作" align="center" width="160" class-name="small-padding fixed-width">
+          <el-table-column label="操作" align="center" width="180" class-name="small-padding fixed-width">
             <template slot-scope="scope" v-if="scope.row.userId !== 1">
               <el-button size="mini" type="text" icon="el-icon-edit" @click="handleUpdate(scope.row)" v-hasPermi="['system:user:edit']">修改</el-button>
               <el-button size="mini" type="text" icon="el-icon-delete" @click="handleDelete(scope.row)" v-hasPermi="['system:user:remove']">删除</el-button>
