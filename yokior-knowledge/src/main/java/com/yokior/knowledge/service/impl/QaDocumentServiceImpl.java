@@ -11,7 +11,7 @@ import com.yokior.knowledge.mapper.QaDocumentMapper;
 import com.yokior.knowledge.mapper.QaDocumentParagraphMapper;
 import com.yokior.knowledge.service.IQaDocumentService;
 import com.yokior.knowledge.util.HanLPProcessor;
-import com.yokior.knowledge.util.TfIdfMatcher;
+import com.yokior.knowledge.util.MatcherFactory;
 import com.yokior.system.service.ISysUserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -46,6 +46,8 @@ public class QaDocumentServiceImpl implements IQaDocumentService
     @Autowired
     private ISysUserService sysUserService;
 
+    @Autowired
+    private MatcherFactory matcherFactory;
 
     @Value("${document.uploadPath}")
     private String uploadPathConfig;
@@ -299,13 +301,13 @@ public class QaDocumentServiceImpl implements IQaDocumentService
                 continue;
             }
 
-            // 提取段落内容列表，用于TF-IDF匹配
+            // 提取段落内容列表，用于段落匹配
             List<String> paragraphContents = paragraphs.stream()
                     .map(QaDocumentParagraph::getContent)
                     .collect(Collectors.toList());
 
-            // 匹配查询词与段落
-            List<Integer> matchedIndices = TfIdfMatcher.match(queryTerms, paragraphContents);
+            // 使用MatcherFactory匹配查询词与段落，根据配置自动选择TF-IDF或BM25算法
+            List<Integer> matchedIndices = matcherFactory.match(queryTerms, paragraphContents);
 
             // 取前N个最匹配的段落
             int count = 0;
@@ -324,8 +326,7 @@ public class QaDocumentServiceImpl implements IQaDocumentService
                     double score = scoreMap.getOrDefault(idx, 0.0);
                     
                     // 设置相关性阈值，只添加相关性高的结果
-                    // 由于修改了TF-IDF计算方式，阈值需要相应调整
-                    double relevanceThreshold = 0.5; // 调整为更高的阈值，适应正数权重
+                    double relevanceThreshold = 0.5;
                     if (score < relevanceThreshold)
                     {
                         continue; // 跳过相关性低的段落
@@ -338,6 +339,7 @@ public class QaDocumentServiceImpl implements IQaDocumentService
                     matchVO.setContent(paragraph.getContent());
                     matchVO.setParagraphOrder(paragraph.getParagraphOrder());
                     matchVO.setScore(score);
+                    matchVO.setMatcherType(matcherFactory.getMatcherType()); // 添加匹配算法类型信息
 
                     results.add(matchVO);
                     count++;
@@ -355,9 +357,8 @@ public class QaDocumentServiceImpl implements IQaDocumentService
                     .average()
                     .orElse(0.0);
                     
-            // 设置平均分阈值，可以根据实际情况调整
-            // 由于修改了TF-IDF计算方式，阈值需要相应调整
-            double avgScoreThreshold = 0.3; // 调整为更高的阈值，适应正数权重
+            // 设置平均分阈值
+            double avgScoreThreshold = 0.3;
             if (avgScore < avgScoreThreshold) {
                 return new ArrayList<>(); // 平均分过低，返回空结果
             }

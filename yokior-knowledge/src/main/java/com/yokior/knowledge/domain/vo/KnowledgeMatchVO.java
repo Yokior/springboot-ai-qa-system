@@ -41,4 +41,9 @@ public class KnowledgeMatchVO {
      * 匹配得分
      */
     private Double score;
+    
+    /**
+     * 匹配算法类型（TF_IDF 或 BM25）
+     */
+    private String matcherType;
 } 

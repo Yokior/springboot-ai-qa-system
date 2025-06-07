@@ -16,7 +16,7 @@
         <div class="el-upload__text">拖拽文件到此处或 <em>点击上传</em></div>
         <template #tip>
           <div class="el-upload__tip">
-            支持上传PDF、Word、TXT文档，文件大小不超过20MB
+            支持上传PDF、Word、TXT、MD文档，文件大小不超过20MB
           </div>
         </template>
       </el-upload>
