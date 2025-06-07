@@ -3,12 +3,22 @@
 *.bat
 *.sh
 
-项目开发用.md
+
 .vscode
 .cursor
 *.txt
 *.yml
 *.yaml
+*.md
+*.MD
+*.docx
+*.doc
+*.pdf
+*.pptx
+*.ppt
+
+
+!README.md
 
 .gradle
 /build/

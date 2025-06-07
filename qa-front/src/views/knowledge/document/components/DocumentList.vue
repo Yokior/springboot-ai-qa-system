@@ -137,7 +137,8 @@ export default {
         uploadTime: '',
         createdAt: '',
         updatedAt: ''
-      }
+      },
+      requestInProgress: false
     };
   },
   watch: {
@@ -153,11 +154,7 @@ export default {
     },
     status: {
       handler(val) {
-        if (Array.isArray(val)) {
-          this.queryParams.processingStatus = val.join(',');
-        } else {
-          this.queryParams.processingStatus = val;
-        }
+        this.queryParams.processingStatus = val;
         this.queryParams.pageNum = 1;
         this.getList();
       },
@@ -178,11 +175,22 @@ export default {
         return;
       }
       
-      console.log('加载文档列表，参数:', JSON.stringify(this.queryParams));
+      if (this.requestInProgress) {
+        console.log('已有请求正在进行，跳过此次请求');
+        return;
+      }
+      
       this.loading = true;
+      this.requestInProgress = true;
+      this.documentList = [];
+      this.total = 0;
+      
       try {
+        console.log('加载文档列表，参数:', JSON.stringify(this.queryParams));
+        
         const res = await listDocuments(this.queryParams);
         console.log('文档列表返回结果:', res);
+        
         if (res && res.rows) {
           this.documentList = res.rows;
           this.total = res.total;
@@ -198,6 +206,7 @@ export default {
         this.total = 0;
       } finally {
         this.loading = false;
+        this.requestInProgress = false;
       }
     },
 

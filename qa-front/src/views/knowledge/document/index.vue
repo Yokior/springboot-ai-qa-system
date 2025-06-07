@@ -47,18 +47,18 @@
         </div>
       </div>
       
-      <el-tabs v-model="activeName">
+      <el-tabs v-model="activeName" @tab-click="handleTabClick">
         <el-tab-pane label="全部文档" name="all">
           <document-list :team-id="selectedTeamId" :status="null" ref="allDocList" />
         </el-tab-pane>
         <el-tab-pane label="处理中" name="processing">
-          <document-list :team-id="selectedTeamId" :status="['PENDING', 'PROCESSING_TEXT', 'PROCESSING_NLP']" ref="processingDocList" />
+          <document-list :team-id="selectedTeamId" :status="currentProcessingStatus" ref="processingDocList" />
         </el-tab-pane>
         <el-tab-pane label="已完成" name="completed">
-          <document-list :team-id="selectedTeamId" :status="['COMPLETED']" ref="completedDocList" />
+          <document-list :team-id="selectedTeamId" :status="'COMPLETED'" ref="completedDocList" />
         </el-tab-pane>
         <el-tab-pane label="处理失败" name="failed">
-          <document-list :team-id="selectedTeamId" :status="['FAILED']" ref="failedDocList" />
+          <document-list :team-id="selectedTeamId" :status="'FAILED'" ref="failedDocList" />
         </el-tab-pane>
       </el-tabs>
     </el-card>
@@ -86,7 +86,17 @@ export default {
       teamList: [],
       activeName: 'all',
       uploadVisible: false,
-      currentTeam: null
+      currentTeam: null,
+      // 当前处理中的状态，默认为PENDING
+      currentProcessingStatus: 'PENDING',
+      // 处理中的状态列表
+      processingStatusList: ['PENDING', 'PROCESSING_TEXT', 'PROCESSING_NLP'],
+      // 当前处理中状态的索引
+      currentStatusIndex: 0,
+      // 添加自动刷新定时器
+      refreshTimer: null,
+      // 是否刚上传过文档
+      justUploaded: false
     };
   },
   computed: {
@@ -117,7 +127,76 @@ export default {
     console.log('文档管理页面已加载');
     this.getTeamList();
   },
+  mounted() {
+    // 添加页面可见性变化监听器
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+  },
+  beforeDestroy() {
+    // 清除定时器和事件监听器
+    this.clearRefreshTimer();
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+  },
   methods: {
+    // 处理页面可见性变化
+    handleVisibilityChange() {
+      if (document.visibilityState === 'visible') {
+        // 页面变为可见时，刷新当前列表
+        this.refreshCurrentList();
+      }
+    },
+    
+    // 设置自动刷新定时器
+    setupRefreshTimer() {
+      // 清除现有定时器
+      this.clearRefreshTimer();
+      
+      // 如果当前是"处理中"标签页，设置定时刷新
+      if (this.activeName === 'processing') {
+        this.refreshTimer = setInterval(() => {
+          // 轮询不同的处理中状态
+          this.rotateProcessingStatus();
+          this.refreshCurrentList();
+        }, 5000); // 每5秒刷新一次
+      }
+    },
+    
+    // 轮询不同的处理中状态
+    rotateProcessingStatus() {
+      this.currentStatusIndex = (this.currentStatusIndex + 1) % this.processingStatusList.length;
+      this.currentProcessingStatus = this.processingStatusList[this.currentStatusIndex];
+      console.log('切换到处理状态:', this.currentProcessingStatus);
+    },
+    
+    // 清除刷新定时器
+    clearRefreshTimer() {
+      if (this.refreshTimer) {
+        clearInterval(this.refreshTimer);
+        this.refreshTimer = null;
+      }
+    },
+    
+    // 处理标签页点击
+    handleTabClick() {
+      // 如果切换到处理中标签页，重置状态索引
+      if (this.activeName === 'processing') {
+        this.currentStatusIndex = 0;
+        this.currentProcessingStatus = this.processingStatusList[0];
+      }
+      
+      // 切换标签页时刷新对应列表
+      this.refreshCurrentList();
+      
+      // 设置自动刷新（仅对"处理中"标签页）
+      this.setupRefreshTimer();
+    },
+    
+    // 刷新当前显示的列表
+    refreshCurrentList() {
+      if (this.activeDocumentList) {
+        this.activeDocumentList.getList();
+      }
+    },
+    
     // 获取当前用户所在的团队列表
     async getTeamList() {
       try {
@@ -167,6 +246,8 @@ export default {
     selectTeam(teamId) {
       this.selectedTeamId = teamId;
       console.log('切换到团队:', this.selectedTeamId);
+      // 团队切换后刷新当前列表
+      this.refreshCurrentList();
     },
     
     handleUpload() {
@@ -187,18 +268,29 @@ export default {
     // 处理上传成功
     handleUploadSuccess() {
       this.uploadVisible = false;
+      this.justUploaded = true;
       
-      // 刷新当前活动标签页的文档列表
-      this.refreshDocumentList();
-      
-      // 切换到"处理中"标签页，因为新上传的文档状态为"待处理"
+      // 切换到"处理中"标签页，并设置状态为PROCESSING_TEXT
       this.activeName = 'processing';
+      this.currentProcessingStatus = 'PROCESSING_TEXT';
+      this.currentStatusIndex = this.processingStatusList.indexOf('PROCESSING_TEXT');
       
-      // 在下一个tick刷新处理中的文档列表
+      // 先等待DOM更新
       this.$nextTick(() => {
+        // 立即刷新处理中的文档列表
         if (this.$refs.processingDocList) {
           this.$refs.processingDocList.getList();
         }
+        
+        // 启动自动刷新定时器
+        this.setupRefreshTimer();
+        
+        // 显示提示信息
+        this.$message({
+          message: '文档已上传，正在处理中，页面将自动刷新显示最新状态',
+          type: 'success',
+          duration: 5000
+        });
       });
     },
     

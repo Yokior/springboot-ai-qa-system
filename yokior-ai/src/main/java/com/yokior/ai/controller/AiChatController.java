@@ -44,8 +44,11 @@ public class AiChatController extends BaseController
     @Autowired
     private ApplicationContext applicationContext;
     
-    @Value("${ai.default-provider:DeepSeek}")
+    @Value("${ai.defaultProvider:DeepSeek}")
     private String defaultProvider;
+
+    @Value("${ai.maxParagraphsPerDoc:10}")
+    private Integer maxParagraphsPerDoc;
 
     private final String separator = "【用户问题】";
 
@@ -136,7 +139,7 @@ public class AiChatController extends BaseController
                 teamId = Long.parseLong(options.get("teamId").toString());
 
                 // 获取知识匹配结果
-                List<KnowledgeMatchVO> knowledgeMatchVOList = qaDocumentService.searchKnowledge(teamId, originalPrompt, 10);
+                List<KnowledgeMatchVO> knowledgeMatchVOList = qaDocumentService.searchKnowledge(teamId, originalPrompt, maxParagraphsPerDoc);
 
                 // 处理知识匹配结果
                 if (knowledgeMatchVOList != null && !knowledgeMatchVOList.isEmpty())
