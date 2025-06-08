@@ -78,8 +78,8 @@ export default {
       title: process.env.VUE_APP_TITLE || "智能问答系统", // 提供默认标题
       codeUrl: "",
       loginForm: {
-        username: "admin",
-        password: "admin123",
+        username: "",
+        password: "",
         rememberMe: false,
         code: "",
         uuid: ""
