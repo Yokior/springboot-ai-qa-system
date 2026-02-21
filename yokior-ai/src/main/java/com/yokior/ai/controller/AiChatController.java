@@ -52,6 +52,8 @@ public class AiChatController extends BaseController
 
     private final String separator = "【用户问题】";
 
+    private final String systemPrompt = "以下是相关知识库内容，请根据这些内容回答用户的问题。如果相关内容中没有包含答案，请如实说明无法回答\n\n";
+
     /**
      * 发送聊天消息
      */
@@ -145,14 +147,14 @@ public class AiChatController extends BaseController
                 if (knowledgeMatchVOList != null && !knowledgeMatchVOList.isEmpty())
                 {
                     log.debug("获取到知识匹配结果: {} 条", knowledgeMatchVOList.size());
-                    // TODO: 临时写死额外提示词  写死分隔符
+
                     String knowledgeContent = knowledgeMatchVOList.stream()
                             .map(k ->
                             {
                                 return "\n[" + k.getFilename() + "]第[" + k.getParagraphOrder() + "]段\n" + k.getContent();
                             })
                             .collect(Collectors.joining("\n"));
-                    prompt.append("以下是相关知识库内容，请根据这些内容回答用户的问题。如果相关内容中没有包含答案，请如实说明无法回答\n\n");
+                    prompt.append(systemPrompt);
 
                     prompt.append(knowledgeContent).append("\n").append(separator).append("\n").append(originalPrompt);
                 }
