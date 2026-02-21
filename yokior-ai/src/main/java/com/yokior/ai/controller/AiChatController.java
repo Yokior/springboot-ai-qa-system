@@ -12,6 +12,8 @@ import com.yokior.common.core.domain.model.LoginUser;
 import com.yokior.common.utils.SecurityUtils;
 import com.yokior.knowledge.domain.vo.KnowledgeMatchVO;
 import com.yokior.knowledge.service.IQaDocumentService;
+import com.yokior.knowledge.service.QaCacheService;
+import com.yokior.knowledge.util.QuestionNormalizer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +42,10 @@ public class AiChatController extends BaseController
 
     @Autowired
     private IQaDocumentService qaDocumentService;
-    
+
+    @Autowired
+    private QaCacheService qaCacheService;
+
     @Autowired
     private ApplicationContext applicationContext;
     
@@ -136,12 +141,43 @@ public class AiChatController extends BaseController
 
             // 如果存在teamId获取teamId
             Long teamId = null;
+            String questionHash = null;
+            List<KnowledgeMatchVO> knowledgeMatchVOList = null;
+
             if (options != null && options.containsKey("teamId") && !StringUtils.isEmpty(options.get("teamId").toString()))
             {
                 teamId = Long.parseLong(options.get("teamId").toString());
 
-                // 获取知识匹配结果
-                List<KnowledgeMatchVO> knowledgeMatchVOList = qaDocumentService.searchKnowledge(teamId, originalPrompt, maxParagraphsPerDoc);
+                // 生成问题哈希
+                questionHash = QuestionNormalizer.hash(originalPrompt);
+                log.debug("问题哈希: {}", questionHash);
+
+                if (questionHash != null)
+                {
+                    // 记录问题频率
+                    long freq = qaCacheService.recordQuestionFrequency(teamId, questionHash);
+                    log.debug("问题频率: {}", freq);
+
+                    // 尝试获取知识库缓存
+                    knowledgeMatchVOList = qaCacheService.getCachedKnowledgeResult(teamId, questionHash);
+                    if (knowledgeMatchVOList != null)
+                    {
+                        log.debug("命中知识库缓存");
+                    }
+                }
+
+                // 如果缓存未命中，执行知识库检索
+                if (knowledgeMatchVOList == null)
+                {
+                    knowledgeMatchVOList = qaDocumentService.searchKnowledge(teamId, originalPrompt, maxParagraphsPerDoc);
+
+                    // 缓存知识库检索结果
+                    if (questionHash != null)
+                    {
+                        qaCacheService.cacheKnowledgeResult(teamId, questionHash, knowledgeMatchVOList);
+                        log.debug("缓存知识库检索结果");
+                    }
+                }
 
                 // 处理知识匹配结果
                 if (knowledgeMatchVOList != null && !knowledgeMatchVOList.isEmpty())
@@ -180,16 +216,46 @@ public class AiChatController extends BaseController
 
             // 根据用户选项选择AI提供者
             AiProvider selectedProvider = getAiProvider(options);
-            log.info("选择的AI模型: {}", selectedProvider.getClass().getSimpleName());
+            String modelName = selectedProvider.getClass().getSimpleName();
+            log.info("选择的AI模型: {}", modelName);
 
-            log.debug("发送AI内容: {}", prompt);
-            // 调用AI流式API
-            selectedProvider.streamCompletion(
-                    prompt.toString(),
-                    history,
-                    options,
-                    copyOutputStream
-            );
+            // 高频问题缓存检查
+            boolean isFrequentQuestion = teamId != null && questionHash != null
+                    && qaCacheService.isFrequentQuestion(teamId, questionHash);
+            String cachedAnswer = null;
+
+            if (isFrequentQuestion)
+            {
+                log.debug("检测到高频问题，尝试获取AI回答缓存");
+                cachedAnswer = qaCacheService.getCachedAiAnswer(teamId, questionHash, modelName);
+            }
+
+            if (cachedAnswer != null)
+            {
+                // 命中AI回答缓存，模拟流式输出
+                log.info("命中AI回答缓存，直接返回缓存内容");
+                simulateStreamFromCache(cachedAnswer, response.getOutputStream());
+                aiResponseContent.append(cachedAnswer);
+            }
+            else
+            {
+                log.debug("发送AI内容: {}", prompt);
+                // 调用AI流式API
+                selectedProvider.streamCompletion(
+                        prompt.toString(),
+                        history,
+                        options,
+                        copyOutputStream
+                );
+
+                // 处理完成后缓存AI回答（仅高频问题）
+                if (aiResponseContent.length() > 0 && isFrequentQuestion)
+                {
+                    String answer = aiResponseContent.toString();
+                    qaCacheService.cacheAiAnswer(teamId, questionHash, modelName, answer);
+                    log.debug("已缓存高频问题的AI回答");
+                }
+            }
 
             // 发送结束标记
             String endMessage = "data: [DONE]\n\n";
@@ -251,7 +317,7 @@ public class AiChatController extends BaseController
      */
     private AiProvider getAiProvider(Map<String, Object> options) {
         String providerName = defaultProvider;
-        
+
         // 从用户选项中获取模型名称
         if (options != null && options.containsKey("model") && options.get("model") != null) {
             providerName = options.get("model").toString();
@@ -259,7 +325,7 @@ public class AiChatController extends BaseController
         } else {
             log.debug("使用默认AI模型: {}", providerName);
         }
-        
+
         try {
             // 从Spring容器中获取对应的Provider实现
             AiProvider provider = applicationContext.getBean(providerName, AiProvider.class);
@@ -268,6 +334,46 @@ public class AiChatController extends BaseController
             log.warn("获取指定AI模型失败: {}，将使用默认模型: {}", providerName, defaultProvider);
             // 如果获取失败，返回默认Provider
             return applicationContext.getBean(defaultProvider, AiProvider.class);
+        }
+    }
+
+    /**
+     * 模拟流式输出缓存内容
+     *
+     * @param cachedContent 缓存的内容
+     * @param outputStream 输出流
+     * @throws IOException IO异常
+     */
+    private void simulateStreamFromCache(String cachedContent, java.io.OutputStream outputStream) throws IOException
+    {
+        // 将缓存内容分块输出，模拟流式效果
+        int chunkSize = 20; // 每次输出的字符数
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        for (int i = 0; i < cachedContent.length(); i += chunkSize)
+        {
+            int end = Math.min(i + chunkSize, cachedContent.length());
+            String chunk = cachedContent.substring(i, end);
+
+            // 构建SSE格式的数据
+            Map<String, String> data = new HashMap<>();
+            data.put("content", chunk);
+            String jsonData = objectMapper.writeValueAsString(data);
+            String sseMessage = "data: " + jsonData + "\n\n";
+
+            outputStream.write(sseMessage.getBytes("UTF-8"));
+            outputStream.flush();
+
+            // 短暂延迟，模拟流式效果
+            try
+            {
+                Thread.sleep(20);
+            }
+            catch (InterruptedException e)
+            {
+                Thread.currentThread().interrupt();
+                break;
+            }
         }
     }
 

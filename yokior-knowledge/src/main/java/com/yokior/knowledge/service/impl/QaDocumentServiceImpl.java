@@ -10,6 +10,7 @@ import com.yokior.knowledge.domain.vo.KnowledgeMatchVO;
 import com.yokior.knowledge.mapper.QaDocumentMapper;
 import com.yokior.knowledge.mapper.QaDocumentParagraphMapper;
 import com.yokior.knowledge.service.IQaDocumentService;
+import com.yokior.knowledge.service.QaCacheService;
 import com.yokior.knowledge.util.HanLPProcessor;
 import com.yokior.knowledge.util.MatcherFactory;
 import com.yokior.system.service.ISysUserService;
@@ -48,6 +49,9 @@ public class QaDocumentServiceImpl implements IQaDocumentService
 
     @Autowired
     private MatcherFactory matcherFactory;
+
+    @Autowired
+    private QaCacheService qaCacheService;
 
     @Value("${document.uploadPath}")
     private String uploadPathConfig;
@@ -177,6 +181,10 @@ public class QaDocumentServiceImpl implements IQaDocumentService
     @Transactional
     public boolean deleteDocument(Long docId)
     {
+        // 获取文档信息以获取teamId
+        QaDocument document = documentMapper.selectDocumentById(docId);
+        Long teamId = document != null ? document.getTeamId() : null;
+
         // 先删除文档段落
         int del1 = paragraphMapper.deleteParagraphsByDocId(docId);
 
@@ -195,6 +203,12 @@ public class QaDocumentServiceImpl implements IQaDocumentService
             if (file.exists())
             {
                 file.delete();
+            }
+
+            // 清除团队问答缓存
+            if (teamId != null)
+            {
+                qaCacheService.clearTeamQaCache(teamId);
             }
         }
 

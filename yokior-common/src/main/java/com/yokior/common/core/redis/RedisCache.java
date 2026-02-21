@@ -265,4 +265,41 @@ public class RedisCache
     {
         return redisTemplate.keys(pattern);
     }
+
+    /**
+     * 递增操作，并设置过期时间
+     *
+     * @param key 缓存键
+     * @param delta 递增因子
+     * @param timeout 过期时间
+     * @param timeUnit 时间单位
+     * @return 递增后的值
+     */
+    public Long increment(final String key, final long delta, final long timeout, final TimeUnit timeUnit)
+    {
+        Long result = redisTemplate.opsForValue().increment(key, delta);
+        // 如果是新建的key，设置过期时间
+        if (delta == 1 && result != null && result == 1)
+        {
+            redisTemplate.expire(key, timeout, timeUnit);
+        }
+        return result;
+    }
+
+    /**
+     * 按模式批量删除缓存
+     *
+     * @param pattern Key模式
+     * @return 删除的数量
+     */
+    public long deleteByPattern(final String pattern)
+    {
+        Collection<String> keys = redisTemplate.keys(pattern);
+        if (keys == null || keys.isEmpty())
+        {
+            return 0;
+        }
+        Long count = redisTemplate.delete(keys);
+        return count == null ? 0 : count;
+    }
 }

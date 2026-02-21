@@ -4,6 +4,7 @@ import com.yokior.common.constant.DocumentConstants;
 import com.yokior.knowledge.domain.QaDocument;
 import com.yokior.knowledge.domain.QaDocumentParagraph;
 import com.yokior.knowledge.service.IQaDocumentService;
+import com.yokior.knowledge.service.QaCacheService;
 import com.yokior.knowledge.util.DocumentParser;
 import com.yokior.knowledge.util.HanLPProcessor;
 import com.yokior.knowledge.util.MatcherFactory;
@@ -34,9 +35,12 @@ public class DocumentProcessingService {
 
     @Autowired
     private IQaDocumentService documentService;
-    
+
     @Autowired
     private MatcherFactory matcherFactory;
+
+    @Autowired
+    private QaCacheService qaCacheService;
 
     @Value("${document.uploadPath}")
     private String uploadPathConfig;
@@ -101,10 +105,13 @@ public class DocumentProcessingService {
             
             // 8. 保存段落
             documentService.addDocumentParagraphs(paragraphEntities);
-            
+
             // 9. 更新文档状态为已完成
             documentService.updateDocumentStatus(docId, DocumentConstants.PROCESSING_STATUS_COMPLETED);
-            
+
+            // 10. 清除团队问答缓存
+            qaCacheService.clearTeamQaCache(document.getTeamId());
+
             logger.info("文档处理完成，ID: {}", docId);
         } catch (IOException | TikaException e) {
             logger.error("文档处理失败，ID: {}", docId, e);
