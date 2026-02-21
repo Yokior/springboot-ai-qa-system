@@ -17,7 +17,7 @@
   .sidebar-container {
     transition: width .35s cubic-bezier(0.4, 0, 0.2, 1);
     width: $base-sidebar-width !important;
-    background-color: $base-menu-background;
+    background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     height: 100%;
     position: fixed;
     font-size: 0px;
@@ -26,7 +26,8 @@
     left: 0;
     z-index: 1001;
     overflow: hidden;
-    box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.06), 0 0 40px rgba(0, 184, 169, 0.04);
+    border-right: 1px solid rgba(0, 184, 169, 0.1);
 
     // reset element-ui css
     .horizontal-collapse-transition {
@@ -80,17 +81,19 @@
       line-height: 50px;
       font-size: 14px;
       font-weight: 500;
-      border-radius: 6px;
+      border-radius: 10px;
       margin: 4px 10px;
       padding: 0 16px !important;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      color: #475569;
     }
 
-    // menu hover
+    // menu hover - 深海星辰亮色主题
     .submenu-title-noDropdown,
     .el-submenu__title {
       &:hover {
-        background-color: rgba(255, 255, 255, 0.08) !important;
+        background: linear-gradient(90deg, rgba(0, 184, 169, 0.1) 0%, rgba(0, 184, 169, 0.04) 100%) !important;
+        color: #00b8a9 !important;
       }
     }
 
@@ -102,9 +105,11 @@
     & .el-submenu .el-menu-item {
       min-width: $base-sidebar-width !important;
       background-color: transparent;
+      color: #475569;
 
       &:hover {
-        background-color: rgba(255, 255, 255, 0.08) !important;
+        background: linear-gradient(90deg, rgba(0, 184, 169, 0.1) 0%, rgba(0, 184, 169, 0.04) 100%) !important;
+        color: #00b8a9 !important;
       }
     }
 
@@ -113,16 +118,18 @@
       background-color: transparent !important;
 
       &:hover {
-        background-color: rgba(255, 255, 255, 0.08) !important;
+        background: linear-gradient(90deg, rgba(0, 184, 169, 0.1) 0%, rgba(0, 184, 169, 0.04) 100%) !important;
+        color: #00b8a9 !important;
       }
     }
-    
+
     .el-menu-item.is-active {
-      background-color: $base-sub-menu-hover !important;
-      color: #ffffff !important;
+      background: linear-gradient(90deg, rgba(0, 184, 169, 0.15) 0%, rgba(0, 184, 169, 0.06) 100%) !important;
+      color: #00b8a9 !important;
       font-weight: 600 !important;
       position: relative;
-      
+      box-shadow: 0 2px 8px rgba(0, 184, 169, 0.12);
+
       &:before {
         content: '';
         position: absolute;
@@ -130,9 +137,10 @@
         top: 50%;
         transform: translateY(-50%);
         width: 4px;
-        height: 20px;
-        background: $--color-primary;
-        border-radius: 0 4px 4px 0;
+        height: 24px;
+        background: linear-gradient(180deg, #00b8a9 0%, #10b981 100%);
+        border-radius: 0 6px 6px 0;
+        box-shadow: 0 0 8px rgba(0, 184, 169, 0.4);
       }
     }
   }
@@ -220,7 +228,7 @@
   }
 }
 
-// when menu collapsed
+// when menu collapsed - 深海星辰亮色主题
 .el-menu--vertical {
   &>.el-menu {
     .svg-icon {
@@ -231,8 +239,8 @@
   .nest-menu .el-submenu>.el-submenu__title,
   .el-menu-item {
     &:hover {
-      // you can use $subMenuHover
-      background-color: rgba(255, 255, 255, 0.08) !important;
+      background: linear-gradient(90deg, rgba(0, 184, 169, 0.1) 0%, rgba(0, 184, 169, 0.04) 100%) !important;
+      color: #00b8a9 !important;
     }
   }
 
@@ -241,9 +249,10 @@
     max-height: 100vh;
     overflow-y: auto;
     padding: 6px 0;
-    border-radius: 8px;
-    background-color: $base-menu-background;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    border-radius: 12px;
+    background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid rgba(0, 184, 169, 0.12);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 0 20px rgba(0, 184, 169, 0.06);
 
     &::-webkit-scrollbar-track-piece {
       background: transparent;
@@ -254,22 +263,23 @@
     }
 
     &::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.3);
+      background: rgba(0, 184, 169, 0.3);
       border-radius: 20px;
     }
-    
+
     .el-menu-item {
       height: 44px;
       line-height: 44px;
       font-size: 14px;
       font-weight: 500;
-      border-radius: 6px;
+      border-radius: 8px;
       margin: 4px 6px;
       padding: 0 16px !important;
-      
+      color: #475569;
+
       &.is-active {
-        background-color: $base-sub-menu-hover !important;
-        color: #ffffff !important;
+        background: linear-gradient(90deg, rgba(0, 184, 169, 0.15) 0%, rgba(0, 184, 169, 0.06) 100%) !important;
+        color: #00b8a9 !important;
         font-weight: 600 !important;
       }
     }

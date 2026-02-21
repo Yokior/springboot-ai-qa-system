@@ -1,22 +1,28 @@
 /**
-* 自定义主题配色方案，采用现代化高级设计风格
+* 深海星辰主题配色方案 - 亮色版
+* Deep Sea Cosmos Theme - 清新科技感、高级感
+* 灵感来自阳光下的海面与天空——清新明亮配以电光青和琥珀金强调色
 **/
 
-/* theme color */
-$--color-primary: #6c5ce7;
-$--color-success: #00b894;
-$--color-warning: #fdcb6e;
-$--color-danger: #d63031;
-$--color-info: #2d3436;
+/* theme color - 电光青绿主色调 */
+$--color-primary: #00b8a9;
+/* success - 翡翠绿 */
+$--color-success: #10b981;
+/* warning - 琥珀金 */
+$--color-warning: #f59e0b;
+/* danger - 珊瑚红 */
+$--color-danger: #ef4444;
+/* info - 石墨灰 */
+$--color-info: #475569;
 
 $--button-font-weight: 500;
 
-$--color-text-regular: #2d3436;
+$--color-text-regular: #1e293b;
 
-$--border-color-light: #dfe6e9;
-$--border-color-lighter: #e6ebf5;
+$--border-color-light: #e2e8f0;
+$--border-color-lighter: #f1f5f9;
 
-$--table-border: 1px solid #dfe6ec;
+$--table-border: 1px solid #e2e8f0;
 
 /* icon font path, required */
 $--font-path: '~element-ui/lib/theme-chalk/fonts';

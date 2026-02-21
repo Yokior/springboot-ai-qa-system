@@ -5,16 +5,16 @@
 @import './element-ui.scss';
 @import './sidebar.scss';
 @import './btn.scss';
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
 
 body {
   height: 100%;
   -moz-osx-font-smoothing: grayscale;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", sans-serif;
-  background-color: #f7fafc;
-  color: #2d3748;
+  font-family: 'Noto Sans SC', 'JetBrains Mono', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: #f1f5f9;
+  color: #1e293b;
   letter-spacing: 0.01rem;
 }
 
@@ -103,36 +103,38 @@ div:focus {
 }
 
 aside {
-  background: #edf2f7;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
   padding: 16px 24px;
   margin-bottom: 24px;
-  border-radius: 8px;
+  border-radius: 12px;
   display: block;
   line-height: 1.6;
   font-size: 16px;
-  font-family: 'Inter', sans-serif;
-  color: #2d3748;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  font-family: 'Noto Sans SC', sans-serif;
+  color: #334155;
+  box-shadow: 0 4px 12px rgba(0, 184, 169, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 184, 169, 0.15);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
   a {
-    color: #6c5ce7;
+    color: #00b8a9;
     cursor: pointer;
     font-weight: 500;
 
     &:hover {
-      color: #4834d4;
+      color: #0d9488;
     }
   }
 }
 
-//main-container全局样式
+//main-container全局样式 - 深海星辰亮色主题
 .app-container {
   padding: 24px;
-  border-radius: 8px;
-  background-color: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 184, 169, 0.08);
   margin-bottom: 24px;
 }
 
@@ -153,8 +155,8 @@ aside {
   text-align: right;
   padding-right: 24px;
   transition: all 0.3s ease;
-  background: linear-gradient(90deg, #6c5ce7 0%, #4834d4 100%);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background: linear-gradient(90deg, #00b8a9 0%, #0ea5e9 50%, #06b6d4 100%);
+  box-shadow: 0 4px 16px rgba(0, 184, 169, 0.2);
 
   .subtitle {
     font-size: 18px;
@@ -164,23 +166,23 @@ aside {
   }
 
   &.draft {
-    background: #e2e8f0;
+    background: linear-gradient(90deg, #94a3b8 0%, #64748b 100%);
   }
 
   &.deleted {
-    background: #e2e8f0;
+    background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
   }
 }
 
 .link-type,
 .link-type:focus {
-  color: #6c5ce7;
+  color: #00b8a9;
   cursor: pointer;
   font-weight: 500;
   transition: all 0.2s ease;
 
   &:hover {
-    color: #4834d4;
+    color: #0d9488;
   }
 }
 

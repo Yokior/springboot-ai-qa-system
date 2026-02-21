@@ -92,8 +92,8 @@
   .el-table__header-wrapper, .el-table__fixed-header-wrapper {
     th {
       word-break: break-word;
-      background-color: #f8f8f9;
-      color: #515a6e;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      color: #00b8a9;
       height: 40px;
       font-size: 13px;
     }
@@ -106,11 +106,11 @@
   }
 }
 
-/** 表单布局 **/
+/** 表单布局 - 深海星辰亮色主题 **/
 .form-header {
   font-size: 15px;
-  color: #6379bb;
-  border-bottom: 1px solid #ddd;
+  color: #00b8a9;
+  border-bottom: 1px solid rgba(0, 184, 169, 0.2);
   margin: 8px 10px 25px 10px;
   padding-bottom: 5px
 }
@@ -122,12 +122,12 @@
   margin-top: 20px;
 }
 
-/* tree border */
+/* tree border - 深海星辰亮色主题 */
 .tree-border {
   margin-top: 5px;
-  border: 1px solid #e5e6e7;
-  background: #FFFFFF none;
-  border-radius: 4px;
+  border: 1px solid rgba(0, 184, 169, 0.2);
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  border-radius: 10px;
 }
 
 @media (max-width: 768px) {
@@ -173,8 +173,8 @@
 }
 
 .list-group-item {
-  border-bottom: 1px solid #e7eaec;
-  border-top: 1px solid #e7eaec;
+  border-bottom: 1px solid #e2e8f0;
+  border-top: 1px solid #e2e8f0;
   margin-bottom: -1px;
   padding: 11px 0px;
   font-size: 13px;
@@ -197,30 +197,30 @@
   margin-bottom: 10px;
 }
 
-/* button color */
+/* button color - 深海星辰亮色主题 */
 .el-button--cyan.is-active,
 .el-button--cyan:active {
-  background: #20B2AA;
-  border-color: #20B2AA;
-  color: #FFFFFF;
+  background: #00b8a9;
+  border-color: #00b8a9;
+  color: #fff;
 }
 
 .el-button--cyan:focus,
 .el-button--cyan:hover {
-  background: #48D1CC;
-  border-color: #48D1CC;
-  color: #FFFFFF;
+  background: #0d9488;
+  border-color: #0d9488;
+  color: #fff;
 }
 
 .el-button--cyan {
-  background-color: #20B2AA;
-  border-color: #20B2AA;
-  color: #FFFFFF;
+  background-color: #00b8a9;
+  border-color: #00b8a9;
+  color: #fff;
 }
 
-/* text color */
+/* text color - 深海星辰亮色主题 */
 .text-navy {
-  color: #1ab394;
+  color: #00b8a9;
 }
 
 .text-primary {
@@ -228,23 +228,23 @@
 }
 
 .text-success {
-  color: #1c84c6;
+  color: #10b981;
 }
 
 .text-info {
-  color: #23c6c8;
+  color: #0ea5e9;
 }
 
 .text-warning {
-  color: #f8ac59;
+  color: #f59e0b;
 }
 
 .text-danger {
-  color: #ed5565;
+  color: #ef4444;
 }
 
 .text-muted {
-  color: #888888;
+  color: #64748b;
 }
 
 /* image */
@@ -265,15 +265,15 @@
   width: 200px;
   height: 200px;
   border-radius: 50%;
-  box-shadow: 0 0 4px #ccc;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   overflow: hidden;
 }
 
-/* 拖拽列样式 */
+/* 拖拽列样式 - 深海星辰亮色主题 */
 .sortable-ghost {
   opacity: .8;
   color: #fff !important;
-  background: #42b983 !important;
+  background: #00b8a9 !important;
 }
 
 .top-right-btn {

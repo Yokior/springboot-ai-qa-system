@@ -1,20 +1,22 @@
 @import './variables.scss';
 @import './element-variables.scss';
 
+// 深海星辰亮色主题按钮样式
 @mixin colorBtn($color) {
   background: $color;
-  box-shadow: 0 3px 6px rgba($color, 0.2);
+  box-shadow: 0 4px 12px rgba($color, 0.2);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
 
   &:hover {
-    background: lighten($color, 5%);
-    box-shadow: 0 4px 12px rgba($color, 0.3);
+    background: lighten($color, 6%);
+    box-shadow: 0 6px 16px rgba($color, 0.3);
     transform: translateY(-2px);
   }
-  
+
   &:active {
     background: darken($color, 5%);
-    box-shadow: 0 2px 4px rgba($color, 0.2);
+    box-shadow: 0 2px 6px rgba($color, 0.2);
     transform: translateY(0);
   }
 }
@@ -49,28 +51,28 @@
 
 .pan-btn {
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   color: #fff;
-  padding: 12px 24px;
-  border-radius: 8px;
+  padding: 14px 28px;
+  border-radius: 10px;
   border: none;
   outline: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   display: inline-block;
-  letter-spacing: 0.01em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  background-image: linear-gradient(135deg, $--color-primary 0%, darken($--color-primary, 15%) 100%);
-  box-shadow: 0 4px 12px rgba($--color-primary, 0.3);
+  background: linear-gradient(135deg, #00b8a9 0%, #0ea5e9 50%, #06b6d4 100%);
+  box-shadow: 0 4px 16px rgba(0, 184, 169, 0.25);
 
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba($--color-primary, 0.4);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 24px rgba(0, 184, 169, 0.35);
   }
-  
+
   &:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 8px rgba($--color-primary, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 184, 169, 0.3);
   }
 }
 
@@ -79,48 +81,48 @@
   line-height: 1;
   white-space: nowrap;
   cursor: pointer;
-  background: $--color-primary;
+  background: linear-gradient(135deg, #00b8a9 0%, #0d9488 100%);
   color: #fff;
   text-align: center;
   box-sizing: border-box;
   outline: 0;
   margin: 0;
-  padding: 12px 20px;
+  padding: 14px 24px;
   font-size: 14px;
-  font-weight: 500;
-  border-radius: 8px;
+  font-weight: 600;
+  border-radius: 10px;
   border: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 3px 6px rgba($--color-primary, 0.2);
-  
+  box-shadow: 0 4px 12px rgba(0, 184, 169, 0.2);
+
   &:hover {
-    background: lighten($--color-primary, 5%);
-    box-shadow: 0 4px 12px rgba($--color-primary, 0.3);
+    background: linear-gradient(135deg, lighten(#00b8a9, 6%) 0%, lighten(#0d9488, 6%) 100%);
+    box-shadow: 0 6px 18px rgba(0, 184, 169, 0.3);
     transform: translateY(-2px);
   }
-  
+
   &:active {
-    background: darken($--color-primary, 5%);
-    box-shadow: 0 2px 4px rgba($--color-primary, 0.2);
+    background: linear-gradient(135deg, darken(#00b8a9, 5%) 0%, darken(#0d9488, 5%) 100%);
+    box-shadow: 0 2px 8px rgba(0, 184, 169, 0.2);
     transform: translateY(0);
   }
-  
+
   &.is-plain {
     background: transparent;
-    border: 1px solid $--color-primary;
-    color: $--color-primary;
+    border: 2px solid rgba(0, 184, 169, 0.5);
+    color: #00b8a9;
     box-shadow: none;
-    
+
     &:hover {
-      background: rgba($--color-primary, 0.08);
-      border-color: $--color-primary;
-      color: $--color-primary;
+      background: rgba(0, 184, 169, 0.08);
+      border-color: #00b8a9;
+      color: #00b8a9;
       transform: translateY(-2px);
-      box-shadow: 0 3px 6px rgba($--color-primary, 0.1);
+      box-shadow: 0 4px 12px rgba(0, 184, 169, 0.15);
     }
-    
+
     &:active {
-      background: rgba($--color-primary, 0.16);
+      background: rgba(0, 184, 169, 0.12);
       transform: translateY(0);
       box-shadow: none;
     }
