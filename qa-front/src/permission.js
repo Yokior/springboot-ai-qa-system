@@ -6,10 +6,11 @@ import 'nprogress/nprogress.css'
 import { getToken } from '@/utils/auth'
 import { isPathMatch } from '@/utils/validate'
 import { isRelogin } from '@/utils/request'
+import { checkRole } from '@/utils/permission'
 
 NProgress.configure({ showSpinner: false })
 
-const whiteList = ['/login', '/register']
+const whiteList = ['/login']
 
 const isWhiteList = (path) => {
   return whiteList.some(pattern => isPathMatch(pattern, path))
@@ -43,7 +44,18 @@ router.beforeEach((to, from, next) => {
             })
           })
       } else {
-        next()
+        // 注册页面仅限超级管理员访问
+        if (to.path === '/register') {
+          if (checkRole(['admin'])) {
+            next()
+          } else {
+            Message.error('只有超级管理员才能访问注册页面')
+            next({ path: '/' })
+            NProgress.done()
+          }
+        } else {
+          next()
+        }
       }
     }
   } else {

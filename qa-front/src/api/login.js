@@ -19,13 +19,10 @@ export function login(username, password, code, uuid) {
   })
 }
 
-// 注册方法
+// 注册方法（管理员注册新用户，需要携带token保持登录状态）
 export function register(data) {
   return request({
     url: '/register',
-    headers: {
-      isToken: false
-    },
     method: 'post',
     data: data
   })

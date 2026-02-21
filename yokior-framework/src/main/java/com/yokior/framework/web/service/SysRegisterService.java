@@ -1,5 +1,7 @@
 package com.yokior.framework.web.service;
 
+import com.yokior.common.core.domain.model.LoginUser;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import com.yokior.common.constant.CacheConstants;
@@ -24,6 +26,7 @@ import com.yokior.system.service.ISysUserService;
  * @author yokior
  */
 @Component
+@Slf4j
 public class SysRegisterService
 {
     @Autowired
