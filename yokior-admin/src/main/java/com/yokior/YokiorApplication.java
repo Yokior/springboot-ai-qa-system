@@ -20,6 +20,6 @@ public class YokiorApplication
     {
         // System.setProperty("spring.devtools.restart.enabled", "false");
         SpringApplication.run(YokiorApplication.class, args);
-        System.out.println("系统启动成功 ヽ( ^ω^ ゞ ) ");
+        System.out.println("系统启动成功");
     }
 }
