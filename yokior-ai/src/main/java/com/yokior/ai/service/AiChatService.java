@@ -4,8 +4,12 @@ import com.yokior.ai.domain.ChatMessage;
 import com.yokior.ai.domain.dto.ChatRequest;
 import com.yokior.ai.domain.dto.ChatResponse;
 import com.yokior.ai.domain.vo.ChatSessionVO;
+import com.yokior.knowledge.domain.vo.KnowledgeMatchVO;
 
+import javax.servlet.http.HttpServletResponse;
+import java.io.OutputStream;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Yokior
@@ -39,7 +43,7 @@ public interface AiChatService
      * @return 消息列表
      */
     List<ChatMessage> getChatHistory(String sessionId, Long userId);
-    
+
     /**
      * 获取会话的最近聊天历史（指定数量）
      *
@@ -90,4 +94,50 @@ public interface AiChatService
      * @return 影响行数
      */
     Boolean clearChatHistory(String sessionId, Long userId);
+
+    /**
+     * 处理流式聊天请求
+     *
+     * @param request  聊天请求
+     * @param userId   用户ID
+     * @param response HTTP响应对象
+     * @throws Exception 处理异常
+     */
+    void processStreamChat(ChatRequest request, Long userId, HttpServletResponse response) throws Exception;
+
+    /**
+     * 根据用户选项获取AI提供者
+     *
+     * @param options 用户选项
+     * @return AI提供者名称
+     */
+    String getAiProviderName(Map<String, Object> options);
+
+    /**
+     * 构建知识库增强的Prompt
+     *
+     * @param originalPrompt 原始问题
+     * @param teamId         团队ID
+     * @return 构建后的Prompt和知识匹配结果
+     */
+    KnowledgePromptResult buildKnowledgePrompt(String originalPrompt, Long teamId);
+
+    /**
+     * 知识库Prompt构建结果
+     */
+    class KnowledgePromptResult {
+        private String prompt;
+        private String questionHash;
+        private List<KnowledgeMatchVO> knowledgeMatches;
+        private boolean isFrequentQuestion;
+
+        public String getPrompt() { return prompt; }
+        public void setPrompt(String prompt) { this.prompt = prompt; }
+        public String getQuestionHash() { return questionHash; }
+        public void setQuestionHash(String questionHash) { this.questionHash = questionHash; }
+        public List<KnowledgeMatchVO> getKnowledgeMatches() { return knowledgeMatches; }
+        public void setKnowledgeMatches(List<KnowledgeMatchVO> knowledgeMatches) { this.knowledgeMatches = knowledgeMatches; }
+        public boolean isFrequentQuestion() { return isFrequentQuestion; }
+        public void setFrequentQuestion(boolean frequentQuestion) { isFrequentQuestion = frequentQuestion; }
+    }
 }
