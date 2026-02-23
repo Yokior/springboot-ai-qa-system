@@ -11,7 +11,6 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
  * 
  * @author yokior
  */
-@EnableAsync
 @EnableTransactionManagement
 @SpringBootApplication(exclude = { DataSourceAutoConfiguration.class })
 public class YokiorApplication

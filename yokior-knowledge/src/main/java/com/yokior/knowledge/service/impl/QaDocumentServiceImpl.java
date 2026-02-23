@@ -113,7 +113,6 @@ public class QaDocumentServiceImpl implements IQaDocumentService
      * @return 文档ID
      */
     @Override
-    @Transactional
     public Long uploadDocument(MultipartFile file, Long teamId, Long userId)
     {
         if (file.isEmpty())
@@ -158,7 +157,7 @@ public class QaDocumentServiceImpl implements IQaDocumentService
             file.transferTo(dest);
 
             // 异步处理文档内容，解析文本和处理NLP
-            documentProcessingService.processDocument(document.getDocId());
+            documentProcessingService.processDocumentAsync(document.getDocId());
 
             return document.getDocId();
         }
@@ -167,7 +166,7 @@ public class QaDocumentServiceImpl implements IQaDocumentService
             // 上传失败，更新文档状态为失败
             document.setProcessingStatus(DocumentConstants.PROCESSING_STATUS_FAILED);
             documentMapper.updateDocument(document);
-            throw new RuntimeException("文件上传失败", e);
+            throw new ServiceException("文件上传失败");
         }
     }
 

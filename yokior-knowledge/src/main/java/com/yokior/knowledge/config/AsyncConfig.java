@@ -12,7 +12,6 @@ import java.util.concurrent.ThreadPoolExecutor;
  * 异步处理配置
  */
 @Configuration
-@EnableAsync
 public class AsyncConfig {
     
     /**
