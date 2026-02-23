@@ -217,7 +217,9 @@ export default {
               { label: 'DeepSeek', value: 'DeepSeek' },
               { label: 'QwenPlus', value: 'QwenPlus' },
             { label: 'Qwen3_235B_A22B', value: 'Qwen3_235B_A22B' }
-            ]
+            ],
+            isUserAtBottom: true, // 用户是否在消息列表底部
+            autoScrollThreshold: 50 // 判定用户在底部的阈值（像素）
         }
     },
     computed: {
@@ -350,6 +352,20 @@ export default {
             this.selectedModel = 'DeepSeek';
             localStorage.setItem('ai-chat-last-selected-model', this.selectedModel);
         }
+
+        // 监听消息容器的滚动位置，判断用户是否在底部
+        this.$nextTick(() => {
+            const container = this.$refs.messagesContainer;
+            if (container) {
+                container.addEventListener('scroll', () => {
+                    const scrollTop = container.scrollTop;
+                    const scrollHeight = container.scrollHeight;
+                    const clientHeight = container.clientHeight;
+                    // 当用户距离底部小于阈值时，认为用户在底部
+                    this.isUserAtBottom = (scrollHeight - scrollTop - clientHeight) < this.autoScrollThreshold;
+                });
+            }
+        });
     },
     updated() {
         // 组件更新后处理代码块
@@ -649,8 +665,9 @@ export default {
             const question = this.userInput;
             this.userInput = '';
 
+            // 用户发送消息时强制滚动到底部
             this.$nextTick(() => {
-                this.scrollToBottom();
+                this.scrollToBottom(true);
             });
 
             this.loading = true;
@@ -714,7 +731,8 @@ export default {
                 }
 
                 this.$nextTick(() => {
-                    this.scrollToBottom();
+                    // 流式输出时不强制滚动，只有当用户在底部时才跟随滚动
+                    this.scrollToBottom(false);
                 });
             };
 
@@ -948,7 +966,18 @@ export default {
         },
 
         formatTime(time) { return parseTime(time, '{h}:{i}'); },
-        scrollToBottom() { const container = this.$refs.messagesContainer; if (container) container.scrollTop = container.scrollHeight; },
+
+        // 滚动到底部（可选是否强制滚动）
+        scrollToBottom(force = false) {
+            const container = this.$refs.messagesContainer;
+            if (!container) return;
+
+            // 只有当用户在底部或者强制滚动时才滚动
+            if (force || this.isUserAtBottom) {
+                container.scrollTop = container.scrollHeight;
+            }
+        },
+
         getCache(key) { const userInfo = this.$store.getters.userInfo; return userInfo && userInfo.avatar ? process.env.VUE_APP_BASE_API + userInfo.avatar : ''; },
 
         formatDate(dateString) {
