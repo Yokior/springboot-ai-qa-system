@@ -1448,11 +1448,12 @@ export default {
 }
 
 .sidebar-header {
-  padding: 20px;
+  padding: 15px 20px 15px 20px; 
   display: flex;
   justify-content: space-between;
   align-items: center;
   border-bottom: 1px solid #eaeaea;
+  margin-top: 20px;
 }
 
 .sidebar-title {
@@ -1638,9 +1639,10 @@ export default {
     display: flex;
     flex-direction: column; 
     align-items: flex-start; 
-    gap: 8px; 
+    gap: 15px; 
     flex-grow: 1; // Allow this section to take available space
     min-width: 0; // Prevent overflow issues with long titles
+    margin-top: 15px;
   }
   
   .session-title-text { // Moved out of .current-session-info if that class is removed
