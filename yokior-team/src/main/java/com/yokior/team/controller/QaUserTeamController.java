@@ -114,6 +114,7 @@ public class QaUserTeamController extends BaseController
     /**
      * 修改我的团队详情
      */
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR})
     @PreAuthorize("@ss.hasPermi('team:my_team:edit')")
     @Log(title = "我的团队", businessType = BusinessType.UPDATE)
     @PutMapping
@@ -138,9 +139,9 @@ public class QaUserTeamController extends BaseController
     }
 
     /**
-     * 修改团队头像 (创建者和管理员可操作)
+     * 修改团队头像
      */
-    @TeamAuth(role = {TeamConstants.ROLE_CREATOR, TeamConstants.ROLE_ADMIN})
+    @TeamAuth(role = {TeamConstants.ROLE_CREATOR})
     @PreAuthorize("@ss.hasPermi('team:my_team:edit')")
     @Log(title = "团队头像", businessType = BusinessType.UPDATE)
     @PostMapping("/avatar")

@@ -23,7 +23,7 @@ public class QaTeamInviteController extends BaseController
      * 创建团队邀请
      */
     @TeamAuth(role = {TeamConstants.ROLE_CREATOR, TeamConstants.ROLE_ADMIN})
-    @PreAuthorize("@ss.hasPermi('team:my_team:invite')")
+    @PreAuthorize("@ss.hasPermi('team:my_team:edit')")
     @Log(title = "创建团队邀请", businessType = BusinessType.INSERT)
     @PostMapping("/create")
     public AjaxResult createInvite(@RequestBody TeamInviteDto teamInviteDto)
