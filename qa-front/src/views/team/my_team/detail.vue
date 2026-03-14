@@ -54,6 +54,9 @@
             <el-button type="primary" size="small" icon="el-icon-edit" @click="handleEdit">编辑团队</el-button>
             <el-button type="warning" size="small" icon="el-icon-share" @click="handleTransfer">转让团队</el-button>
             <el-button type="danger" size="small" icon="el-icon-delete" @click="handleDissolve">解散团队</el-button>
+          </div>
+          <!-- 创建者和管理员可以邀请成员 -->
+          <div v-if="isCreator || isAdmin">
             <el-button type="success" size="small" icon="el-icon-plus" @click="handleInvite">邀请成员</el-button>
           </div>
         </div>
