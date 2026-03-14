@@ -247,7 +247,10 @@ export default {
       this.selectedTeamId = teamId;
       console.log('切换到团队:', this.selectedTeamId);
       // 团队切换后刷新当前列表
-      this.refreshCurrentList();
+      // 使用 nextTick 确保子组件已经接收到新的 teamId prop
+      this.$nextTick(() => {
+        this.refreshCurrentList();
+      });
     },
     
     handleUpload() {
